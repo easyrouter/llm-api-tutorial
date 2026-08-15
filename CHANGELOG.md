@@ -75,3 +75,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - UI: `diagnose` navigation targets land on Verify (Next/Back no longer jump to Welcome);
   re-requesting the same help section works; "Start over" also resets the install store; the
   env-check diagnosis is cleared on re-run; Done / guide copy corrected.
+
+### Fixed (smoke run)
+
+- Diagnose: the rule engine now derives rule NET from the environment snapshot — a Blocked
+  gateway / npm-registry check or a Warn-level GitHub check yields `network.unreachable`
+  (targets listed, gateway first; Warning when only Warn-level checks are affected). Before,
+  "Run diagnosis" on the Environment step answered "No diagnosis available yet" for an
+  unreachable gateway.

@@ -18,7 +18,7 @@
 //! | E     | CommandNotFound / snapshot tool `installed && !on_path`  | path.not_refreshed       | Blocking | tool, binary, dir               | GoToStep(install), Rerun            |
 //! | F     | ProtocolMismatch / HttpStatus 400/422                    | protocol.mismatch        | Blocking | tool, status?, protocol         | GoToStep(configure)                 |
 //! | G     | AppBlockedByOs                                           | os.app_blocked           | Warning  | app                             | Instructions(os.app_blocked.instructions.<platform>) |
-//! | NET   | NetworkError / Timeout                                   | network.unreachable      | Blocking | target                          | Rerun                               |
+//! | NET   | NetworkError / Timeout / snapshot network check unreachable | network.unreachable   | Blocking (Warning when only Warn-level checks) | target | Rerun                  |
 //! | GW    | HttpStatus 429 / 5xx                                     | gateway.upstream         | Warning  | status                          | Rerun                               |
 //!
 //! `CommandFailed { output_tail }` is classified best-effort from the (already redacted)
@@ -99,6 +99,7 @@ pub fn diagnose(req: &DiagnoseRequest, config: &AppConfig) -> Vec<Diagnosis> {
         .collect();
     if let Some(snapshot) = ctx.snapshot {
         out.extend(tools_not_on_path(snapshot, &ctx));
+        out.extend(network_from_snapshot(snapshot));
     }
     let env_names = env_conflict_names(&req.symptoms, ctx.snapshot);
     if !env_names.is_empty() {
@@ -192,6 +193,52 @@ fn tools_not_on_path(snapshot: &EnvSnapshot, ctx: &Context<'_>) -> Vec<Diagnosis
         .filter(|t| t.installed && !t.on_path)
         .map(|t| path_not_refreshed(t.id, ctx))
         .collect()
+}
+
+/// Rule NET from the snapshot: every network check (`network.*` ids) that ended
+/// `network.unreachable` — Fail (gateway, all npm registries) or Warn (GitHub) — is folded
+/// into one diagnosis whose `target` lists the unreachable hosts (gateway first). Blocking
+/// when any of them failed, Warning when only Warn-level checks are affected.
+fn network_from_snapshot(snapshot: &EnvSnapshot) -> Option<Diagnosis> {
+    fn rank(id: CheckId) -> Option<u8> {
+        match id {
+            CheckId::NetworkGateway => Some(0),
+            CheckId::NetworkNpm => Some(1),
+            CheckId::NetworkGithub => Some(2),
+            _ => None,
+        }
+    }
+    let mut unreachable: Vec<&crate::models::CheckResult> = snapshot
+        .checks
+        .iter()
+        .filter(|c| {
+            rank(c.id).is_some()
+                && matches!(c.status, CheckStatus::Fail | CheckStatus::Warn)
+                && c.code == "network.unreachable"
+        })
+        .collect();
+    if unreachable.is_empty() {
+        return None;
+    }
+    unreachable.sort_by_key(|c| rank(c.id));
+    let mut targets: Vec<&str> = Vec::new();
+    for c in &unreachable {
+        if let Some(t) = c.params.get("target").map(String::as_str) {
+            if !t.trim().is_empty() && !targets.contains(&t) {
+                targets.push(t);
+            }
+        }
+    }
+    let target = if targets.is_empty() {
+        String::from("-")
+    } else {
+        targets.join(", ")
+    };
+    let mut diagnosis = network_unreachable(&target);
+    if !unreachable.iter().any(|c| c.status == CheckStatus::Fail) {
+        diagnosis.severity = Severity::Warning;
+    }
+    Some(diagnosis)
 }
 
 /// Env-var names for rule D: explicit `EnvVarConflict` symptoms plus, when the snapshot's
@@ -1036,6 +1083,123 @@ mod tests {
         let mut snap = snapshot(Platform::Windows);
         snap.tools.push(tool(ToolId::Codex, false, false));
         assert!(run(vec![], Some(snap)).is_empty());
+    }
+
+    fn network_check(id: CheckId, status: CheckStatus, code: &str, target: &str) -> CheckResult {
+        let mut c = check(id, status, params([("target", target)]));
+        c.code = code.into();
+        c
+    }
+
+    #[test]
+    fn snapshot_gateway_unreachable_yields_blocking_net() {
+        let mut snap = snapshot(Platform::Windows);
+        snap.checks.push(network_check(
+            CheckId::NetworkNpm,
+            CheckStatus::Pass,
+            "network.ok",
+            "registry.npmjs.org",
+        ));
+        snap.checks.push(network_check(
+            CheckId::NetworkGateway,
+            CheckStatus::Fail,
+            "network.unreachable",
+            "gateway.example.com",
+        ));
+        let out = run(vec![], Some(snap));
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert_eq!(out[0].rule_id, "NET");
+        assert_eq!(out[0].code, "network.unreachable");
+        assert_eq!(out[0].severity, Severity::Blocking);
+        assert_eq!(p(&out[0], "target"), "gateway.example.com");
+        assert_eq!(out[0].actions, vec![FixAction::Rerun]);
+    }
+
+    #[test]
+    fn snapshot_network_targets_merge_gateway_first() {
+        let mut snap = snapshot(Platform::Windows);
+        // Snapshot order is npm → gateway → github; the diagnosis lists the gateway first.
+        snap.checks.push(network_check(
+            CheckId::NetworkNpm,
+            CheckStatus::Fail,
+            "network.unreachable",
+            "registry.npmjs.org",
+        ));
+        snap.checks.push(network_check(
+            CheckId::NetworkGateway,
+            CheckStatus::Fail,
+            "network.unreachable",
+            "gateway.example.com",
+        ));
+        snap.checks.push(network_check(
+            CheckId::NetworkGithub,
+            CheckStatus::Warn,
+            "network.unreachable",
+            "github.com",
+        ));
+        let out = run(vec![], Some(snap));
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert_eq!(
+            p(&out[0], "target"),
+            "gateway.example.com, registry.npmjs.org, github.com"
+        );
+        assert_eq!(out[0].severity, Severity::Blocking);
+    }
+
+    #[test]
+    fn snapshot_only_github_warn_yields_warning_net() {
+        let mut snap = snapshot(Platform::Windows);
+        snap.checks.push(network_check(
+            CheckId::NetworkGithub,
+            CheckStatus::Warn,
+            "network.unreachable",
+            "github.com",
+        ));
+        let out = run(vec![], Some(snap));
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert_eq!(out[0].rule_id, "NET");
+        assert_eq!(out[0].severity, Severity::Warning);
+        assert_eq!(p(&out[0], "target"), "github.com");
+    }
+
+    #[test]
+    fn snapshot_network_ok_or_mirror_only_yields_nothing() {
+        let mut snap = snapshot(Platform::Windows);
+        snap.checks.push(network_check(
+            CheckId::NetworkNpm,
+            CheckStatus::Warn,
+            "network.mirror_only",
+            "registry.npmmirror.com",
+        ));
+        snap.checks.push(network_check(
+            CheckId::NetworkGateway,
+            CheckStatus::Pass,
+            "network.ok",
+            "gateway.example.com",
+        ));
+        assert!(run(vec![], Some(snap)).is_empty());
+    }
+
+    #[test]
+    fn symptom_network_error_wins_over_snapshot_network_rule() {
+        let mut snap = snapshot(Platform::Windows);
+        snap.checks.push(network_check(
+            CheckId::NetworkGateway,
+            CheckStatus::Fail,
+            "network.unreachable",
+            "gateway.example.com",
+        ));
+        let out = run(
+            vec![Symptom::Timeout {
+                target: "https://gateway.example.com/v1/responses".into(),
+            }],
+            Some(snap),
+        );
+        assert_eq!(out.iter().filter(|d| d.rule_id == "NET").count(), 1);
+        assert_eq!(
+            p(&out[0], "target"),
+            "https://gateway.example.com/v1/responses"
+        );
     }
 
     #[test]
