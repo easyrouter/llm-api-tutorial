@@ -16,7 +16,7 @@ The check starts automatically when you enter the wizard and usually finishes wi
 | Codex CLI / Claude Code | whether `codex --version` / `claude --version` runs                    | tells "not installed" apart from "installed, PATH stale" |
 | CC Switch               | installed                                                              | missing → go to Install                                  |
 | Environment variables   | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `ANTHROPIC_*` and similar present | warning (see fault D)                                    |
-| Network                 | npm registry, company gateway and GitHub reachable                     | unreachable → mirror or proxy hint                       |
+| Network                 | npm registry, service gateway and GitHub reachable                     | unreachable → mirror or proxy hint                       |
 
 ## Things that are easy to misread
 

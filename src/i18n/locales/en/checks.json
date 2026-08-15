@@ -93,7 +93,7 @@
     "title": "Network: npm registry"
   },
   "network_gateway": {
-    "title": "Network: company gateway"
+    "title": "Network: service gateway"
   },
   "network_github": {
     "title": "Network: GitHub releases"

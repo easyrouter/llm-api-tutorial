@@ -51,7 +51,7 @@
     "restart_terminal": "改完后关闭所有终端窗口，重新打开再试。",
     "check_npm_prefix_on_path": "在新终端执行 npm prefix -g，确认输出的目录（macOS 为其下的 bin）在 PATH 里。",
     "reinstall": "如果仍然找不到命令，回到「安装」步骤重新安装。",
-    "confirm_gateway_protocol": "确认要连接的网关支持哪种协议（公司网关支持 Responses）。",
+    "confirm_gateway_protocol": "确认要连接的网关支持哪种协议（服务网关支持 Responses）。",
     "use_responses": "在 CC Switch 中把协议改为 Responses。",
     "use_cc_switch_proxy": "如果目标只支持 Chat Completions，请在 CC Switch 中启用本地代理进行协议转换。",
     "smartscreen_more_info": "Windows：在「Windows 已保护你的电脑」窗口点「更多信息」。",
@@ -126,9 +126,9 @@
   "protocol": {
     "mismatch": {
       "title": "协议不匹配（400 / 422，或返回内容格式怪异）",
-      "explanation": "Codex 使用 Responses 协议；公司网关支持并推荐 Responses，正常不会遇到这个问题。如果你连接的是只支持 Chat Completions 的其他服务，需要转换协议或换地址。",
+      "explanation": "Codex 使用 Responses 协议；服务网关支持并推荐 Responses，正常不会遇到这个问题。如果你连接的是只支持 Chat Completions 的其他服务，需要转换协议或换地址。",
       "steps": {
-        "confirm_gateway_protocol": "确认要连接的网关支持哪种协议（公司网关支持 Responses）。",
+        "confirm_gateway_protocol": "确认要连接的网关支持哪种协议（服务网关支持 Responses）。",
         "use_responses": "在 CC Switch 的供应商设置里把协议改为 Responses，保存并切换。",
         "use_cc_switch_proxy": "如果目标只支持 Chat Completions，请在 CC Switch 中启用它的本地代理进行协议转换，或换用支持 Responses 的地址。"
       }

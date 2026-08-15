@@ -281,7 +281,7 @@ pub fn preview_url(input: &str, config: &AppConfig) -> UrlPreview {
     }
 }
 
-/// Result of applying the URL rules to one input (before the company-gateway comparison).
+/// Result of applying the URL rules to one input (before the service-gateway comparison).
 struct UrlAnalysis {
     /// Parsed effective URL (credentials and fragment removed, path normalised).
     url: Url,
@@ -360,7 +360,7 @@ fn render(url: &Url) -> String {
     format!("{origin}{path}{query}")
 }
 
-/// `host[:port]` + normalised path, used to compare against the company gateway.
+/// `host[:port]` + normalised path, used to compare against the service gateway.
 fn comparable(url: &Url) -> String {
     let authority = &url[Position::BeforeHost..Position::AfterPort];
     format!(
@@ -370,7 +370,7 @@ fn comparable(url: &Url) -> String {
     )
 }
 
-/// `true` when `url` points somewhere else than the company gateway. An empty or unparsable
+/// `true` when `url` points somewhere else than the service gateway. An empty or unparsable
 /// gateway preset never triggers the warning.
 fn differs_from_gateway(url: &Url, gateway_base_url: &str) -> bool {
     let Ok(gateway) = Url::parse(gateway_base_url.trim()) else {
@@ -390,7 +390,7 @@ mod tests {
     fn cfg() -> AppConfig {
         let mut cfg = config::embedded().expect("embedded config");
         cfg.gateway.base_url = "https://gateway.example.com/v1".into();
-        cfg.gateway.preset_provider_name = "Company Gateway".into();
+        cfg.gateway.preset_provider_name = "Service Gateway".into();
         cfg.gateway.default_model = String::new();
         cfg
     }
@@ -472,7 +472,7 @@ mod tests {
         );
 
         let provider = by_id("add_provider");
-        assert_eq!(provider.copy_value.as_deref(), Some("Company Gateway"));
+        assert_eq!(provider.copy_value.as_deref(), Some("Service Gateway"));
 
         let protocol = by_id("choose_protocol");
         assert_eq!(

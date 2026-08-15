@@ -1,5 +1,5 @@
 {
-  "title": "在 CC Switch 中配置公司网关",
+  "title": "在 CC Switch 中配置服务网关",
   "intro": "配置在 CC Switch 的界面里完成，本工具不会替你写任何配置文件。下面的值可以直接复制粘贴，只有 API Key 需要你自己填写；填完后回到这里，工具会帮你检查并验证。",
   "tabs": {
     "label": "选择要配置的工具"
@@ -18,7 +18,7 @@
       "chat_completions": "Chat Completions",
       "anthropic_messages": "Anthropic Messages"
     },
-    "protocolHint": "公司网关支持并推荐 Responses。如果表单里没有这个选项，说明当前版本默认就是它。",
+    "protocolHint": "服务网关支持并推荐 Responses。如果表单里没有这个选项，说明当前版本默认就是它。",
     "protocolNoteClaude": "Claude Code 不需要选择协议，只填地址、Key 和模型即可。",
     "modelHint": "模型（建议值）",
     "modelHintEmpty": "本次没有统一的模型名，请填写你被分配的模型名称。",
@@ -51,7 +51,7 @@
   },
   "choose_protocol": {
     "title": "选择协议：{{protocol}}",
-    "body": "在「协议 / 请求格式」中选择「{{protocol}}」。这是公司网关支持并推荐的协议；如果表单里没有这个选项，说明默认就是它。"
+    "body": "在「协议 / 请求格式」中选择「{{protocol}}」。这是服务网关支持并推荐的协议；如果表单里没有这个选项，说明默认就是它。"
   },
   "paste_api_key": {
     "title": "粘贴你的 API Key",
@@ -100,17 +100,17 @@
   },
   "url": {
     "title": "地址处理规则预览",
-    "description": "工具会按 CC Switch / Codex 的规则处理你填写的地址，这里显示最终生效的地址。默认已填入公司网关地址，一般不需要修改。",
+    "description": "工具会按 CC Switch / Codex 的规则处理你填写的地址，这里显示最终生效的地址。默认已填入服务网关地址，一般不需要修改。",
     "label": "API 地址",
     "effective": "最终生效地址",
     "checking": "计算中…",
-    "resetToPreset": "恢复为公司地址",
+    "resetToPreset": "恢复为服务网关地址",
     "ruleLabel": "处理规则",
     "rule": {
       "already_versioned": "地址已经带 /v1，原样使用。",
       "appended_v1": "只填了域名，会自动补上 /v1。",
       "literal_hash": "结尾的 # 表示按字面使用，不会再追加任何路径。只有网关明确要求时才这样填。",
-      "custom_path": "自定义路径会原样保留。如果不是网关要求的路径，建议改回公司地址。",
+      "custom_path": "自定义路径会原样保留。如果不是网关要求的路径，建议改回服务网关地址。",
       "invalid": "这不是一个有效的地址，请检查后重新填写。"
     },
     "warningsLabel": "注意",
@@ -120,7 +120,7 @@
       "contains_whitespace": "地址里含有空格，请删掉。",
       "contains_credentials": "地址里带有用户名 / 密码，不要把 Key 写进地址里。",
       "looks_like_chat_completions_endpoint": "地址以 /chat/completions 结尾，这是接口路径而不是 Base URL，请去掉这一段。",
-      "differs_from_company_gateway": "与公司网关地址不一致。除非有明确原因，建议使用公司地址。"
+      "differs_from_company_gateway": "与服务网关地址不一致。除非有明确原因，建议使用服务网关地址。"
     }
   },
   "reminders": {

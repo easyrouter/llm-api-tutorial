@@ -14,7 +14,7 @@ function guideFor(tool: ToolId): ConfigGuide {
   return {
     tool,
     preset: {
-      providerName: "Company Gateway",
+      providerName: "Service Gateway",
       baseUrl: BASE_URL,
       protocol: "responses",
       modelHint: tool === "codex" ? "gpt-5-codex" : "",
@@ -84,7 +84,7 @@ describe("ConfigureScreen", () => {
 
     // values card
     const values = screen.getAllByTestId("copy-field-value").map((el) => el.textContent);
-    expect(values).toContain("Company Gateway");
+    expect(values).toContain("Service Gateway");
     expect(values).toContain(BASE_URL);
     expect(values).toContain("Responses");
     expect(values).toContain("gpt-5-codex");

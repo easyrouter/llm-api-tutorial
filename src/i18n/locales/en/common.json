@@ -59,12 +59,12 @@
   },
   "welcome": {
     "title": "Welcome to Codex Onboarding",
-    "intro": "This tool walks you through: checking your machine → installing what is missing → configuring the company gateway in CC Switch → verifying that everything works. No documentation required; when something fails you get the cause and the fix.",
+    "intro": "This tool walks you through: checking your machine → installing what is missing → configuring the service gateway in CC Switch → verifying that everything works. No documentation required; when something fails you get the cause and the fix.",
     "whatWeDo": "What this tool does",
     "whatWeDoItems": {
       "check": "Detects your OS, Node.js, Codex CLI, Claude Code, CC Switch, environment variables and network reachability",
       "install": "Runs install commands only after you confirm, showing the exact command and live progress",
-      "guide": "Hands you the company gateway address and other standard values and guides you step by step inside CC Switch",
+      "guide": "Hands you the service gateway address and other standard values and guides you step by step inside CC Switch",
       "verify": "Verifies the CLI in a fresh terminal session and sends one minimal test request to the gateway"
     },
     "whatWeDont": "What this tool never does",

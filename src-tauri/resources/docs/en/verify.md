@@ -14,7 +14,7 @@ Close **all** of them: Windows Terminal, PowerShell, CMD, Git Bash, Terminal.app
 When you click "Start verification" the tool:
 
 1. Runs `codex --version` or `claude --version` in a **fresh session** — exactly as if you had opened a new terminal — to make sure the command is found and runs.
-2. Optionally sends one minimal test request to the company gateway to confirm that address, protocol and key are all correct. For this you enter your API key temporarily; it stays in memory for that single request only and is never stored, logged or uploaded.
+2. Optionally sends one minimal test request to the service gateway to confirm that address, protocol and key are all correct. For this you enter your API key temporarily; it stays in memory for that single request only and is never stored, logged or uploaded.
 3. Tells you plainly **success** or **failure**. On failure the diagnosis panel opens automatically and names the fault (A–G) together with the steps to fix it.
 
 ## Testing by hand

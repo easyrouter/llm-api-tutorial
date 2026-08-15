@@ -1,6 +1,6 @@
 # Install CC Switch
 
-CC Switch is a small open-source desktop app (MIT licence) that manages provider configuration for Codex CLI and Claude Code in one place: you enter the company gateway once in its interface, it writes the configuration to the right place for each tool, and later you can switch between providers with one click. Because the company requires multi-provider switching, CC Switch is a **required** component.
+CC Switch is a small open-source desktop app (MIT licence) that manages provider configuration for Codex CLI and Claude Code in one place: you enter the service gateway once in its interface, it writes the configuration to the right place for each tool, and later you can switch between providers with one click. Because the company requires multi-provider switching, CC Switch is a **required** component.
 
 ## How the tool helps
 

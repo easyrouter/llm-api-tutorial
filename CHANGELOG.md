@@ -76,6 +76,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   re-requesting the same help section works; "Start over" also resets the install store; the
   env-check diagnosis is cleared on re-run; Done / guide copy corrected.
 
+### Changed
+
+- Terminology: "company gateway" → "service gateway" (zh-CN 公司网关 → 服务网关) across the UI,
+  bundled help docs, preset provider name and living docs. Internal codes (e.g.
+  `differs_from_company_gateway`) are unchanged.
+
 ### Fixed (smoke run)
 
 - Diagnose: the rule engine now derives rule NET from the environment snapshot — a Blocked

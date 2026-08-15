@@ -37,7 +37,7 @@
     },
     {
       "id": "configure-cc-switch",
-      "title": "在 CC Switch 中配置公司网关",
+      "title": "在 CC Switch 中配置服务网关",
       "path": "configure-cc-switch.md",
       "lang": "zh-CN",
       "wizardStep": "configure"

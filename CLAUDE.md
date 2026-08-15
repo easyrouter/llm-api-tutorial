@@ -2,7 +2,7 @@
 
 Codex Onboarding (Codex 接入引导工具) is a **Tauri 2 desktop app** (Rust core + React/TypeScript UI)
 that walks non-developer users through: environment check → install missing pieces →
-configure the company gateway inside **CC Switch** → verify → auto-diagnose. Windows + macOS,
+configure the service gateway inside **CC Switch** → verify → auto-diagnose. Windows + macOS,
 zh-CN + en. PRD: `docs/prd/`. Architecture: `docs/ARCHITECTURE.md`. Decisions: `docs/adr/`.
 
 ## Commands

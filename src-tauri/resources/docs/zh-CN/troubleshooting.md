@@ -42,7 +42,7 @@
 
 ## F. 协议不匹配（400 / 422，或返回内容格式怪异）
 
-Codex 使用 Responses 协议；公司网关支持并推荐 Responses，正常不会遇到。如果你连接的是**只支持 Chat Completions** 的其他服务，需要在 CC Switch 中启用它的本地代理进行协议转换，或者换用支持 Responses 的地址。
+Codex 使用 Responses 协议；服务网关支持并推荐 Responses，正常不会遇到。如果你连接的是**只支持 Chat Completions** 的其他服务，需要在 CC Switch 中启用它的本地代理进行协议转换，或者换用支持 Responses 的地址。
 
 ## G. 安装包被系统拦截
 

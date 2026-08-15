@@ -93,7 +93,7 @@
     "title": "网络：npm 软件源"
   },
   "network_gateway": {
-    "title": "网络：公司网关"
+    "title": "网络：服务网关"
   },
   "network_github": {
     "title": "网络：GitHub 发布页"

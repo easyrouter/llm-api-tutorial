@@ -42,7 +42,7 @@ The Environment page shows where each variable comes from (registry, or file and
 
 ## F. Protocol mismatch (400 / 422, oddly shaped responses)
 
-Codex uses the Responses protocol; the company gateway supports and recommends it, so this should not normally occur. If you connect to a **different** service that only speaks Chat Completions, enable CC Switch's local proxy for protocol conversion, or use an address that supports Responses.
+Codex uses the Responses protocol; the service gateway supports and recommends it, so this should not normally occur. If you connect to a **different** service that only speaks Chat Completions, enable CC Switch's local proxy for protocol conversion, or use an address that supports Responses.
 
 ## G. Installer blocked by the operating system
 

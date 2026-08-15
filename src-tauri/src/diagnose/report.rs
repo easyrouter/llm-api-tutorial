@@ -691,7 +691,7 @@ model_provider = "company"
 model_reasoning_effort = "medium"
 
 [model_providers.company]
-name = "Company Gateway"
+name = "Service Gateway"
 base_url = "https://gateway.internal.example.com/v1"
 wire_api = "responses"
 env_key = "OPENAI_API_KEY"
@@ -763,7 +763,7 @@ name = "Other"
             "gpt-5",
             "gateway.internal",
             "sk-abcdefghijklmnop",
-            "Company Gateway",
+            "Service Gateway",
             "responses",
         ] {
             assert!(!joined.contains(secret), "leaked {secret}:\n{joined}");

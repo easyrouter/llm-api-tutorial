@@ -16,7 +16,7 @@
 | Codex CLI / Claude Code | `codex --version` / `claude --version` 能否执行                | 区分"没装"和"装了但 PATH 没生效" |
 | CC Switch               | 是否已安装                                                     | 未安装 → 去"安装"步骤            |
 | 环境变量                | 是否存在 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`ANTHROPIC_*` 等 | 存在时给出警告（见故障 D）       |
-| 网络                    | npm 源、公司网关、GitHub 是否可达                              | 不可达时提示切换镜像或检查代理   |
+| 网络                    | npm 源、服务网关、GitHub 是否可达                              | 不可达时提示切换镜像或检查代理   |
 
 ## 几个容易误解的地方
 

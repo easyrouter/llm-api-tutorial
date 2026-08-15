@@ -9,7 +9,7 @@
     "$comment": "TODO(IT #1): baseUrl is the only company-wide constant; model / reasoning effort vary per user and stay user-editable.",
     "baseUrl": "https://gateway.example.com/v1",
     "protocol": "responses",
-    "presetProviderName": "Company Gateway",
+    "presetProviderName": "Service Gateway",
     "defaultModel": "",
     "defaultReasoningEffort": ""
   },

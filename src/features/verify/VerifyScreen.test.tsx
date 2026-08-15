@@ -25,7 +25,7 @@ const config: AppConfig = {
   gateway: {
     baseUrl: BASE_URL,
     protocol: "responses",
-    presetProviderName: "Company Gateway",
+    presetProviderName: "Service Gateway",
     defaultModel: "gpt-5-codex",
     defaultReasoningEffort: "",
   },

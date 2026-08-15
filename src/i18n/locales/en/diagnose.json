@@ -51,7 +51,7 @@
     "restart_terminal": "Afterwards close every terminal window, open a new one and try again.",
     "check_npm_prefix_on_path": "In a new terminal run npm prefix -g and make sure the printed directory (its bin subfolder on macOS) is on PATH.",
     "reinstall": "If the command is still not found, go back to the “Install” step and reinstall.",
-    "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports (the company gateway supports Responses).",
+    "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports (the service gateway supports Responses).",
     "use_responses": "Set the protocol to Responses in CC Switch.",
     "use_cc_switch_proxy": "If the target only supports Chat Completions, enable the local proxy in CC Switch to convert the protocol.",
     "smartscreen_more_info": "Windows: in the “Windows protected your PC” window click “More info”.",
@@ -126,9 +126,9 @@
   "protocol": {
     "mismatch": {
       "title": "Protocol mismatch (400 / 422, or oddly formatted responses)",
-      "explanation": "Codex uses the Responses protocol; the company gateway supports and recommends Responses, so this normally does not happen. If you are connecting to another service that only supports Chat Completions, you need protocol conversion or a different address.",
+      "explanation": "Codex uses the Responses protocol; the service gateway supports and recommends Responses, so this normally does not happen. If you are connecting to another service that only supports Chat Completions, you need protocol conversion or a different address.",
       "steps": {
-        "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports (the company gateway supports Responses).",
+        "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports (the service gateway supports Responses).",
         "use_responses": "In the provider settings in CC Switch set the protocol to Responses, save and switch to it.",
         "use_cc_switch_proxy": "If the target only supports Chat Completions, enable the local proxy in CC Switch for protocol conversion, or use an address that supports Responses."
       }

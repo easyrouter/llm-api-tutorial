@@ -1,6 +1,6 @@
 {
   "title": "Apply and verify",
-  "intro": "The tool runs the command in a fresh terminal session (as if you had just opened a new terminal), optionally sends one minimal test request to the company gateway, and tells you plainly whether it worked. On failure it explains the cause and how to fix it.",
+  "intro": "The tool runs the command in a fresh terminal session (as if you had just opened a new terminal), optionally sends one minimal test request to the service gateway, and tells you plainly whether it worked. On failure it explains the cause and how to fix it.",
   "reminder": {
     "title": "Before you start: close every terminal window",
     "body": "That includes Windows Terminal, PowerShell, CMD, Git Bash, macOS Terminal / iTerm, and the built-in terminals of VS Code, Cursor and similar editors. Terminals that are already open cannot see the new configuration."
@@ -23,7 +23,7 @@
     "hide": "Hide",
     "keyNote": "The key is held in memory only for this one request: it is cleared as soon as the request is sent and is never stored, logged, uploaded or written to a report.",
     "protocol": "Protocol: {{protocol}}",
-    "notHttps": "This address is not https, so the key would travel unencrypted. The tool only sends the key over https; use the company gateway address.",
+    "notHttps": "This address is not https, so the key would travel unencrypted. The tool only sends the key over https; use the service gateway address.",
     "missingFields": "Enter the gateway address, model and API key before verifying."
   },
   "actions": {

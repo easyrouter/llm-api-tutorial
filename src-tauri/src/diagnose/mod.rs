@@ -488,7 +488,7 @@ fn npm_bin_dir_for(tool: ToolId, ctx: &Context<'_>) -> String {
         .unwrap_or_default()
 }
 
-/// Host of the company gateway (fallback: the raw base URL) for network diagnoses.
+/// Host of the service gateway (fallback: the raw base URL) for network diagnoses.
 fn gateway_host(config: &AppConfig) -> String {
     url::Url::parse(&config.gateway.base_url)
         .ok()

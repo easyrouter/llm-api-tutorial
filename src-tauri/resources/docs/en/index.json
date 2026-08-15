@@ -37,7 +37,7 @@
     },
     {
       "id": "configure-cc-switch",
-      "title": "Configure the company gateway in CC Switch",
+      "title": "Configure the service gateway in CC Switch",
       "path": "configure-cc-switch.md",
       "lang": "en",
       "wizardStep": "configure"

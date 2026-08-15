@@ -79,7 +79,7 @@ Sections with an unsafe `id` or `path` are dropped when the index is loaded.
 | `install-node`        | install     | Node.js LTS installation                                 |
 | `install-cli`         | install     | `npm install -g` for Codex CLI / Claude Code             |
 | `install-cc-switch`   | install     | downloading and installing CC Switch                     |
-| `configure-cc-switch` | configure   | adding the company gateway as a provider in CC Switch    |
+| `configure-cc-switch` | configure   | adding the service gateway as a provider in CC Switch    |
 | `verify`              | verify      | closing all terminals, running the check                 |
 | `troubleshooting`     | diagnose    | faults A–G                                               |
 | `faq`                 | —           | frequently asked questions                               |

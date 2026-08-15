@@ -10,7 +10,7 @@ import type { UrlPreview } from "@/lib/types";
 import { useDebouncedValue } from "./useDebouncedValue";
 
 export interface UrlPreviewCardProps {
-  /** Company gateway base URL — pre-filled and restorable with one click. */
+  /** Service gateway base URL — pre-filled and restorable with one click. */
   presetBaseUrl: string;
 }
 

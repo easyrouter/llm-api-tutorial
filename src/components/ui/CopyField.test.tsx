@@ -64,7 +64,7 @@ describe("CopyField", () => {
   });
 
   it("can render proportional text", () => {
-    render(<CopyField value="Company gateway" mono={false} />);
+    render(<CopyField value="Service gateway" mono={false} />);
     expect(screen.getByTestId("copy-field-value")).not.toHaveClass("font-mono");
   });
 });

@@ -10,7 +10,7 @@ const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, option
 const guide = (overrides: Partial<ConfigGuide["preset"]> = {}): ConfigGuide => ({
   tool: "codex",
   preset: {
-    providerName: "Company Gateway",
+    providerName: "Service Gateway",
     baseUrl: "https://gateway.example.com/v1",
     protocol: "responses",
     modelHint: "",

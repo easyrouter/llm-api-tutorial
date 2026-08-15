@@ -1,12 +1,12 @@
 # Welcome to Codex Onboarding
 
-This small tool has exactly one job: take you from "nothing installed" to "Codex CLI or Claude Code works through the company gateway" — without looking things up, guessing commands, or needing administrator rights.
+This small tool has exactly one job: take you from "nothing installed" to "Codex CLI or Claude Code works through the service gateway" — without looking things up, guessing commands, or needing administrator rights.
 
 ## The six steps you will go through
 
 1. **Environment check** — automatically inspects your OS version, Node.js, the command-line tools, CC Switch, environment variables and network access.
 2. **Install** — installs only what is missing. Every command is shown to you first and runs only after you confirm.
-3. **Configure** — you open CC Switch and add the company gateway as a provider. The tool shows every value you need (address, protocol, name) with a copy button; only the API key is typed by you.
+3. **Configure** — you open CC Switch and add the service gateway as a provider. The tool shows every value you need (address, protocol, name) with a copy button; only the API key is typed by you.
 4. **Verify** — the tool runs the command-line tool in a brand-new session and, optionally, sends one minimal request to the gateway, then tells you plainly whether it worked.
 5. **Diagnose** — on failure it matches the problem against faults A–G and gives you the fix, instead of leaving you with an error code.
 6. **Done** — you can come back and re-check at any time.

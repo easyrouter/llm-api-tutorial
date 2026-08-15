@@ -16,7 +16,7 @@
 //!                 numbers; `launchctl getenv`. Any *_API_KEY / *_BASE_URL / *_AUTH_TOKEN /
 //!                 *_API_BASE present → Warn with an `Instructions` fix (the tool must NOT
 //!                 modify env vars — PRD #17); proxies are informational only
-//! - `network`   : probes npm registries, the company gateway origin, GitHub releases API
+//! - `network`   : probes npm registries, the service gateway origin, GitHub releases API
 //!
 //! Codes (frontend key = `checks:<code>`), keep in sync with `src/i18n/locales/*/checks.json`:
 //!   os.ok, os.too_old, os.unknown                       (params: platform, version, build,
