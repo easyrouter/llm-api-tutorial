@@ -14,7 +14,7 @@ npm run check               # full local gate: prettier, eslint, tsc, i18n parit
 npm run test                # vitest (jsdom)
 npm run rust:test           # cargo test in src-tauri
 npm run rust:clippy         # clippy with -D warnings (pedantic enabled — see Cargo.toml [lints])
-npm run i18n:check          # every locale/namespace must have identical keys to zh-CN
+npm run i18n:check          # locale parity with zh-CN + every Rust code has a translation (scripts/check-codes.mjs)
 npm run tauri build         # produce installers (nsis / dmg)
 ```
 

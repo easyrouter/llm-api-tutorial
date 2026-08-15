@@ -65,6 +65,10 @@ Sections with an unsafe `id` or `path` are dropped when the index is loaded.
 - Maximum size 2 MiB per page, 1 MiB for `index.json`; UTF-8 without BOM.
 - Start with a single `#` heading. Rendered with react-markdown (no raw HTML, no scripts).
 - Plain language for non-developers; keep zh-CN and en pages equivalent.
+- Links: `wizard://<step>` or `#step:<step>` (`env_check`, `install`, `configure`, `verify`, …)
+  jumps to that wizard step (only up to the furthest step reached); `http(s)://…` opens in the
+  system browser; a bare section id or relative path (`faq`, `./verify.md`) opens that help
+  topic; anything else renders as plain text.
 
 ## Section ids used by the wizard
 

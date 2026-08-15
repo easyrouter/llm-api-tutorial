@@ -1,0 +1,5 @@
+{
+  "_comment": "Exceptions for scripts/check-codes.mjs. `ignore` = exact keys (`namespace:key`) that the Rust core emits but the UI intentionally does not translate; `ignorePrefixes` = key prefixes ignored wholesale. Add a reason next to every entry.",
+  "ignore": [],
+  "ignorePrefixes": []
+}

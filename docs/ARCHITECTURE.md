@@ -68,19 +68,38 @@ Event channels: `install://output`, `install://done`, `download://progress`, `ch
 
 ## 5. Module responsibilities (Rust)
 
-| module      | PRD | key functions                                                                    | notes                                               |
-| ----------- | --- | -------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `checks`    | M1  | `run_all`, `run_one` + `os/node/tools/cc_switch/env_vars/network`                | three-state result, `FixAction`s attached           |
-| `install`   | M2  | `plan`, `start`, `latest_cc_switch_release`, `download_installer`, `JobRegistry` | show-before-run; cancel via watch channel           |
-| `guide`     | M3  | `build_guide`, `validate_api_key`, `preview_url`                                 | pure functions, unit-tested                         |
-| `verify`    | M4  | `verify`, `probe_gateway`, `running_terminals`                                   | fresh-session env from `process::fresh_session_env` |
-| `diagnose`  | M5  | `diagnose` (rules A–G), `report::build`                                          | table-driven tests per rule; report fully redacted  |
-| `docs`      | M6  | `fetch_index`, `fetch_page`                                                      | remote → cache → bundled cascade                    |
-| `telemetry` | #16 | `track`, `flush`, `status`                                                       | opt-in; disabled without endpoint                   |
-| `config`    | —   | `load` (resource → embedded → override)                                          | `TODO(IT)` placeholders in preset                   |
-| `process`   | —   | `run`, `run_streaming`, `fresh_session_env`                                      | timeouts, `CREATE_NO_WINDOW`                        |
-| `net`       | —   | `probe`, `choose_mirrors`, `download`                                            | rustls, proxy-aware, SHA-256                        |
-| `redact`    | —   | `redact_secrets`, `mask_value`, `tail_redacted`                                  | mandatory for anything user-visible/logged          |
+| module      | PRD | key functions                                                                    | notes                                                                                                                                                                                   |
+| ----------- | --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checks`    | M1  | `run_all`, `run_one` + `os/node/tools/cc_switch/env_vars/network`                | three-state `Verdict` (code + params + details + `FixAction`s); streamed on `checks://progress`; codes listed in the `checks/mod.rs` header                                             |
+| `install`   | M2  | `plan`, `start`, `latest_cc_switch_release`, `download_installer`, `JobRegistry` | show-before-run; `InstallPlan.explanationCode` ∈ `node.download_page` / `node.homebrew` / `npm_global` / `cc_switch.download`; `downloadUrl` for manual plans; cancel via watch channel |
+| `guide`     | M3  | `build_guide`, `validate_api_key`, `preview_url`                                 | pure functions, unit-tested; step codes = step ids (`guide:<id>.title` / `guide:<id>.body`)                                                                                             |
+| `verify`    | M4  | `verify`, `probe_gateway`, `running_terminals`                                   | fresh-session env from `process::fresh_session_env`; CLI check + gateway probe + terminal scan run concurrently; symptoms handed to `diagnose`                                          |
+| `diagnose`  | M5  | `diagnose` (rules A–G, NET, GW), `report::build`                                 | table-driven tests per rule; snapshot-only diagnosis (D / E) also offered from the env-check screen; report fully redacted, read-only inspection of tool config dirs                    |
+| `docs`      | M6  | `fetch_index`, `fetch_page`                                                      | remote → cache → bundled cascade                                                                                                                                                        |
+| `telemetry` | #16 | `track`, `flush`, `status`                                                       | opt-in; disabled without endpoint                                                                                                                                                       |
+| `config`    | —   | `load` (resource → embedded → override)                                          | `TODO(IT)` placeholders in preset                                                                                                                                                       |
+| `process`   | —   | `run`, `run_streaming`, `fresh_session_env`                                      | timeouts, `CREATE_NO_WINDOW`                                                                                                                                                            |
+| `net`       | —   | `probe`, `choose_mirrors`, `download`                                            | rustls, proxy-aware, SHA-256                                                                                                                                                            |
+| `redact`    | —   | `redact_secrets`, `mask_value`, `tail_redacted`                                  | mandatory for anything user-visible/logged                                                                                                                                              |
+
+### 5.0 Codes ↔ i18n
+
+Every code the Rust core emits (`CheckResult.code`, `Diagnosis.code` + checklist keys,
+`FixAction::Instructions.code` (fully qualified, e.g. `checks:env_vars.instructions.windows`),
+`InstallPlan.explanationCode` → `install:plan.<code>`, `GuideStep.code` → `guide:<code>.title|body`,
+`AppError.code` → `common:errors.<code>`, wire enums `KeyIssue` / `UrlRule` / `UrlWarning` /
+`ErrorClass`) must have a translation in `src/i18n/locales/zh-CN` (and, by parity, `en`).
+`scripts/check-codes.mjs` extracts these literals from `src-tauri/src` and fails `npm run
+i18n:check` when one is missing; exceptions go into `scripts/check-codes.allowlist.json`.
+
+### 5.0.1 CC Switch distribution contract (M2, Q-CC1)
+
+`install::latest_cc_switch_release` prefers the intranet mirror when `ccSwitch.intranetMirror`
+is set: `GET <intranetMirror>/latest.json` →
+`{ "version": "3.2.1", "assets": [ { "name": "<GitHub-style asset name>", "url": "https://…", "sha256": "<hex, optional>" } ] }`.
+Otherwise the GitHub releases API (`ccSwitch.releasesApi`) is used, with the SHA-256 taken
+from `assets[].digest`, a sibling `<asset>.sha256`, or `SHA256SUMS*`. Downloads land in
+`<app-cache-dir>/downloads` and are verified when a hash is known (`DownloadResult.verified`).
 
 ### 5.1 Help docs contract (M6, PRD #18)
 
@@ -94,8 +113,10 @@ binary, so `tauri dev` works without a resource dir). Sections with unsafe `id`/
 dropped; page bodies and titles pass through `redact_secrets`. Wizard step → section id:
 `welcome`→`overview`, `env_check`→`env-check`, `install`→`install-node` / `install-cli` /
 `install-cc-switch`, `configure`→`configure-cc-switch`, `verify`→`verify`,
-`diagnose`→`troubleshooting`; `faq` has no step. Full field rules:
-`src-tauri/resources/docs/README.md` and the `docs/mod.rs` module doc.
+`diagnose`→`troubleshooting`; `faq` has no step. Markdown links `wizard://<step>` /
+`#step:<step>` jump the wizard, `http(s)` opens externally, a section id opens another topic
+(`src/features/help/docs-tree.ts`). Full field rules: `src-tauri/resources/docs/README.md` and
+the `docs/mod.rs` module doc.
 
 ## 6. Diagnosis rules (M5) — mapping to guide faults A–G
 
