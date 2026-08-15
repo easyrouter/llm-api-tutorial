@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import i18n from "@/i18n";
 import { EVENTS } from "@/lib/events";
-import type { EnvSnapshot } from "@/lib/types";
+import type { Diagnosis, EnvSnapshot } from "@/lib/types";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
 import { checkResult, envSnapshot, envVarFinding } from "@/test/fixtures/env";
@@ -212,5 +212,38 @@ describe("EnvCheckScreen", () => {
     await waitFor(() => expect(listenerCount(EVENTS.checkProgress)).toBe(1));
     unmount();
     expect(listenerCount(EVENTS.checkProgress)).toBe(0);
+  });
+
+  it("offers a snapshot-based diagnosis when a check is blocked", async () => {
+    const snapshot = envSnapshot({
+      codex: checkResult("codex", "fail", { code: "tool.not_on_path", fixes: [{ kind: "rerun" }] }),
+    });
+    const finding: Diagnosis = {
+      ruleId: "E",
+      severity: "blocking",
+      code: "path.not_refreshed",
+      params: { tool: "codex", binary: "codex", dir: "C:\\npm" },
+      actions: [{ kind: "rerun" }],
+      checklist: ["restart_terminal"],
+    };
+    setInvokeHandlers({ run_env_checks: () => snapshot, diagnose: () => [finding] });
+    render(<EnvCheckScreen />);
+    await waitFor(() => expect(screen.getByTestId("env-summary")).toHaveTextContent("1 blocked"));
+
+    fireEvent.click(screen.getByTestId("env-diagnose"));
+    await waitFor(() => expect(screen.getByTestId("diagnose-panel")).toBeInTheDocument());
+    expect(mockInvoke).toHaveBeenCalledWith("diagnose", {
+      request: { symptoms: [], snapshot },
+    });
+    expect(screen.getByText(i18n.t("diagnose:path.not_refreshed.title"))).toBeInTheDocument();
+  });
+
+  it("does not offer diagnosis when nothing is blocked, and links to the help section", async () => {
+    setInvokeHandlers({ run_env_checks: () => envSnapshot() });
+    render(<EnvCheckScreen />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
+    expect(screen.queryByTestId("env-diagnose")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Learn more" }));
+    expect(useWizardStore.getState().helpSectionId).toBe("env-check");
   });
 });

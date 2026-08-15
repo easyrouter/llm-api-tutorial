@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Stethoscope } from "lucide-react";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -12,9 +12,12 @@ import {
   Button,
   type AlertVariant,
 } from "@/components/ui";
+import { DiagnosePanel } from "@/features/diagnose/DiagnosePanel";
+import { HelpLink } from "@/features/help/HelpLink";
+import { useAsync } from "@/hooks";
 import { onCheckProgress } from "@/lib/events";
 import { toWireError } from "@/lib/errors";
-import { runEnvCheck, runEnvChecks, trackEvent } from "@/lib/tauri";
+import { diagnose, runEnvCheck, runEnvChecks, trackEvent } from "@/lib/tauri";
 import type { CheckId, CheckStatus, EnvSnapshot, InstallTarget } from "@/lib/types";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
@@ -116,6 +119,11 @@ export function EnvCheckScreen() {
   const gate = nextGate(state, ids);
   const running = state.phase === "running";
 
+  // M5 seam: the rule engine derives env-var conflicts (D) and PATH problems (E) from the
+  // snapshot alone; offered when the visible checks end in a blocker.
+  const diagnosis = useAsync(diagnose);
+  const offerDiagnosis = !running && state.phase === "done" && summary.overall === "fail";
+
   // A full run that finishes after a newer one started (or after unmount) must not win.
   const runIdRef = useRef(0);
   useEffect(
@@ -201,7 +209,7 @@ export function EnvCheckScreen() {
       <div>
         <h1 className="text-2xl font-semibold">{t("checks:screen.title")}</h1>
         <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-          {t("checks:screen.intro")}
+          {t("checks:screen.intro")} <HelpLink sectionId="env-check" />
         </p>
       </div>
 
@@ -230,6 +238,35 @@ export function EnvCheckScreen() {
           ))}
         </ul>
       </Card>
+
+      {offerDiagnosis && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => void diagnosis.run({ symptoms: [], snapshot })}
+            loading={diagnosis.loading}
+            leftIcon={<Stethoscope className="size-4" aria-hidden />}
+            data-testid="env-diagnose"
+          >
+            {t("checks:screen.diagnose")}
+          </Button>
+          <span className="text-xs text-neutral-500">{t("checks:screen.diagnoseHint")}</span>
+        </div>
+      )}
+      {offerDiagnosis && diagnosis.error && (
+        <ErrorBanner
+          error={diagnosis.error}
+          onRetry={() => void diagnosis.run({ symptoms: [], snapshot })}
+        />
+      )}
+      {offerDiagnosis && diagnosis.data && (
+        <DiagnosePanel
+          diagnoses={diagnosis.data}
+          snapshot={snapshot}
+          onRerun={() => void runAll()}
+          note={t("checks:screen.diagnoseNote")}
+        />
+      )}
 
       {snapshot && <EnvVarsPanel findings={snapshot.envVars} />}
       {snapshot && <SystemFacts snapshot={snapshot} />}
