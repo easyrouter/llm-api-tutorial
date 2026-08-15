@@ -1,0 +1,67 @@
+{
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Welcome & overview",
+      "path": "overview.md",
+      "lang": "en",
+      "wizardStep": "welcome"
+    },
+    {
+      "id": "env-check",
+      "title": "Environment check",
+      "path": "env-check.md",
+      "lang": "en",
+      "wizardStep": "env_check"
+    },
+    {
+      "id": "install-node",
+      "title": "Install Node.js",
+      "path": "install-node.md",
+      "lang": "en",
+      "wizardStep": "install"
+    },
+    {
+      "id": "install-cli",
+      "title": "Install Codex CLI / Claude Code",
+      "path": "install-cli.md",
+      "lang": "en",
+      "wizardStep": "install"
+    },
+    {
+      "id": "install-cc-switch",
+      "title": "Install CC Switch",
+      "path": "install-cc-switch.md",
+      "lang": "en",
+      "wizardStep": "install"
+    },
+    {
+      "id": "configure-cc-switch",
+      "title": "Configure the company gateway in CC Switch",
+      "path": "configure-cc-switch.md",
+      "lang": "en",
+      "wizardStep": "configure"
+    },
+    {
+      "id": "verify",
+      "title": "Apply & verify",
+      "path": "verify.md",
+      "lang": "en",
+      "wizardStep": "verify"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting A–G",
+      "path": "troubleshooting.md",
+      "lang": "en",
+      "wizardStep": "diagnose"
+    },
+    {
+      "id": "faq",
+      "title": "FAQ",
+      "path": "faq.md",
+      "lang": "en",
+      "wizardStep": null
+    }
+  ]
+}
