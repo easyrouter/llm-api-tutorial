@@ -29,5 +29,15 @@
     "toStep": "跳转到「{{step}}」步骤",
     "toTopic": "打开这个帮助主题",
     "unsupported": "此链接无法在这里打开"
+  },
+  "done": {
+    "verified": "已验证 · 版本 {{version}}",
+    "verifiedNoVersion": "已验证",
+    "failed": "验证未通过",
+    "notVerified": "尚未验证",
+    "backToVerify": "返回验证",
+    "commandLabel": "{{tool}} 的启动命令",
+    "noTools": "没有选择任何工具。请重新开始并选择要接入的工具。",
+    "wrapUp": "现在可以关闭本窗口了。之后随时可以再次运行本工具重新检查。"
   }
 }

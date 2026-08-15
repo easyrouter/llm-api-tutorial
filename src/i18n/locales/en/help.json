@@ -29,5 +29,15 @@
     "toStep": "Jump to the “{{step}}” step",
     "toTopic": "Open this help topic",
     "unsupported": "This link cannot be opened from here"
+  },
+  "done": {
+    "verified": "Verified · version {{version}}",
+    "verifiedNoVersion": "Verified",
+    "failed": "Verification did not pass",
+    "notVerified": "Not verified yet",
+    "backToVerify": "Back to Verify",
+    "commandLabel": "Command for {{tool}}",
+    "noTools": "No tools were selected. Start over to pick the tools you want to set up.",
+    "wrapUp": "You can close this window now. Run this tool again at any time to re-check your setup."
   }
 }
