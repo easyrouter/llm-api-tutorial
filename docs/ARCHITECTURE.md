@@ -82,6 +82,21 @@ Event channels: `install://output`, `install://done`, `download://progress`, `ch
 | `net`       | —   | `probe`, `choose_mirrors`, `download`                                            | rustls, proxy-aware, SHA-256                        |
 | `redact`    | —   | `redact_secrets`, `mask_value`, `tail_redacted`                                  | mandatory for anything user-visible/logged          |
 
+### 5.1 Help docs contract (M6, PRD #18)
+
+The designated documentation site (`docs.baseUrl` in `app-config.json`) must publish, for
+`lang` in `{zh-CN, en}`: `{baseUrl}/{lang}/index.json` (section list: `id`, `title`, `path`,
+`lang`, optional `wizardStep`, `children`) and `{baseUrl}/{lang}/<path>.md` (Markdown, UTF-8).
+Resolution cascade per document: remote (10 s timeout, 60 s backoff after a transport failure)
+→ cache `<app-cache-dir>/docs/{lang}/{path}` (fresh within `docs.cacheTtlSeconds`, stale copy
+served when the remote fails) → bundled `resources/docs/{lang}/{path}` (also embedded in the
+binary, so `tauri dev` works without a resource dir). Sections with unsafe `id`/`path` are
+dropped; page bodies and titles pass through `redact_secrets`. Wizard step → section id:
+`welcome`→`overview`, `env_check`→`env-check`, `install`→`install-node` / `install-cli` /
+`install-cc-switch`, `configure`→`configure-cc-switch`, `verify`→`verify`,
+`diagnose`→`troubleshooting`; `faq` has no step. Full field rules:
+`src-tauri/resources/docs/README.md` and the `docs/mod.rs` module doc.
+
 ## 6. Diagnosis rules (M5) — mapping to guide faults A–G
 
 See `src-tauri/src/diagnose/mod.rs` header table. Assumed mapping (to confirm against the

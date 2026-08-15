@@ -18,3 +18,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   ExternalLink; helpers `lib/format`, `lib/errors`, `lib/useAsync`, `lib/clipboard`, hooks
   `useCopy` / `useStickToBottom`; Tauri test doubles (`src/test/mocks/tauri.ts`) installed
   globally by the vitest setup.
+- Core services: `process` (timeouts, cancellation, fresh-session env, no console window),
+  `net` (probes, mirror choice, https + SHA-256 verified downloads), `platform` (OS / PATH /
+  npm prefix introspection) and `config` (resource → embedded → override load order).
+- M6 help docs: remote → cache → bundled cascade with bilingual bundled pages
+  (`src-tauri/resources/docs/{zh-CN,en}`), shipped as bundle resources; telemetry batched
+  opt-in flush with a periodic background flush started at app setup.
