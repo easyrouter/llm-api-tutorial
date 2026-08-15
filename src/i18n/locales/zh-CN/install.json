@@ -1,1 +1,131 @@
-{}
+{
+  "screen": {
+    "title": "安装缺失的组件",
+    "intro": "根据刚才的检查结果，下面列出了需要安装的组件。每一项在执行前都会先展示将要做的事情，由你确认后才会开始。",
+    "nothingNeeded": "所有必需组件都已经安装好了",
+    "nothingNeededHint": "无需在这一步做任何事，直接进入下一步配置即可。",
+    "noSnapshot": "还没有环境检查结果，请先回到「环境检查」运行一次。",
+    "progress": "已完成 {{done}} / {{total}} 项",
+    "allDone": "这一步的安装项都已处理完毕，可以进入下一步。",
+    "pendingHint": "请完成或跳过上面的每一项后再继续。"
+  },
+  "plan": {
+    "generic": "将按下面显示的方式安装 {{tool}}。",
+    "npm_global": "将使用 npm 把 {{tool}} 安装到当前用户的全局目录，安装过程的输出会实时显示在下方。",
+    "node_download": "Node.js 需要通过官方安装包安装。点击下方按钮打开下载页，下载并运行「LTS」版本的安装包（Windows 选 .msi，macOS 选 .pkg），一路「下一步」即可。",
+    "node_brew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js。",
+    "cc_switch_download": "CC Switch 是桌面应用，将从官方发布渠道下载安装包并校验完整性，之后由你双击运行安装。"
+  },
+  "state": {
+    "idle": "待处理",
+    "planning": "准备中…",
+    "confirm": "等待确认",
+    "starting": "启动中…",
+    "running": "安装中…",
+    "cancelling": "正在取消…",
+    "done": "已完成",
+    "failed": "失败",
+    "skipped": "已跳过",
+    "fetching_release": "获取版本信息…",
+    "release": "可以下载",
+    "downloading": "下载中…",
+    "downloaded": "已下载",
+    "rechecking": "重新检查中…"
+  },
+  "actions": {
+    "prepare": "准备安装",
+    "run": "确认并执行",
+    "cancel": "取消安装",
+    "retry": "重试",
+    "skip": "跳过",
+    "undoSkip": "取消跳过",
+    "openDownloadPage": "打开下载页",
+    "installedRecheck": "我已安装好，重新检查",
+    "download": "下载安装包",
+    "openInstaller": "打开安装包",
+    "openReleasePage": "打开发布页",
+    "changeMirror": "更换软件源并重试",
+    "showOutput": "查看输出",
+    "hideOutput": "收起输出"
+  },
+  "common": {
+    "command": "将要执行的命令",
+    "commandHint": "只有在你点击「确认并执行」后才会运行；本工具不会以管理员身份静默执行任何命令。",
+    "mirror": "下载源",
+    "mirrorHint": "已根据网络速度自动选择",
+    "requiresAdmin": {
+      "title": "当前 npm 全局目录需要管理员权限",
+      "body": "npm 的全局安装目录不可写，直接执行很可能失败。本工具不会替你提权，也不会修改 npm 配置。你可以任选其一：",
+      "optionElevated": "以管理员身份打开一个终端（Windows：右键「Windows Terminal」→「以管理员身份运行」；macOS：在命令前加 sudo），然后手动执行上面的命令。",
+      "optionPrefix": "把 npm 的全局目录改到自己的用户目录下（推荐，以后不再需要管理员权限）。请在终端中手动执行：",
+      "prefixCommandWindows": "npm config set prefix \"%USERPROFILE%\\.npm-global\"",
+      "prefixCommandUnix": "npm config set prefix \"$HOME/.npm-global\"",
+      "prefixHint": "改完后需要把该目录（Windows：%USERPROFILE%\\.npm-global；macOS：$HOME/.npm-global/bin）加入 PATH，并重新打开终端。详细步骤见 npm 官方文档：",
+      "docsLabel": "npm 文档：解决全局安装的权限问题"
+    }
+  },
+  "npm": {
+    "outputTitle": "安装输出",
+    "successHint": "安装命令执行成功。正在重新检查是否可用…",
+    "failedHint": "安装命令执行失败（退出码 {{code}}）。请查看上方输出；如果是网络超时或下载失败，可以更换软件源后重试。",
+    "failedNoCode": "安装命令没有正常结束。请查看上方输出后重试。",
+    "cancelled": "安装已取消。",
+    "startFailed": "无法启动安装命令。",
+    "recheckAfterDone": "安装完成后已重新检查：{{message}}",
+    "recheckStillMissing": "安装命令已成功，但重新检查仍然没有找到该命令。通常是终端 PATH 尚未刷新：请完全关闭所有终端窗口再打开，然后回到「环境检查」重新检查。"
+  },
+  "node": {
+    "steps": {
+      "title": "安装步骤",
+      "open": "点击「打开下载页」，下载「LTS（长期支持）」版本的安装包。",
+      "run": "运行安装包，保持默认选项一路「下一步」直到完成。",
+      "close": "安装完成后，完全关闭所有已经打开的终端窗口（否则新终端才能识别到 node）。",
+      "recheck": "回到这里点击「我已安装好，重新检查」。"
+    },
+    "downloadPage": "下载页：{{url}}",
+    "recheckPassed": "Node.js 已就绪：{{message}}",
+    "recheckNotPassed": "重新检查结果：{{message}}。如果刚刚才安装完，请先完全关闭所有终端窗口，或注销后重新登录，再重新检查。"
+  },
+  "ccSwitch": {
+    "intro": "CC Switch 是用来配置和切换供应商的桌面应用。本工具会从官方发布渠道获取最新版本，下载后校验文件完整性，再交给你安装。",
+    "release": {
+      "version": "版本",
+      "asset": "安装包",
+      "source": "来源",
+      "hash": "完整性校验",
+      "hashAvailable": "提供 SHA-256，下载后会自动校验",
+      "hashMissing": "本次发布未提供 SHA-256，无法自动校验；请确认下载来源是官方发布页"
+    },
+    "fetchFailed": "无法获取 CC Switch 的发布信息。你也可以手动打开发布页下载。",
+    "downloading": "正在下载 {{asset}}",
+    "downloadedTitle": "下载完成",
+    "downloadedPath": "文件位置：{{path}}",
+    "verified": "已通过 SHA-256 校验",
+    "unverified": "未校验（发布方未提供哈希）",
+    "verifiedFalse": "校验未通过，请勿运行此文件",
+    "afterDownload": {
+      "title": "接下来",
+      "open": "点击「打开安装包」运行安装程序（也可以到上面的文件位置双击）。",
+      "windows": "Windows 若弹出「Windows 已保护你的电脑」，点击「更多信息」→「仍要运行」；安装时选择「仅为我安装」，不需要管理员权限。",
+      "macos": "macOS 若提示无法打开，请在「访达」中右键该应用选择「打开」，或到「系统设置 → 隐私与安全性」中点击「仍要打开」。",
+      "recheck": "安装完成后回到这里点击「我已安装好，重新检查」。"
+    },
+    "recheckPassed": "CC Switch 已就绪：{{message}}",
+    "recheckNotPassed": "重新检查结果：{{message}}。请确认安装程序已经跑完，再试一次。"
+  },
+  "mirror": {
+    "official": "官方源",
+    "npmmirror": "npmmirror 国内镜像",
+    "intranet": "公司内网镜像"
+  },
+  "recheck": {
+    "failed": "重新检查时出错，你可以稍后在「环境检查」中再试。"
+  },
+  "skip": {
+    "warning": "已跳过安装 {{tool}}。后面的配置或验证步骤可能因此失败；你随时可以回到这一步安装。"
+  },
+  "download": {
+    "sizeKnown": "{{downloaded}} / {{total}}",
+    "sizeUnknown": "已下载 {{downloaded}}"
+  }
+}

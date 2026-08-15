@@ -1,1 +1,113 @@
-{}
+{
+  "screen": {
+    "title": "Environment check",
+    "intro": "Checking whether this computer is ready. Every item ends as Pass / Warning / Blocked; blocked items come with a way to fix them.",
+    "recheckAll": "Re-check everything",
+    "checking": "Checking…",
+    "system": "System",
+    "systemItems": {
+      "platform": "Operating system",
+      "version": "Version",
+      "arch": "Architecture",
+      "shell": "Default shell",
+      "generatedAt": "Checked at"
+    },
+    "unknownCode": "Check finished ({{code}})",
+    "details": {
+      "show": "Show details",
+      "hide": "Hide details"
+    },
+    "duration": "took {{duration}}",
+    "runFailed": "The environment check did not complete. Please try again."
+  },
+  "summary": {
+    "running": "Checking, please wait… ({{done}} of {{total}} done)",
+    "pass": "All {{total}} checks passed. You can move on.",
+    "warn": "Done: {{pass}} passed, {{warn}} warning(s). Warnings do not block you, but they are worth a look.",
+    "fail": "Done: {{fail}} blocked, {{warn}} warning(s), {{pass}} passed. Please deal with the blocked items first.",
+    "skipped": "No check results to show.",
+    "continueAnyway": "I understand some items are blocked; continue anyway (the next step installs what is missing)",
+    "continueAnywayHint": "Skipping is only offered when every blocked item can be fixed by installing something; other blockers must be resolved first."
+  },
+  "os": {
+    "title": "Operating system",
+    "ok": "Operating system {{version}} meets the requirements",
+    "too_old": "Operating system version {{version}} is below the minimum; some components may not install",
+    "unknown": "Could not identify the operating system version; the other checks continue"
+  },
+  "node": {
+    "title": "Node.js",
+    "ok": "Node.js {{version}} is installed",
+    "missing": "Node.js was not found. Both Codex CLI and Claude Code need it",
+    "too_old": "The installed Node.js {{version}} is too old; please upgrade to a recent long-term-support (LTS) release",
+    "not_on_path": "Node.js is installed ({{path}}) but this terminal cannot see it yet — usually because no new terminal was opened after installing",
+    "instructions": {
+      "not_on_path": "Node.js is installed; the current terminal simply has not picked up the new PATH yet:\n1. Close every terminal window completely (Windows: Command Prompt, PowerShell, Windows Terminal; macOS: Terminal, iTerm, …).\n2. On Windows, if you just installed Node.js, sign out and back in once.\n3. Open a fresh terminal and type node --version — a version number means it works.\n4. Come back here and click “Re-check”."
+    }
+  },
+  "npm": {
+    "title": "npm",
+    "ok": "npm {{version}} is available",
+    "missing": "npm was not found. It ships with Node.js — install or reinstall Node.js first"
+  },
+  "codex": {
+    "title": "Codex CLI"
+  },
+  "claude_code": {
+    "title": "Claude Code"
+  },
+  "tool": {
+    "ok": "{{tool}} {{version}} is installed",
+    "missing": "{{tool}} was not found; the next step can install it for you",
+    "not_on_path": "{{tool}} is installed at {{path}} but this terminal cannot see it yet — usually because no new terminal was opened after installing",
+    "instructions": {
+      "not_on_path": "{{tool}} is already installed; the terminal just has not picked up the new PATH yet:\n1. Close every terminal window completely.\n2. Open a fresh terminal and type {{tool}} --version — a version number means it works.\n3. If the command is still not found, make sure the folder containing {{path}} is on your PATH (Windows: Settings → System → About → Advanced system settings → Environment Variables; macOS: check ~/.zshrc or ~/.zprofile). Editing environment variables is something you do yourself — this tool never changes them.\n4. Come back here and click “Re-check”."
+    }
+  },
+  "cc_switch": {
+    "title": "CC Switch",
+    "ok": "CC Switch is installed",
+    "missing": "CC Switch was not found; the next step can download it for you",
+    "data_only": "Found the CC Switch data folder ({{dir}}) but not the app itself — it may have been uninstalled or moved. Please reinstall it"
+  },
+  "env_vars": {
+    "title": "Environment variables",
+    "clean": "No environment variables that would interfere with the configuration",
+    "conflicts": "Found environment variables that can override the CC Switch configuration: {{names}}. Please remove them by hand as described before continuing",
+    "instructions": {
+      "windows": "These variables override what you configure in CC Switch, so Codex / Claude Code may talk to the wrong address or use the wrong key. Please remove them yourself (this tool never edits your environment variables):\n1. Open Settings → System → About → Advanced system settings → Environment Variables.\n2. Look for {{names}} in both the “User variables” and “System variables” lists.\n3. Select each one, click Delete, then click OK all the way out to save.\n4. Close every terminal window and CC Switch completely, then reopen them.\n5. Come back here and click “Re-check” to confirm they are gone.",
+      "macos": "These variables override what you configure in CC Switch, so Codex / Claude Code may talk to the wrong address or use the wrong key. Please remove them yourself (this tool never edits your environment variables):\n1. Open Terminal and check these files one by one: ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bash_profile, ~/.bashrc, ~/.profile (for example open -e ~/.zshrc opens it in TextEdit).\n2. Find the line that looks like export {{names}}=… , delete the whole line and save.\n3. If the check listed launchctl as a source, run launchctl unsetenv NAME in Terminal.\n4. Close every terminal window completely and open a new one.\n5. Come back here and click “Re-check” to confirm they are gone."
+    }
+  },
+  "network_npm": {
+    "title": "Network: npm registry"
+  },
+  "network_gateway": {
+    "title": "Network: company gateway"
+  },
+  "network_github": {
+    "title": "Network: GitHub releases"
+  },
+  "network": {
+    "ok": "{{target}} is reachable",
+    "mirror_only": "{{target}} is not directly reachable, but a mirror is; installs will switch to it automatically",
+    "unreachable": "{{target}} is unreachable. Please check your network or proxy settings"
+  },
+  "envVars": {
+    "title": "Environment variables found",
+    "intro": "These variables influence which address and key Codex / Claude Code use. Values are partially hidden for safety. This tool never modifies them.",
+    "value": "Current value",
+    "session": "This session",
+    "present": "Set",
+    "absent": "Not set",
+    "sources": "Sources",
+    "noSources": "No specific source found",
+    "source": {
+      "process": "Current process",
+      "user_registry": "Windows user variables",
+      "machine_registry": "Windows system variables",
+      "shell_rc": "Shell profile",
+      "launchctl": "launchctl"
+    }
+  }
+}

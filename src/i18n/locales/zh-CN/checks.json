@@ -1,1 +1,113 @@
-{}
+{
+  "screen": {
+    "title": "环境检查",
+    "intro": "正在检查这台电脑是否具备接入条件。每一项都会给出「通过 / 警告 / 阻断」结果；阻断项会附带修复方法。",
+    "recheckAll": "全部重新检查",
+    "checking": "正在检查…",
+    "system": "系统信息",
+    "systemItems": {
+      "platform": "操作系统",
+      "version": "版本",
+      "arch": "架构",
+      "shell": "默认终端",
+      "generatedAt": "检查时间"
+    },
+    "unknownCode": "检查结束（{{code}}）",
+    "details": {
+      "show": "查看详情",
+      "hide": "收起详情"
+    },
+    "duration": "耗时 {{duration}}",
+    "runFailed": "环境检查没有完成，请重试。"
+  },
+  "summary": {
+    "running": "正在检查，请稍候…（已完成 {{done}} / {{total}} 项）",
+    "pass": "全部 {{total}} 项检查通过，可以进入下一步。",
+    "warn": "检查完成：{{pass}} 项通过，{{warn}} 项警告。警告不会阻止继续，但建议先看一下。",
+    "fail": "检查完成：{{fail}} 项阻断，{{warn}} 项警告，{{pass}} 项通过。请先处理阻断项。",
+    "skipped": "没有可显示的检查结果。",
+    "continueAnyway": "我知道有阻断项，仍要继续（下一步会引导安装缺失的组件）",
+    "continueAnywayHint": "只有当所有阻断项都可以通过安装解决时才允许跳过；其他阻断项需要先处理。"
+  },
+  "os": {
+    "title": "操作系统",
+    "ok": "操作系统 {{version}} 满足要求",
+    "too_old": "操作系统版本 {{version}} 低于最低要求，部分组件可能无法安装",
+    "unknown": "无法识别操作系统版本，将继续检查其他项目"
+  },
+  "node": {
+    "title": "Node.js",
+    "ok": "已安装 Node.js {{version}}",
+    "missing": "没有找到 Node.js，Codex CLI 和 Claude Code 都需要它",
+    "too_old": "已安装的 Node.js {{version}} 版本过低，需要升级到较新的长期支持（LTS）版本",
+    "not_on_path": "已安装 Node.js（{{path}}），但当前终端还找不到它，通常是因为安装后没有重新打开终端",
+    "instructions": {
+      "not_on_path": "Node.js 已经安装，只是当前的终端还没有读到新的 PATH 设置。请按下面的步骤处理：\n1. 完全关闭所有终端窗口（Windows：命令提示符、PowerShell、Windows Terminal；macOS：终端、iTerm 等）。\n2. 如果是 Windows，且刚刚安装完 Node.js，建议注销并重新登录一次。\n3. 重新打开一个终端，输入 node --version，能看到版本号即表示生效。\n4. 回到本工具点击「重新检查」。"
+    }
+  },
+  "npm": {
+    "title": "npm",
+    "ok": "npm {{version}} 可用",
+    "missing": "没有找到 npm。npm 会随 Node.js 一起安装，请先安装或重新安装 Node.js"
+  },
+  "codex": {
+    "title": "Codex CLI"
+  },
+  "claude_code": {
+    "title": "Claude Code"
+  },
+  "tool": {
+    "ok": "已安装 {{tool}} {{version}}",
+    "missing": "没有找到 {{tool}}，下一步可以一键安装",
+    "not_on_path": "{{tool}} 已经安装在 {{path}}，但当前终端还找不到它，通常是因为安装后没有重新打开终端",
+    "instructions": {
+      "not_on_path": "{{tool}} 已经安装好了，只是终端还没有读到新的 PATH 设置：\n1. 完全关闭所有终端窗口。\n2. 重新打开一个终端，输入 {{tool}} --version，能看到版本号即表示生效。\n3. 如果仍然提示找不到命令，请确认 {{path}} 所在的目录已加入 PATH（Windows：设置 → 系统 → 关于 → 高级系统设置 → 环境变量；macOS：检查 ~/.zshrc 或 ~/.zprofile）。修改环境变量需要你手动完成，本工具不会代劳。\n4. 回到本工具点击「重新检查」。"
+    }
+  },
+  "cc_switch": {
+    "title": "CC Switch",
+    "ok": "已安装 CC Switch",
+    "missing": "没有找到 CC Switch，下一步可以下载安装",
+    "data_only": "找到了 CC Switch 的数据目录（{{dir}}），但没有找到应用本身，可能已被卸载或移动，请重新安装"
+  },
+  "env_vars": {
+    "title": "环境变量",
+    "clean": "没有发现会干扰配置的环境变量",
+    "conflicts": "检测到可能覆盖 CC Switch 配置的环境变量：{{names}}。建议按说明手动移除后再继续",
+    "instructions": {
+      "windows": "这些环境变量会覆盖 CC Switch 中的配置，导致 Codex / Claude Code 连到错误的地址或使用错误的密钥。请手动删除（本工具不会修改你的环境变量）：\n1. 打开「设置」→「系统」→「关于」→「高级系统设置」→「环境变量」。\n2. 在「用户变量」和「系统变量」两个列表中分别查找 {{names}}。\n3. 选中后点击「删除」，然后一路点「确定」保存。\n4. 完全关闭所有终端窗口和 CC Switch，再重新打开。\n5. 回到本工具点击「重新检查」确认已经清除。",
+      "macos": "这些环境变量会覆盖 CC Switch 中的配置，导致 Codex / Claude Code 连到错误的地址或使用错误的密钥。请手动删除（本工具不会修改你的环境变量）：\n1. 打开「终端」，依次检查 ~/.zshrc、~/.zprofile、~/.zshenv、~/.bash_profile、~/.bashrc、~/.profile 这些文件（可用 open -e ~/.zshrc 用文本编辑打开）。\n2. 找到形如 export {{names}}=… 的那一行，整行删除后保存。\n3. 如果检查结果显示来源是 launchctl，请在终端执行 launchctl unsetenv 变量名。\n4. 完全关闭所有终端窗口，再重新打开一个新的终端。\n5. 回到本工具点击「重新检查」确认已经清除。"
+    }
+  },
+  "network_npm": {
+    "title": "网络：npm 软件源"
+  },
+  "network_gateway": {
+    "title": "网络：公司网关"
+  },
+  "network_github": {
+    "title": "网络：GitHub 发布页"
+  },
+  "network": {
+    "ok": "可以访问 {{target}}",
+    "mirror_only": "无法直接访问 {{target}}，但可以使用国内镜像，安装时会自动切换",
+    "unreachable": "无法访问 {{target}}，请检查网络或代理设置"
+  },
+  "envVars": {
+    "title": "检测到的环境变量",
+    "intro": "以下变量会影响 Codex / Claude Code 选择哪个地址和密钥。为安全起见，值已部分隐藏。本工具不会修改它们。",
+    "value": "当前值",
+    "session": "本次会话",
+    "present": "已生效",
+    "absent": "未生效",
+    "sources": "来源",
+    "noSources": "未找到具体来源",
+    "source": {
+      "process": "当前进程",
+      "user_registry": "Windows 用户环境变量",
+      "machine_registry": "Windows 系统环境变量",
+      "shell_rc": "终端配置文件",
+      "launchctl": "launchctl"
+    }
+  }
+}
