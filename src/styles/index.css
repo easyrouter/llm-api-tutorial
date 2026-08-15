@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Light/dark follow the OS. Status colours map to CheckStatus:
+ * pass → success, warn → warning, fail → danger.
+ */
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    "Noto Sans CJK SC", sans-serif;
+  --font-mono:
+    ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+
+  --color-success-500: #16a34a;
+  --color-warning-500: #d97706;
+  --color-danger-500: #dc2626;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-neutral-50 font-sans text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+  margin: 0;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Allow selecting copyable values, logs and docs. */
+input,
+textarea,
+pre,
+code,
+[data-selectable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Prevent Tauri webview from showing a native context menu / drag on non-input elements. */
+img {
+  -webkit-user-drag: none;
+}

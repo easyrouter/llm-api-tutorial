@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "Codex Onboarding",
+    "tagline": "One guided path from environment check to a verified Codex / Claude Code setup",
+    "version": "Version {{version}}",
+    "language": "Language"
+  },
+  "steps": {
+    "welcome": "Start",
+    "env_check": "Environment",
+    "install": "Install",
+    "configure": "Configure",
+    "verify": "Verify",
+    "diagnose": "Diagnose",
+    "done": "Done"
+  },
+  "actions": {
+    "next": "Next",
+    "back": "Back",
+    "retry": "Retry",
+    "rerun": "Re-run",
+    "recheck": "Re-check",
+    "skip": "Skip",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied",
+    "open": "Open",
+    "openLink": "Open link",
+    "download": "Download",
+    "install": "Install",
+    "run": "Run",
+    "viewLogs": "View logs",
+    "help": "Help",
+    "learnMore": "Learn more",
+    "goToStep": "Go to step",
+    "showInstructions": "Show instructions",
+    "startOver": "Start over",
+    "finish": "Finish",
+    "exportReport": "Export diagnostic report",
+    "copyReport": "Copy diagnostic report"
+  },
+  "status": {
+    "pass": "Pass",
+    "warn": "Warning",
+    "fail": "Blocked",
+    "skipped": "Skipped",
+    "running": "Checking…",
+    "pending": "Pending",
+    "unknown": "Unknown"
+  },
+  "tools": {
+    "codex": "Codex CLI",
+    "claude-code": "Claude Code",
+    "cc-switch": "CC Switch",
+    "node": "Node.js",
+    "npm": "npm"
+  },
+  "welcome": {
+    "title": "Welcome to Codex Onboarding",
+    "intro": "This tool walks you through: checking your machine → installing what is missing → configuring the company gateway in CC Switch → verifying that everything works. No documentation required; when something fails you get the cause and the fix.",
+    "whatWeDo": "What this tool does",
+    "whatWeDoItems": {
+      "check": "Detects your OS, Node.js, Codex CLI, Claude Code, CC Switch, environment variables and network reachability",
+      "install": "Runs install commands only after you confirm, showing the exact command and live progress",
+      "guide": "Hands you the company gateway address and other standard values and guides you step by step inside CC Switch",
+      "verify": "Verifies the CLI in a fresh terminal session and sends one minimal test request to the gateway"
+    },
+    "whatWeDont": "What this tool never does",
+    "whatWeDontItems": {
+      "noConfigWrite": "It never edits ~/.codex, ~/.claude or CC Switch configuration files",
+      "noEnvEdit": "It never changes your system environment variables (conflicts are reported for you to fix)",
+      "noKeyStorage": "It never stores or uploads your API key (the connectivity test uses it once, in memory)"
+    },
+    "selectTools": "Tools to set up",
+    "telemetryNotice": "To help IT improve the process, the tool can report anonymous step success rates and durations (no keys, URLs or personal data).",
+    "telemetryOptIn": "Allow anonymous usage statistics",
+    "start": "Start checks"
+  },
+  "done": {
+    "title": "Setup complete",
+    "summary": "The following tools are ready to use:",
+    "nextSteps": "Next steps",
+    "openTerminalHint": "Open a new terminal window and run {{command}} to get started.",
+    "helpHint": "If anything goes wrong later, open the Diagnose page of this tool or contact {{contact}}."
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "generic": "Operation failed: {{message}}",
+    "config": "Configuration could not be loaded; built-in defaults are in use.",
+    "io": "File read/write failed.",
+    "command_not_found": "Command {{program}} was not found.",
+    "command_failed": "Command {{program}} failed (exit code {{code}}).",
+    "command_timeout": "Command {{program}} timed out after {{timeoutMs}} ms.",
+    "network": "Network request failed.",
+    "http": "Server returned HTTP {{status}}.",
+    "hash_mismatch": "Downloaded file failed verification and may be corrupt or tampered with. Do not run it.",
+    "invalid_input": "Invalid input.",
+    "unsupported": "Not supported on this platform.",
+    "job_not_found": "The task does not exist or has already finished.",
+    "serde": "Failed to parse data.",
+    "other": "Unknown error."
+  },
+  "fixes": {
+    "open_url": "Open {{label}}",
+    "go_to_step": "Go to “{{step}}”",
+    "install": "Install {{tool}}",
+    "instructions": "Show instructions",
+    "rerun": "Re-check",
+    "labels": {
+      "node_download": "Node.js download page",
+      "cc_switch_download": "CC Switch download page",
+      "docs": "Help documentation"
+    }
+  },
+  "help": {
+    "panelTitle": "Help",
+    "openPanel": "Open help",
+    "closePanel": "Close help"
+  },
+  "footer": {
+    "logDir": "Log directory: {{path}}",
+    "configSource": {
+      "bundled": "Config source: bundled preset",
+      "bundled_with_override": "Config source: bundled preset + local override",
+      "fallback": "Config source: built-in defaults"
+    }
+  }
+}

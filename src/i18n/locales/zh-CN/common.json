@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "Codex 接入引导工具",
+    "tagline": "从环境检查到成功验证，一条路径完成 Codex 与 Claude Code 的接入",
+    "version": "版本 {{version}}",
+    "language": "语言"
+  },
+  "steps": {
+    "welcome": "开始",
+    "env_check": "环境检查",
+    "install": "安装",
+    "configure": "配置",
+    "verify": "验证",
+    "diagnose": "诊断",
+    "done": "完成"
+  },
+  "actions": {
+    "next": "下一步",
+    "back": "上一步",
+    "retry": "重试",
+    "rerun": "重新检查",
+    "recheck": "重新检查",
+    "skip": "跳过",
+    "cancel": "取消",
+    "confirm": "确认",
+    "close": "关闭",
+    "copy": "复制",
+    "copied": "已复制",
+    "open": "打开",
+    "openLink": "打开链接",
+    "download": "下载",
+    "install": "安装",
+    "run": "执行",
+    "viewLogs": "查看日志",
+    "help": "帮助",
+    "learnMore": "了解更多",
+    "goToStep": "前往该步骤",
+    "showInstructions": "查看操作说明",
+    "startOver": "重新开始",
+    "finish": "完成",
+    "exportReport": "导出诊断报告",
+    "copyReport": "复制诊断报告"
+  },
+  "status": {
+    "pass": "通过",
+    "warn": "警告",
+    "fail": "阻断",
+    "skipped": "已跳过",
+    "running": "检查中…",
+    "pending": "等待中",
+    "unknown": "未知"
+  },
+  "tools": {
+    "codex": "Codex CLI",
+    "claude-code": "Claude Code",
+    "cc-switch": "CC Switch",
+    "node": "Node.js",
+    "npm": "npm"
+  },
+  "welcome": {
+    "title": "欢迎使用 Codex 接入引导工具",
+    "intro": "本工具会依次帮你完成：检查电脑环境 → 安装缺失组件 → 在 CC Switch 中配置公司网关 → 验证是否可用。全程无需查阅文档，出错时会自动给出原因和修复方法。",
+    "whatWeDo": "工具会做什么",
+    "whatWeDoItems": {
+      "check": "自动检测操作系统、Node.js、Codex CLI、Claude Code、CC Switch 以及环境变量和网络连通性",
+      "install": "在你确认后，执行安装命令并实时显示进度（安装前会展示将要执行的命令）",
+      "guide": "把公司网关地址等标准配置直接提供给你，一步一步引导你在 CC Switch 中完成配置",
+      "verify": "以全新终端会话验证命令可用，并向网关发起一次最小测试请求"
+    },
+    "whatWeDont": "工具不会做什么",
+    "whatWeDontItems": {
+      "noConfigWrite": "不会直接修改 ~/.codex、~/.claude 或 CC Switch 的配置文件",
+      "noEnvEdit": "不会自动修改你的系统环境变量（发现冲突时只提示，由你手动处理）",
+      "noKeyStorage": "不会保存或上传你的 API Key（连通性测试仅在内存中使用一次）"
+    },
+    "selectTools": "本次要接入的工具",
+    "telemetryNotice": "为帮助 IT 部门改进流程，工具可上报匿名的步骤成功率与耗时统计（不含任何密钥、地址或个人信息）。",
+    "telemetryOptIn": "允许上报匿名统计",
+    "start": "开始检查"
+  },
+  "done": {
+    "title": "接入完成",
+    "summary": "以下工具已可以正常使用：",
+    "nextSteps": "接下来",
+    "openTerminalHint": "打开一个新的终端窗口，运行 {{command}} 开始使用。",
+    "helpHint": "遇到问题时可随时打开本工具的「诊断」页，或联系 {{contact}}。"
+  },
+  "errors": {
+    "title": "出错了",
+    "generic": "操作失败：{{message}}",
+    "config": "配置加载失败，已使用内置默认配置。",
+    "io": "文件读写失败。",
+    "command_not_found": "找不到命令 {{program}}。",
+    "command_failed": "命令 {{program}} 执行失败（退出码 {{code}}）。",
+    "command_timeout": "命令 {{program}} 执行超时（{{timeoutMs}} 毫秒）。",
+    "network": "网络请求失败。",
+    "http": "服务器返回 HTTP {{status}}。",
+    "hash_mismatch": "下载文件校验失败，文件可能已损坏或被篡改，请勿运行。",
+    "invalid_input": "输入无效。",
+    "unsupported": "当前平台不支持此操作。",
+    "job_not_found": "任务不存在或已结束。",
+    "serde": "数据解析失败。",
+    "other": "未知错误。"
+  },
+  "fixes": {
+    "open_url": "打开 {{label}}",
+    "go_to_step": "前往「{{step}}」",
+    "install": "安装 {{tool}}",
+    "instructions": "查看操作说明",
+    "rerun": "重新检查",
+    "labels": {
+      "node_download": "Node.js 下载页",
+      "cc_switch_download": "CC Switch 下载页",
+      "docs": "帮助文档"
+    }
+  },
+  "help": {
+    "panelTitle": "帮助",
+    "openPanel": "打开帮助",
+    "closePanel": "关闭帮助"
+  },
+  "footer": {
+    "logDir": "日志目录：{{path}}",
+    "configSource": {
+      "bundled": "配置来源：内置预设",
+      "bundled_with_override": "配置来源：内置预设 + 本地覆盖",
+      "fallback": "配置来源：内置默认值"
+    }
+  }
+}
