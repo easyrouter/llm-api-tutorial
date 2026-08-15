@@ -1,0 +1,93 @@
+{
+  "$comment": "Company preset shipped with the app. Values marked TODO must be confirmed by IT before pilot (see docs/OPEN_QUESTIONS.md). A user-level override at <app-config-dir>/app-config.json is merged on top at startup.",
+  "schemaVersion": 1,
+  "company": {
+    "name": "Company",
+    "supportContact": "it-support@example.com"
+  },
+  "gateway": {
+    "$comment": "TODO(IT #1): baseUrl is the only company-wide constant; model / reasoning effort vary per user and stay user-editable.",
+    "baseUrl": "https://gateway.example.com/v1",
+    "protocol": "responses",
+    "presetProviderName": "Company Gateway",
+    "defaultModel": "",
+    "defaultReasoningEffort": ""
+  },
+  "tools": [
+    {
+      "id": "codex",
+      "displayName": "Codex CLI",
+      "npmPackage": "@openai/codex",
+      "binary": "codex",
+      "versionArgs": ["--version"],
+      "configDir": "~/.codex"
+    },
+    {
+      "id": "claude-code",
+      "displayName": "Claude Code",
+      "npmPackage": "@anthropic-ai/claude-code",
+      "binary": "claude",
+      "versionArgs": ["--version"],
+      "configDir": "~/.claude"
+    }
+  ],
+  "ccSwitch": {
+    "$comment": "TODO(IT): confirm intranet mirror + pinned version/hashes for offline distribution.",
+    "githubRepo": "farion1231/cc-switch",
+    "releasesApi": "https://api.github.com/repos/farion1231/cc-switch/releases/latest",
+    "downloadPage": "https://github.com/farion1231/cc-switch/releases/latest",
+    "intranetMirror": "",
+    "dataDir": "~/.cc-switch"
+  },
+  "requirements": {
+    "nodeMinVersion": "18.0.0",
+    "nodeRecommendedLts": "22",
+    "os": {
+      "windows": { "minBuild": 19041, "label": "Windows 10 2004+" },
+      "macos": { "minVersion": "12.0", "label": "macOS 12 Monterey+" }
+    }
+  },
+  "mirrors": {
+    "npmRegistries": [
+      { "id": "official", "url": "https://registry.npmjs.org/" },
+      { "id": "npmmirror", "url": "https://registry.npmmirror.com/" }
+    ],
+    "nodeDist": [
+      {
+        "id": "official",
+        "url": "https://nodejs.org/dist/",
+        "downloadPage": "https://nodejs.org/en/download"
+      },
+      {
+        "id": "npmmirror",
+        "url": "https://npmmirror.com/mirrors/node/",
+        "downloadPage": "https://npmmirror.com/mirrors/node/"
+      }
+    ],
+    "probeTimeoutMs": 4000
+  },
+  "envVarsToInspect": [
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_BASE",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_TOKEN",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY"
+  ],
+  "docs": {
+    "$comment": "TODO(IT #18): the designated documentation site. index.json lists sections {id,title,path,wizardStep}.",
+    "baseUrl": "https://docs.example.com/codex-onboarding",
+    "indexPath": "index.json",
+    "cacheTtlSeconds": 3600
+  },
+  "telemetry": {
+    "$comment": "TODO(IT #16): intranet endpoint + approval. Disabled until endpoint is set. Payload schema in docs/ARCHITECTURE.md; never contains keys, credentials, or file contents.",
+    "enabled": false,
+    "endpoint": "",
+    "flushIntervalSeconds": 30
+  }
+}
