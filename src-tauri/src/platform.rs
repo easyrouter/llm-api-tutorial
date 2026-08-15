@@ -442,10 +442,14 @@ mod tests {
 
     #[test]
     fn basename_extracts_last_component() {
-        assert_eq!(
-            basename(r"C:\Windows\system32\cmd.exe").as_deref(),
-            Some("cmd.exe")
-        );
+        // `basename` only ever sees the current OS's own shell path (`ComSpec` / `SHELL`), so
+        // the backslash form is meaningful on Windows only (`\` is a plain char on Unix).
+        if cfg!(windows) {
+            assert_eq!(
+                basename(r"C:\Windows\system32\cmd.exe").as_deref(),
+                Some("cmd.exe")
+            );
+        }
         assert_eq!(basename("/bin/zsh").as_deref(), Some("zsh"));
         assert_eq!(basename(""), None);
     }

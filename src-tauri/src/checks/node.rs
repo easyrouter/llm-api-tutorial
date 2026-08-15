@@ -401,12 +401,17 @@ mod tests {
             "LOCALAPPDATA" => Some(r"C:\Users\me\AppData\Local".to_owned()),
             _ => None,
         };
-        let win = node_candidates_for(Platform::Windows, None, env);
+        // Compare separator-agnostically: `PathBuf::join` uses `/` on Unix hosts, so the
+        // literal Windows spelling only matches when the test itself runs on Windows.
+        let win: Vec<String> = node_candidates_for(Platform::Windows, None, env)
+            .iter()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .collect();
         assert_eq!(
             win,
             vec![
-                PathBuf::from(r"C:\Program Files\nodejs\node.exe"),
-                PathBuf::from(r"C:\Users\me\AppData\Local\Programs\nodejs\node.exe"),
+                "C:/Program Files/nodejs/node.exe".to_owned(),
+                "C:/Users/me/AppData/Local/Programs/nodejs/node.exe".to_owned(),
             ]
         );
         let mac = node_candidates_for(Platform::Macos, Some(Path::new("/Users/me")), |_| None);
