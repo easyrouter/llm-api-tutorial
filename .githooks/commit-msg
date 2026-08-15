@@ -1,0 +1,18 @@
+#!/bin/sh
+# Enforce Conventional Commits: <type>(<optional scope>)!: <subject>
+# Types mirror CONTRIBUTING.md. Merge/revert/fixup commits are exempt.
+msg_file="$1"
+first_line=$(head -n1 "$msg_file")
+
+case "$first_line" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: .{1,72}$'
+if ! printf '%s' "$first_line" | grep -Eq "$pattern"; then
+  echo "commit message does not follow Conventional Commits:" >&2
+  echo "    $first_line" >&2
+  echo "  expected: <type>(<scope>)?: <subject>   e.g. feat(checks): detect Node.js version" >&2
+  echo "  types: feat fix docs style refactor perf test build ci chore revert" >&2
+  exit 1
+fi

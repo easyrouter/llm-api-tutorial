@@ -1,0 +1,91 @@
+[package]
+name = "codex-onboarding"
+version = "0.1.0"
+description = "Codex / Claude Code onboarding assistant — guided environment check, install, CC Switch configuration walkthrough, verification and auto-diagnosis."
+authors = ["IT Tooling Team"]
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[lib]
+# The `_lib` suffix is required so the lib name does not clash with the bin name on Windows.
+name = "codex_onboarding_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+# --- Tauri core & plugins ---
+tauri = { version = "2.11", features = [] }
+tauri-plugin-opener = "2.5"
+tauri-plugin-dialog = "2.7"
+tauri-plugin-log = "2.9"
+tauri-plugin-clipboard-manager = "2.3"
+
+# --- Serialization / errors ---
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+# --- Async / process ---
+tokio = { version = "1", features = ["process", "time", "macros", "rt-multi-thread", "sync", "io-util", "fs"] }
+futures-util = "0.3"
+
+# --- HTTP (rustls only — no OpenSSL dependency on any platform) ---
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+
+# --- System introspection ---
+which = "8"
+dirs = "6"
+os_info = { version = "3", default-features = false }
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+semver = "1"
+toml = "1"
+
+# --- Utilities ---
+log = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+hex = "0.4"
+regex = "1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# pedantic lints that hurt more than help in an app crate
+module_name_repetitions = "allow"
+doc_markdown = "allow"
+doc_overindented_list_items = "allow"
+# Tauri commands take owned arguments and are async by design (run off the main thread)
+needless_pass_by_value = "allow"
+unused_async = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+struct_excessive_bools = "allow"
+too_many_lines = "allow"
+# security-relevant hard errors
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
