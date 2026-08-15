@@ -1,1 +1,87 @@
-{}
+{
+  "title": "Apply and verify",
+  "intro": "The tool runs the command in a fresh terminal session (as if you had just opened a new terminal), optionally sends one minimal test request to the company gateway, and tells you plainly whether it worked. On failure it explains the cause and how to fix it.",
+  "reminder": {
+    "title": "Before you start: close every terminal window",
+    "body": "That includes Windows Terminal, PowerShell, CMD, Git Bash, macOS Terminal / iTerm, and the built-in terminals of VS Code, Cursor and similar editors. Terminals that are already open cannot see the new configuration."
+  },
+  "card": {
+    "title": "Verify {{tool}}",
+    "description": "Runs {{command}} in a fresh session to confirm the command can be found and executed.",
+    "notRun": "Not verified yet.",
+    "lastResult": "Last result"
+  },
+  "gateway": {
+    "toggle": "Also test the gateway connection (requires your API key, once)",
+    "description": "Sends one minimal test request to the gateway to confirm the address, protocol and key are correct.",
+    "baseUrl": "Gateway address",
+    "model": "Model",
+    "modelPlaceholder": "The model you were assigned",
+    "apiKey": "API key",
+    "apiKeyPlaceholder": "Paste the key here (used once)",
+    "show": "Show",
+    "hide": "Hide",
+    "keyNote": "The key is held in memory only for this one request: it is cleared as soon as the request is sent and is never stored, logged, uploaded or written to a report.",
+    "protocol": "Protocol: {{protocol}}",
+    "missingFields": "Enter the gateway address, model and API key before verifying."
+  },
+  "actions": {
+    "verify": "Verify",
+    "verifyAgain": "Verify again",
+    "verifying": "Verifying…",
+    "recheckTerminals": "Re-check terminals",
+    "runDiagnosis": "Run diagnosis with full snapshot",
+    "runningDiagnosis": "Diagnosing…",
+    "finishAnyway": "Finish anyway, even with failures (you can come back later)",
+    "showDiagnosis": "Show diagnosis",
+    "hideDiagnosis": "Hide diagnosis"
+  },
+  "results": {
+    "overallOk": "{{tool}} is ready to use.",
+    "overallFail": "{{tool}} is not working yet — see the diagnosis below.",
+    "cli": "Command-line tool",
+    "cliOk": "Runs",
+    "cliFail": "Does not run",
+    "version": "Version",
+    "path": "Path",
+    "outputTail": "Command output (redacted)",
+    "gateway": "Gateway connection",
+    "gatewayOk": "Connected",
+    "gatewayFail": "Failed",
+    "gatewaySkipped": "Gateway not tested this time",
+    "httpStatus": "HTTP status",
+    "latency": "Latency",
+    "message": "Server response (redacted)",
+    "errorClass": "Problem type"
+  },
+  "errorClass": {
+    "auth": "Authentication failed (key rejected)",
+    "not_found": "Address not found (404)",
+    "protocol_mismatch": "Protocol mismatch",
+    "rate_limited": "Too many requests (429)",
+    "server_error": "Gateway server error (5xx)",
+    "network": "Network unreachable",
+    "timeout": "Request timed out",
+    "tls": "TLS / certificate error",
+    "command_not_found": "Command not found",
+    "command_failed": "Command failed",
+    "unknown": "Unknown error"
+  },
+  "terminals": {
+    "title": "{{count}} terminal window(s) still running",
+    "body": "These windows will not see the new configuration, and verification may fail because of them. Close them all (for editor terminals, quit the whole editor), then re-check.",
+    "none": "No running terminal windows detected.",
+    "listLabel": "Running terminals",
+    "rechecked": "Re-checked."
+  },
+  "diagnosis": {
+    "title": "Diagnosis",
+    "autoOpened": "Verification failed; the tool has analysed the cause automatically.",
+    "merged": "Results from the full environment snapshot have been merged in."
+  },
+  "footer": {
+    "allOk": "All tools verified successfully.",
+    "pending": "{{count}} tool(s) not verified yet.",
+    "next": "Finish"
+  }
+}

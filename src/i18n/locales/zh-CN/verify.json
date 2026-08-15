@@ -1,1 +1,87 @@
-{}
+{
+  "title": "生效与验证",
+  "intro": "工具会在一个全新的终端会话里运行命令（相当于你新开一个终端），并可选地向公司网关发送一条最小测试请求，然后直接告诉你成功还是失败。失败时会自动给出原因和修复步骤。",
+  "reminder": {
+    "title": "开始前：先关掉所有终端窗口",
+    "body": "包括 Windows Terminal、PowerShell、CMD、Git Bash、macOS 终端 / iTerm，以及 VS Code、Cursor 等编辑器里的内置终端。已经打开的终端看不到刚改好的配置。"
+  },
+  "card": {
+    "title": "验证 {{tool}}",
+    "description": "在新会话中运行 {{command}}，确认命令能找到并能运行。",
+    "notRun": "还没有验证。",
+    "lastResult": "上次结果"
+  },
+  "gateway": {
+    "toggle": "同时测试网关连通性（需要临时输入 API Key）",
+    "description": "向网关发送一条最小的测试请求，确认地址、协议和 Key 都正确。",
+    "baseUrl": "网关地址",
+    "model": "模型",
+    "modelPlaceholder": "你被分配的模型名称",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "在此粘贴 Key（仅本次使用）",
+    "show": "显示",
+    "hide": "隐藏",
+    "keyNote": "Key 只在内存中保留这一次请求的时间：请求发出后立即清空，不会保存、记录、上传或写入报告。",
+    "protocol": "协议：{{protocol}}",
+    "missingFields": "请填写网关地址、模型和 API Key 后再开始验证。"
+  },
+  "actions": {
+    "verify": "开始验证",
+    "verifyAgain": "再次验证",
+    "verifying": "验证中…",
+    "recheckTerminals": "重新检查终端",
+    "runDiagnosis": "用完整环境快照运行诊断",
+    "runningDiagnosis": "诊断中…",
+    "finishAnyway": "有失败项也直接完成（稍后可再回来验证）",
+    "showDiagnosis": "查看诊断",
+    "hideDiagnosis": "收起诊断"
+  },
+  "results": {
+    "overallOk": "{{tool}} 已可以正常使用。",
+    "overallFail": "{{tool}} 还不能正常使用，请看下面的诊断结果。",
+    "cli": "命令行工具",
+    "cliOk": "可以运行",
+    "cliFail": "无法运行",
+    "version": "版本",
+    "path": "路径",
+    "outputTail": "命令输出（已脱敏）",
+    "gateway": "网关连通性",
+    "gatewayOk": "连接成功",
+    "gatewayFail": "连接失败",
+    "gatewaySkipped": "本次未测试网关",
+    "httpStatus": "HTTP 状态",
+    "latency": "耗时",
+    "message": "服务器返回（已脱敏）",
+    "errorClass": "问题类型"
+  },
+  "errorClass": {
+    "auth": "认证失败（Key 不被接受）",
+    "not_found": "地址不存在（404）",
+    "protocol_mismatch": "协议不匹配",
+    "rate_limited": "请求过于频繁（429）",
+    "server_error": "网关服务端错误（5xx）",
+    "network": "网络不通",
+    "timeout": "请求超时",
+    "tls": "TLS / 证书错误",
+    "command_not_found": "命令不存在",
+    "command_failed": "命令执行失败",
+    "unknown": "未知错误"
+  },
+  "terminals": {
+    "title": "检测到 {{count}} 个仍在运行的终端",
+    "body": "这些窗口不会看到新配置，验证也可能因此失败。请把它们全部关闭（编辑器内置终端请退出整个编辑器），然后重新检查。",
+    "none": "没有检测到正在运行的终端窗口。",
+    "listLabel": "仍在运行的终端",
+    "rechecked": "已重新检查。"
+  },
+  "diagnosis": {
+    "title": "诊断结果",
+    "autoOpened": "验证失败，工具已自动分析原因。",
+    "merged": "已合并完整环境快照的诊断结果。"
+  },
+  "footer": {
+    "allOk": "所有工具都已验证通过。",
+    "pending": "还有 {{count}} 个工具未验证通过。",
+    "next": "完成"
+  }
+}
