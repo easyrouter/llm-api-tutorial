@@ -1,0 +1,26 @@
+# Normalise line endings: the repo is LF everywhere (rustfmt `newline_style = "Unix"`,
+# prettier `endOfLine: lf`); force LF on checkout so Windows runners/clones with
+# core.autocrlf=true do not fail `cargo fmt --check` / `prettier --check`.
+* text=auto eol=lf
+
+# Windows-only scripts that genuinely need CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dll binary
