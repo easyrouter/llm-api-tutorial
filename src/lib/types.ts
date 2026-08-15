@@ -252,6 +252,8 @@ export interface InstallDoneEvent {
   exitCode: number | null;
   durationMs: number;
   cancelled: boolean;
+  /** The command was killed because it exceeded the install timeout (`exitCode` is null). */
+  timedOut: boolean;
 }
 
 export interface DownloadProgressEvent {

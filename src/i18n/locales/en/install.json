@@ -75,6 +75,7 @@
     "successHint": "The install command succeeded. Re-checking that the tool is available…",
     "failedHint": "The install command failed (exit code {{code}}). Check the output above; for network timeouts or download errors, switch the registry and retry.",
     "failedNoCode": "The install command did not finish normally. Check the output above and retry.",
+    "timedOut": "The install command was stopped after {{minutes}} min without finishing. Usually the registry is slow or blocked from this network: switch the registry and retry, or check VPN / proxy settings.",
     "cancelled": "Install cancelled.",
     "startFailed": "The install command could not be started.",
     "recheckAfterDone": "Re-checked after the install: {{message}}",

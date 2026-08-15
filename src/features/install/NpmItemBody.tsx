@@ -66,6 +66,11 @@ function failureMessage(
 ): string {
   if (!done) return t("install:npm.startFailed");
   if (done.cancelled) return t("install:npm.cancelled");
+  if (done.timedOut) {
+    return t("install:npm.timedOut", {
+      minutes: Math.max(1, Math.round(done.durationMs / 60_000)),
+    });
+  }
   if (done.exitCode === null) return t("install:npm.failedNoCode");
   return t("install:npm.failedHint", { code: done.exitCode });
 }

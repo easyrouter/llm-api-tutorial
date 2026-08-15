@@ -352,6 +352,7 @@ async fn run_job(
                 exit_code: output.exit_code,
                 duration_ms: output.duration_ms,
                 cancelled,
+                timed_out: output.timed_out,
             }
         }
         Err(e) => {
@@ -364,6 +365,7 @@ async fn run_job(
                 exit_code: None,
                 duration_ms: elapsed_ms(started),
                 cancelled: false,
+                timed_out: false,
             }
         }
     };

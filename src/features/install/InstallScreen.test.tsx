@@ -150,6 +150,7 @@ describe("InstallScreen", () => {
         exitCode: 0,
         durationMs: 3000,
         cancelled: false,
+        timedOut: false,
       });
     });
     expect(codex).toHaveAttribute("data-phase", "done");
@@ -213,6 +214,7 @@ describe("InstallScreen", () => {
         exitCode: 1,
         durationMs: 10,
         cancelled: false,
+        timedOut: false,
       });
     });
     expect(codex).toHaveAttribute("data-phase", "failed");
@@ -260,6 +262,7 @@ describe("InstallScreen", () => {
         exitCode: 1,
         durationMs: 5,
         cancelled: false,
+        timedOut: false,
       });
     });
     expect(codex).toHaveAttribute("data-phase", "failed");
@@ -267,6 +270,33 @@ describe("InstallScreen", () => {
     fireEvent.click(within(codex).getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(calls("plan_install")).toHaveLength(2));
     expect(calls("plan_install")[1]?.[1]).toEqual({ target: "codex", excludeRegistry: null });
+  });
+
+  it("npm target: a timed-out job shows the timeout hint with the elapsed minutes", async () => {
+    useWizardStore
+      .getState()
+      .setSnapshot(envSnapshot({ codex: checkResult("codex", "fail", { code: "tool.missing" }) }));
+    setInvokeHandlers({
+      plan_install: () => installPlan("codex"),
+      start_install: () => ({ jobId: "job-3", target: "codex" }),
+    });
+    render(<InstallScreen />);
+    const codex = card("codex");
+    await waitFor(() => expect(codex).toHaveAttribute("data-phase", "confirm"));
+    fireEvent.click(within(codex).getByRole("button", { name: "Confirm and run" }));
+    await waitFor(() => expect(codex).toHaveAttribute("data-phase", "running"));
+    act(() => {
+      emitMockEvent(EVENTS.installDone, {
+        jobId: "job-3",
+        success: false,
+        exitCode: null,
+        durationMs: 15 * 60_000,
+        cancelled: false,
+        timedOut: true,
+      });
+    });
+    expect(codex).toHaveAttribute("data-phase", "failed");
+    expect(within(codex).getByRole("alert")).toHaveTextContent("stopped after 15 min");
   });
 
   it("node target: opens the download page and is done once the re-check passes", async () => {

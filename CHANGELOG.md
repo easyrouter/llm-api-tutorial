@@ -83,3 +83,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   (targets listed, gateway first; Warning when only Warn-level checks are affected). Before,
   "Run diagnosis" on the Environment step answered "No diagnosis available yet" for an
   unreachable gateway.
+- Install: `InstallDoneEvent.timedOut` (additive; mirrored in `types.ts`) marks a job the
+  install timeout killed; the npm item shows a dedicated hint ("stopped after N min … switch
+  the registry / check VPN") instead of the generic "did not finish normally".

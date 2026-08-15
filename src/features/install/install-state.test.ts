@@ -27,6 +27,7 @@ const done = (over: Partial<InstallDoneEvent> = {}): InstallDoneEvent => ({
   exitCode: 0,
   durationMs: 1000,
   cancelled: false,
+  timedOut: false,
   ...over,
 });
 

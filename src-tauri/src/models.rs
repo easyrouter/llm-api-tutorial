@@ -427,6 +427,8 @@ pub struct InstallDoneEvent {
     pub exit_code: Option<i32>,
     pub duration_ms: u64,
     pub cancelled: bool,
+    /// The command was killed because it exceeded the install timeout (`exit_code` is `None`).
+    pub timed_out: bool,
 }
 
 /// Emitted on the `download://progress` event channel.
