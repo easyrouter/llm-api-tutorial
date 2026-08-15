@@ -9,23 +9,23 @@ export PATH
 staged=$(git diff --cached --name-only --diff-filter=ACMR)
 [ -z "$staged" ] && exit 0
 
-# Prefer the project-local binaries; fall back to npx.
-if [ -x node_modules/.bin/prettier ]; then PRETTIER=node_modules/.bin/prettier; else PRETTIER="npx prettier"; fi
-if [ -x node_modules/.bin/eslint ]; then ESLINT=node_modules/.bin/eslint; else ESLINT="npx eslint"; fi
-
-if printf '%s\n' "$staged" | grep -Eq '\.(ts|tsx|js|mjs|json|css|md|ya?ml)$'; then
-  echo "> prettier --check (staged web files)"
-  printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|mjs|json|css|md|ya?ml)$' | xargs $PRETTIER --check --ignore-unknown
-fi
-
-if printf '%s\n' "$staged" | grep -Eq '^src/.*\.(ts|tsx)$'; then
-  echo "> eslint (staged src files)"
-  printf '%s\n' "$staged" | grep -E '^src/.*\.(ts|tsx)$' | xargs $ESLINT --max-warnings 0
-fi
-
-if printf '%s\n' "$staged" | grep -Eq '^src/i18n/locales/'; then
-  echo "> i18n key parity"
-  node scripts/check-i18n.mjs
+# Web checks need the project-local binaries (npm install). Skip with a warning otherwise —
+# CI enforces them regardless.
+if [ -x node_modules/.bin/prettier ]; then
+  if printf '%s\n' "$staged" | grep -Eq '\.(ts|tsx|js|mjs|json|css|md|ya?ml)$'; then
+    echo "> prettier --check (staged web files)"
+    printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|mjs|json|css|md|ya?ml)$' | xargs node_modules/.bin/prettier --check --ignore-unknown
+  fi
+  if printf '%s\n' "$staged" | grep -Eq '^src/.*\.(ts|tsx)$'; then
+    echo "> eslint (staged src files)"
+    printf '%s\n' "$staged" | grep -E '^src/.*\.(ts|tsx)$' | xargs node_modules/.bin/eslint --max-warnings 0
+  fi
+  if printf '%s\n' "$staged" | grep -Eq '^src/i18n/locales/'; then
+    echo "> i18n key parity"
+    node scripts/check-i18n.mjs
+  fi
+else
+  echo "! node_modules missing - skipping prettier/eslint/i18n checks (run npm install; CI enforces them)" >&2
 fi
 
 if printf '%s\n' "$staged" | grep -Eq '^src-tauri/.*\.rs$'; then
@@ -33,6 +33,6 @@ if printf '%s\n' "$staged" | grep -Eq '^src-tauri/.*\.rs$'; then
     echo "> cargo fmt --check"
     cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
   else
-    echo "! cargo not found on PATH — skipping cargo fmt (CI will enforce it)" >&2
+    echo "! cargo not found on PATH - skipping cargo fmt (CI enforces it)" >&2
   fi
 fi
