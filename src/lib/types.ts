@@ -224,6 +224,12 @@ export interface InstallPlan {
   requiresAdmin: boolean;
   /** i18n code → `install.plan.<code>` */
   explanationCode: string;
+  /**
+   * Page / file the user downloads manually when the plan has no command (Node.js download
+   * page of the chosen mirror). `null` for command plans and for CC Switch (fetch the release
+   * with `fetchCcSwitchRelease` instead).
+   */
+  downloadUrl: string | null;
 }
 
 export interface InstallJob {
