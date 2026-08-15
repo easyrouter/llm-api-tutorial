@@ -45,8 +45,9 @@ export const runEnvCheck = (id: CheckId) => invoke<CheckResult>("run_env_check",
 export const probeMirrors = () => invoke<MirrorChoice>("probe_mirrors");
 
 // M2
-export const planInstall = (target: InstallTarget) =>
-  invoke<InstallPlan>("plan_install", { target });
+/** `excludeRegistry`: id of the npm registry a previous attempt failed on (re-plan elsewhere). */
+export const planInstall = (target: InstallTarget, excludeRegistry: string | null = null) =>
+  invoke<InstallPlan>("plan_install", { target, excludeRegistry });
 export const startInstall = (plan: InstallPlan) => invoke<InstallJob>("start_install", { plan });
 export const cancelInstall = (jobId: string) => invoke<void>("cancel_install", { jobId });
 export const fetchCcSwitchRelease = () => invoke<CcSwitchRelease>("fetch_cc_switch_release");
@@ -67,8 +68,11 @@ export const listRunningTerminals = () => invoke<TerminalProcess[]>("list_runnin
 
 // M5
 export const diagnose = (request: DiagnoseRequest) => invoke<Diagnosis[]>("diagnose", { request });
-export const buildDiagnosticReport = (snapshot: EnvSnapshot | null, diagnoses: Diagnosis[]) =>
-  invoke<DiagnosticReport>("build_diagnostic_report", { snapshot, diagnoses });
+export const buildDiagnosticReport = (
+  snapshot: EnvSnapshot | null,
+  diagnoses: Diagnosis[],
+  verify: VerifyResult[] = [],
+) => invoke<DiagnosticReport>("build_diagnostic_report", { snapshot, diagnoses, verify });
 export const saveDiagnosticReport = (path: string, markdown: string) =>
   invoke<void>("save_diagnostic_report", { path, markdown });
 

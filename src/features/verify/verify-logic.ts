@@ -6,6 +6,7 @@ import { primaryRuleId } from "@/features/diagnose/diagnoses";
 import type {
   AppConfig,
   ErrorClass,
+  Protocol,
   Symptom,
   TelemetryEvent,
   ToolId,
@@ -88,4 +89,33 @@ export function unverifiedTools(
 /** Binary name for a tool from the company preset (`codex`, `claude`); falls back to the id. */
 export function toolBinary(config: AppConfig | null, tool: ToolId): string {
   return config?.tools.find((spec) => spec.id === tool)?.binary ?? tool;
+}
+
+/**
+ * Wire protocol of the gateway probe for `tool`: Claude Code always speaks Anthropic Messages
+ * (it has no protocol setting); Codex follows the company preset (Responses by default).
+ */
+export function probeProtocol(config: AppConfig | null, tool: ToolId): Protocol {
+  if (tool === "claude-code") return "anthropic_messages";
+  return config?.gateway.protocol ?? "responses";
+}
+
+/**
+ * True when the probe would refuse to send the key to `baseUrl`: anything that is not `https`
+ * except plain `http` to a loopback host (mirrors `verify::key_may_be_sent_to` in Rust).
+ * An empty value is not flagged (the missing-fields check covers it).
+ */
+export function baseUrlNeedsHttps(baseUrl: string): boolean {
+  const trimmed = baseUrl.trim();
+  if (trimmed === "") return false;
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return true;
+  }
+  if (url.protocol === "https:") return false;
+  if (url.protocol !== "http:") return true;
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return !(host === "localhost" || host === "127.0.0.1" || host === "::1");
 }

@@ -112,6 +112,21 @@ export function nodeDownloadPage(plan: InstallPlan | null, config: AppConfig | n
   return fromConfig ?? "https://nodejs.org/en/download";
 }
 
+/**
+ * Registry id to leave out when re-planning after `plan` failed on it (PRD M2 "switch mirror
+ * and retry"): the plan's registry when the preset configures at least one other npm registry,
+ * `null` when there is nothing to switch to (plain retry).
+ */
+export function registryToAvoidOnRetry(
+  plan: InstallPlan | null,
+  config: AppConfig | null,
+): string | null {
+  const failed = plan?.registry?.id;
+  if (!failed) return null;
+  const hasAlternate = (config?.mirrors.npmRegistries ?? []).some((r) => r.id !== failed);
+  return hasAlternate ? failed : null;
+}
+
 /** Release page for CC Switch (manual fallback when the release API is unreachable). */
 export function ccSwitchDownloadPage(config: AppConfig | null): string {
   return config?.ccSwitch.downloadPage || "https://github.com/farion1231/cc-switch/releases/latest";

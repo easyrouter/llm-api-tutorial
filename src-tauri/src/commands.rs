@@ -8,6 +8,8 @@
 //! - No command accepts a path outside the app's own cache/config dirs except
 //!   `save_diagnostic_report`, whose path comes from the native save dialog.
 
+use std::path::{Component, Path, PathBuf};
+
 use tauri::{AppHandle, Manager, State};
 
 use crate::checks::{self, CheckContext};
@@ -22,6 +24,7 @@ use crate::models::{
     InstallJob, InstallPlan, InstallTarget, KeyValidation, MirrorChoice, TelemetryEvent,
     TelemetryStatus, TerminalProcess, ToolId, UrlPreview, VerifyRequest, VerifyResult,
 };
+use crate::platform::expand_tilde;
 use crate::state::AppState;
 use crate::verify;
 
@@ -118,13 +121,18 @@ pub async fn probe_mirrors(state: State<'_, AppState>) -> AppResult<MirrorChoice
 // M2 — install
 // ---------------------------------------------------------------------------
 
+/// `exclude_registry` (optional, additive): id of the npm registry a previous attempt failed
+/// on; the new plan uses another configured registry when there is one.
 #[tauri::command]
 pub async fn plan_install(
     target: InstallTarget,
+    exclude_registry: Option<String>,
     state: State<'_, AppState>,
 ) -> AppResult<InstallPlan> {
     let cfg = state.config_snapshot().config;
-    let mirrors = crate::net::choose_mirrors(&state.http, &cfg.mirrors).await;
+    let mirrors =
+        crate::net::choose_mirrors_avoiding(&state.http, &cfg.mirrors, exclude_registry.as_deref())
+            .await;
     install::plan(target, &cfg, &mirrors).await
 }
 
@@ -134,7 +142,8 @@ pub async fn start_install(
     plan: InstallPlan,
     state: State<'_, AppState>,
 ) -> AppResult<InstallJob> {
-    install::start(app, &state.jobs, plan).await
+    let cfg = state.config_snapshot().config;
+    install::start(app, &state.jobs, &cfg, plan).await
 }
 
 #[tauri::command]
@@ -166,22 +175,38 @@ pub async fn download_file(
     install::download_installer(app, &state.http, request).await
 }
 
-/// Opens a file previously downloaded into the app cache directory (installer hand-off).
+/// Opens a file previously downloaded into `<app cache dir>/downloads` (installer hand-off).
+/// The path is canonicalised and must be an existing regular file directly inside that
+/// directory — `..` components or symlinks pointing elsewhere are rejected.
 #[tauri::command]
 pub fn open_downloaded_file(app: AppHandle, path: String) -> AppResult<()> {
-    let cache = app
+    let downloads = app
         .path()
         .app_cache_dir()
-        .map_err(|e| AppError::Other(e.to_string()))?;
-    let target = std::path::Path::new(&path);
-    if !target.starts_with(&cache) {
-        return Err(AppError::InvalidInput(
-            "path is outside the app cache directory".into(),
-        ));
-    }
+        .map_err(|e| AppError::Other(e.to_string()))?
+        .join(install::DOWNLOADS_DIR);
+    // Validate on canonical paths, but hand the plain path to the opener (Windows canonical
+    // paths carry the verbatim `\\?\` prefix, which shell APIs do not always accept).
+    downloaded_file_in(&downloads, Path::new(&path))?;
     tauri_plugin_opener::OpenerExt::opener(&app)
         .open_path(path, None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
+}
+
+/// Canonical path of `path` when it is an existing regular file whose parent is exactly
+/// `downloads_dir` (canonicalised); `InvalidInput` otherwise. `..` components are refused
+/// outright (canonicalisation would resolve them, but the intent is never legitimate).
+fn downloaded_file_in(downloads_dir: &Path, path: &Path) -> AppResult<PathBuf> {
+    let outside = || AppError::InvalidInput("path is outside the app downloads directory".into());
+    if path.components().any(|c| c == Component::ParentDir) {
+        return Err(outside());
+    }
+    let dir = std::fs::canonicalize(downloads_dir).map_err(|_| outside())?;
+    let file = std::fs::canonicalize(path).map_err(|_| outside())?;
+    if !file.is_file() || file.parent() != Some(dir.as_path()) {
+        return Err(outside());
+    }
+    Ok(file)
 }
 
 // ---------------------------------------------------------------------------
@@ -234,11 +259,14 @@ pub fn diagnose(request: DiagnoseRequest, state: State<'_, AppState>) -> AppResu
     ))
 }
 
+/// `verify` (optional, additive) carries the latest verification results so the report also
+/// contains the raw error information when no diagnosis rule matched.
 #[tauri::command]
 pub fn build_diagnostic_report(
     app: AppHandle,
     snapshot: Option<EnvSnapshot>,
     diagnoses: Vec<Diagnosis>,
+    verify: Option<Vec<VerifyResult>>,
     state: State<'_, AppState>,
 ) -> AppResult<DiagnosticReport> {
     let info = app_info(&app, &state);
@@ -248,17 +276,81 @@ pub fn build_diagnostic_report(
         config: &cfg,
         snapshot: snapshot.as_ref(),
         diagnoses: &diagnoses,
+        verify: verify.as_deref().unwrap_or_default(),
     }))
 }
 
-/// Writes `markdown` to `path` (chosen by the user via the native save dialog).
+/// Writes `markdown` to `path` (chosen by the user via the native save dialog). Paths inside
+/// the tool config directories (`~/.codex`, `~/.claude`, `~/.cc-switch`) are refused — hard
+/// rule 1 holds even if the dialog is pointed there.
 #[tauri::command]
-pub async fn save_diagnostic_report(path: String, markdown: String) -> AppResult<()> {
+pub async fn save_diagnostic_report(
+    path: String,
+    markdown: String,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
     if !path.to_ascii_lowercase().ends_with(".md") {
         return Err(AppError::InvalidInput("report must be saved as .md".into()));
     }
+    let protected = protected_dirs(&state.config_snapshot().config);
+    if is_under_any(Path::new(&path), &protected) {
+        return Err(AppError::InvalidInput(
+            "the report must not be saved inside a tool configuration directory".into(),
+        ));
+    }
     tokio::fs::write(&path, crate::redact::redact_secrets(&markdown)).await?;
     Ok(())
+}
+
+/// Directories the app must never write into (`ToolSpec.config_dir` + CC Switch data dir),
+/// tilde-expanded.
+fn protected_dirs(config: &AppConfig) -> Vec<PathBuf> {
+    config
+        .tools
+        .iter()
+        .map(|t| t.config_dir.as_str())
+        .chain(std::iter::once(config.cc_switch.data_dir.as_str()))
+        .filter(|d| !d.trim().is_empty())
+        .map(expand_tilde)
+        .collect()
+}
+
+/// `true` when `path` lies inside any of `dirs`, compared on normalised paths (see
+/// [`normalize_path`]) so `dir/../x` cannot escape and `dir/./sub` cannot hide.
+fn is_under_any(path: &Path, dirs: &[PathBuf]) -> bool {
+    let target = normalize_path(path);
+    dirs.iter().any(|dir| {
+        let dir = normalize_path(dir);
+        !dir.as_os_str().is_empty() && target.starts_with(&dir)
+    })
+}
+
+/// Lexical normalisation (`.` dropped, `..` applied component-wise), then the longest existing
+/// prefix is canonicalised so symlinked or differently-cased spellings compare equal. Pure
+/// apart from read-only `exists` / `canonicalize` probes.
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut lexical = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                lexical.pop();
+            }
+            other => lexical.push(other.as_os_str()),
+        }
+    }
+    let existing = lexical
+        .ancestors()
+        .find(|p| p.exists())
+        .map(Path::to_path_buf);
+    let canonical = existing.and_then(|p| std::fs::canonicalize(&p).ok().map(|c| (p, c)));
+    match canonical {
+        Some((prefix, canonical)) => match lexical.strip_prefix(&prefix) {
+            Ok(rest) => canonical.join(rest),
+            Err(_) => lexical,
+        },
+        None => lexical,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -326,4 +418,82 @@ pub fn set_telemetry_enabled(
 #[tauri::command]
 pub fn get_telemetry_status(state: State<'_, AppState>) -> AppResult<TelemetryStatus> {
     Ok(state.telemetry.status())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn downloaded_file_must_be_a_file_directly_inside_the_downloads_dir() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let downloads = root.path().join(install::DOWNLOADS_DIR);
+        std::fs::create_dir_all(downloads.join("nested")).expect("mkdir");
+        let ok = downloads.join("setup.exe");
+        std::fs::write(&ok, b"x").expect("write");
+        let nested = downloads.join("nested").join("setup.exe");
+        std::fs::write(&nested, b"x").expect("write");
+        let outside = root.path().join("setup.exe");
+        std::fs::write(&outside, b"x").expect("write");
+
+        let accepted = downloaded_file_in(&downloads, &ok).expect("inside");
+        assert!(accepted.ends_with("setup.exe"));
+        // `.` is normalised away by `Path::components`; the file is still the right one
+        downloaded_file_in(&downloads, &downloads.join(".").join("setup.exe")).expect("dot");
+
+        let traversal = downloads.join("..").join("setup.exe");
+        let sneaky = downloads.join("nested").join("..").join("setup.exe");
+        for bad in [
+            traversal.as_path(),
+            sneaky.as_path(),
+            outside.as_path(),
+            nested.as_path(),
+            downloads.as_path(),
+            downloads.join("missing.exe").as_path(),
+        ] {
+            assert_eq!(
+                downloaded_file_in(&downloads, bad)
+                    .expect_err(&format!("{}", bad.display()))
+                    .code(),
+                "invalid_input"
+            );
+        }
+    }
+
+    #[test]
+    fn report_paths_inside_tool_config_dirs_are_detected() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let codex = root.path().join(".codex");
+        std::fs::create_dir_all(&codex).expect("mkdir");
+        let dirs = vec![codex.clone(), root.path().join(".claude")];
+
+        assert!(is_under_any(&codex.join("report.md"), &dirs));
+        assert!(is_under_any(&codex.join("sub").join("deep.md"), &dirs));
+        assert!(is_under_any(
+            &root.path().join("x").join("..").join(".codex").join("r.md"),
+            &dirs
+        ));
+        // `.claude` does not exist yet — lexical comparison still catches it
+        assert!(is_under_any(
+            &root.path().join(".claude").join("r.md"),
+            &dirs
+        ));
+        assert!(!is_under_any(&root.path().join("report.md"), &dirs));
+        assert!(!is_under_any(&codex.join("..").join("report.md"), &dirs));
+        assert!(!is_under_any(
+            &root.path().join(".codex-reports").join("r.md"),
+            &dirs
+        ));
+        assert!(!is_under_any(&codex.join("r.md"), &[]));
+    }
+
+    #[test]
+    fn protected_dirs_come_from_the_config() {
+        let cfg = crate::config::embedded().expect("config");
+        let dirs = protected_dirs(&cfg);
+        assert_eq!(dirs.len(), 3, "{dirs:?}");
+        assert!(dirs.iter().any(|d| d.ends_with(".codex")));
+        assert!(dirs.iter().any(|d| d.ends_with(".claude")));
+        assert!(dirs.iter().any(|d| d.ends_with(".cc-switch")));
+    }
 }

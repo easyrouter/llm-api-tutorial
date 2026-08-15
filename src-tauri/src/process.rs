@@ -9,6 +9,10 @@
 //! - Every run has a timeout (`CommandSpec::timeout`). A timeout is *data*
 //!   (`CommandOutput::timed_out`), not an error; only a failed spawn is an error.
 //! - Windows children are created with `CREATE_NO_WINDOW`, stdin is always null.
+//! - Timeout / cancel kill the child's whole tree, best effort: Windows `taskkill /T`; on
+//!   Unix every child starts in its own process group and the group is signalled
+//!   (`kill -9 -- -<pgid>`) before the direct child is killed, so `brew`'s ruby/curl or npm
+//!   lifecycle scripts do not linger. Descendants that left the group (daemons) are not chased.
 //! - `fresh_session_env` reconstructs the environment a *newly opened* terminal would see
 //!   (Windows: registry; macOS/Linux: login shell), which lets M4 verify detect the "terminal
 //!   not restarted" fault (guide faults C/E). `run_in_fresh_session` runs a spec against it.
@@ -214,6 +218,9 @@ fn build_command(spec: &CommandSpec) -> Command {
         .kill_on_drop(true);
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
+    // Own process group (pgid = child pid) so `kill_child` can signal the whole tree.
+    #[cfg(unix)]
+    cmd.process_group(0);
     cmd
 }
 
@@ -255,24 +262,39 @@ async fn pump_lines<R>(
     }
 }
 
-/// Kills the child. On Windows the whole tree is terminated (`taskkill /T`) because killing
-/// a `.cmd` shim alone would leave the real `node.exe` running.
+/// Kills the child and, best effort, its whole tree: Windows `taskkill /T` (killing a `.cmd`
+/// shim alone would leave the real `node.exe` running); Unix `kill -9 -- -<pgid>` on the
+/// process group `build_command` created for the child. The direct child is killed last.
 async fn kill_child(child: &mut Child) {
-    #[cfg(windows)]
     if let Some(pid) = child.id() {
-        let mut taskkill = Command::new("taskkill");
-        taskkill
-            .args(["/T", "/F", "/PID", &pid.to_string()])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .kill_on_drop(true)
-            .creation_flags(CREATE_NO_WINDOW);
-        if let Ok(mut proc) = taskkill.spawn() {
+        let mut tree_kill = tree_kill_command(pid);
+        if let Ok(mut proc) = tree_kill.spawn() {
             let _ = tokio::time::timeout(Duration::from_secs(5), proc.wait()).await;
         }
     }
     let _ = child.kill().await;
+}
+
+/// Platform command that terminates the process tree rooted at `pid` (silent, no window).
+fn tree_kill_command(pid: u32) -> Command {
+    let mut cmd = if cfg!(windows) {
+        let mut c = Command::new("taskkill");
+        c.args(["/T", "/F", "/PID", &pid.to_string()]);
+        c
+    } else {
+        // `--` so the negative (group) pid is not parsed as a signal; `pid` doubles as the
+        // pgid because the child was started with `process_group(0)`.
+        let mut c = Command::new("kill");
+        c.args(["-9", "--", &format!("-{pid}")]);
+        c
+    };
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
 }
 
 /// Why the run loop stopped waiting for the child.

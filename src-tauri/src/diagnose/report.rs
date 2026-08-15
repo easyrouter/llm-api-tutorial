@@ -3,7 +3,10 @@
 //! Sections, in order: header (generated, app version, platform / arch / OS version / build /
 //! shell, config source, gateway preset), `Checks` table (id | status | code | details),
 //! `Tools` (tool | installed | version | path | on PATH), `Environment variables`
-//! (name | present | masked value | sources), `Diagnoses` (rule | severity | code | params),
+//! (name | present | masked value | sources), `Verification` (per verified tool: CLI ok /
+//! version / path / error class / redacted output tail, gateway HTTP status / latency / error
+//! class / redacted server message, running terminal names — the raw error information M5
+//! asks for even when no rule matched), `Diagnoses` (rule | severity | code | params),
 //! `Config presence (read-only)` and `Notes`.
 //!
 //! Config presence never reveals values: for every `ToolSpec.config_dir` it reports whether the
@@ -23,7 +26,7 @@ use serde::Serialize;
 
 use crate::models::{
     AppConfig, AppInfo, CheckResult, Diagnosis, DiagnosticReport, EnvSnapshot, EnvVarFinding,
-    ToolId, ToolInfo,
+    ToolId, ToolInfo, VerifyResult,
 };
 use crate::platform::expand_tilde;
 use crate::redact::redact_secrets;
@@ -36,6 +39,8 @@ pub struct ReportInput<'a> {
     pub config: &'a AppConfig,
     pub snapshot: Option<&'a EnvSnapshot>,
     pub diagnoses: &'a [Diagnosis],
+    /// Latest verification result per tool (already redacted by `verify`); may be empty.
+    pub verify: &'a [VerifyResult],
 }
 
 impl std::fmt::Debug for ReportInput<'_> {
@@ -54,6 +59,7 @@ pub fn build(input: &ReportInput<'_>) -> DiagnosticReport {
     checks_section(&mut md, input.snapshot);
     tools_section(&mut md, input.snapshot);
     env_vars_section(&mut md, input.snapshot);
+    verification_section(&mut md, input.verify);
     diagnoses_section(&mut md, input.diagnoses);
     config_presence_section(&mut md, input.config);
     notes_section(&mut md);
@@ -172,6 +178,52 @@ fn env_var_row(f: &EnvVarFinding) -> [String; 4] {
         opt(f.value_masked.clone()),
         sources,
     ]
+}
+
+fn verification_section(md: &mut String, results: &[VerifyResult]) {
+    md.push_str("## Verification\n\n");
+    if results.is_empty() {
+        md.push_str("_not run_\n\n");
+        return;
+    }
+    for r in results {
+        let _ = writeln!(md, "### {}\n", wire(&r.tool));
+        push_kv(md, "ok", &r.ok.to_string());
+        push_kv(md, "cli ok", &r.cli.ok.to_string());
+        push_kv(md, "cli version", &opt(r.cli.version.clone()));
+        push_kv(md, "cli path", &opt(r.cli.path.clone()));
+        push_kv(
+            md,
+            "cli error class",
+            &opt(r.cli.error_class.map(|c| wire(&c))),
+        );
+        push_kv(md, "cli output (redacted)", &opt(r.cli.output_tail.clone()));
+        match &r.gateway {
+            Some(g) => {
+                push_kv(md, "gateway ok", &g.ok.to_string());
+                push_kv(
+                    md,
+                    "gateway http status",
+                    &opt(g.http_status.map(|s| s.to_string())),
+                );
+                push_kv(
+                    md,
+                    "gateway latency ms",
+                    &opt(g.latency_ms.map(|l| l.to_string())),
+                );
+                push_kv(
+                    md,
+                    "gateway error class",
+                    &opt(g.error_class.map(|c| wire(&c))),
+                );
+                push_kv(md, "gateway message (redacted)", &opt(g.message.clone()));
+            }
+            None => push_kv(md, "gateway", "not tested"),
+        }
+        let terminals: Vec<String> = r.running_terminals.iter().map(|t| t.name.clone()).collect();
+        push_kv(md, "running terminals", &list_or_none(&terminals));
+        md.push('\n');
+    }
 }
 
 fn diagnoses_section(md: &mut String, diagnoses: &[Diagnosis]) {
@@ -518,6 +570,7 @@ mod tests {
             config: &cfg,
             snapshot: Some(&snap),
             diagnoses: &diagnoses,
+            verify: &[],
         });
         let md = &report.markdown;
         for section in [
@@ -525,6 +578,7 @@ mod tests {
             "## Checks",
             "## Tools",
             "## Environment variables",
+            "## Verification",
             "## Diagnoses",
             "## Config presence (read-only)",
             "## Notes",
@@ -572,13 +626,63 @@ mod tests {
             config: &cfg,
             snapshot: None,
             diagnoses: &[],
+            verify: &[],
         });
         let md = &report.markdown;
         assert!(md.contains("- snapshot: none"), "{md}");
         assert!(md.contains("_no check results_"), "{md}");
         assert!(md.contains("_no tool information_"), "{md}");
         assert!(md.contains("_no environment variable findings_"), "{md}");
+        assert!(md.contains("## Verification\n\n_not run_"), "{md}");
         assert!(md.contains("## Diagnoses\n\n_none_"), "{md}");
+    }
+
+    #[test]
+    fn report_renders_verification_details_redacted() {
+        use crate::models::{CliCheck, ErrorClass, GatewayCheck, TerminalProcess};
+        let cfg = config::embedded().expect("config");
+        let key = "sk-abcdefghijklmnopqrstuvwxyz0123456789";
+        let result = VerifyResult {
+            tool: ToolId::ClaudeCode,
+            cli: CliCheck {
+                ok: false,
+                version: None,
+                path: Some("C:\\npm\\claude.cmd".into()),
+                output_tail: Some(format!("Error: bad key {key}")),
+                error_class: Some(ErrorClass::CommandFailed),
+            },
+            gateway: Some(GatewayCheck {
+                ok: false,
+                http_status: Some(401),
+                latency_ms: Some(120),
+                error_class: Some(ErrorClass::Auth),
+                message: Some("Incorrect API key provided: [REDACTED]".into()),
+            }),
+            running_terminals: vec![TerminalProcess {
+                pid: 1,
+                name: "WindowsTerminal.exe".into(),
+            }],
+            ok: false,
+            diagnoses: Vec::new(),
+        };
+        let report = build(&ReportInput {
+            app: &app(),
+            config: &cfg,
+            snapshot: None,
+            diagnoses: &[],
+            verify: &[result],
+        });
+        let md = &report.markdown;
+        assert!(md.contains("### claude-code"), "{md}");
+        assert!(md.contains("- cli error class: command_failed"), "{md}");
+        assert!(md.contains("- gateway http status: 401"), "{md}");
+        assert!(md.contains("- gateway error class: auth"), "{md}");
+        assert!(md.contains("- gateway latency ms: 120"), "{md}");
+        assert!(
+            md.contains("- running terminals: WindowsTerminal.exe"),
+            "{md}"
+        );
+        assert!(!md.contains(key), "key must be redacted: {md}");
     }
 
     const SAMPLE_TOML: &str = r#"

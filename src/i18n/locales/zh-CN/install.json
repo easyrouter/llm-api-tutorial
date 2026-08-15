@@ -7,14 +7,15 @@
     "noSnapshot": "还没有环境检查结果，请先回到「环境检查」运行一次。",
     "progress": "已完成 {{done}} / {{total}} 项",
     "allDone": "这一步的安装项都已处理完毕，可以进入下一步。",
-    "pendingHint": "请完成或跳过上面的每一项后再继续。"
+    "pendingHint": "请完成或跳过上面的每一项后再继续。",
+    "navigationLocked": "有安装或下载正在进行，请等它完成（或先取消）再离开本步骤。"
   },
   "plan": {
     "generic": "将按下面显示的方式安装 {{tool}}。",
     "npm_global": "将使用 npm 把 {{tool}} 安装到当前用户的全局目录，安装过程的输出会实时显示在下方。",
     "node": {
       "download_page": "Node.js 需要通过官方安装包安装。点击下方按钮打开下载页，下载并运行「LTS」版本的安装包（Windows 选 .msi，macOS 选 .pkg），一路「下一步」即可。",
-      "homebrew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js（安装完成后若终端仍找不到 node，再执行一次 brew link --overwrite 对应的 node@ 版本）；或者直接从下方的下载页安装。"
+      "homebrew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js（安装完成后请新开一个终端窗口；若仍找不到 node，再执行一次 brew link --overwrite node）；或者直接从下方的下载页安装。"
     },
     "cc_switch": {
       "download": "CC Switch 是桌面应用，将从官方发布渠道下载安装包并校验完整性，之后由你双击运行安装。"
@@ -49,6 +50,7 @@
     "openInstaller": "打开安装包",
     "openReleasePage": "打开发布页",
     "changeMirror": "更换软件源并重试",
+    "installerBlocked": "安装程序被拦截或打不开",
     "showOutput": "查看输出",
     "hideOutput": "收起输出"
   },
@@ -107,6 +109,7 @@
     "verified": "已通过 SHA-256 校验",
     "unverified": "未校验（发布方未提供哈希）",
     "verifiedFalse": "校验未通过，请勿运行此文件",
+    "blockedNote": "Windows SmartScreen 或 macOS Gatekeeper 可能会拦截不认识的安装程序。按下面的步骤处理后，再重新运行安装程序。",
     "afterDownload": {
       "title": "接下来",
       "open": "点击「打开安装包」运行安装程序（也可以到上面的文件位置双击）。",

@@ -52,7 +52,7 @@ pub fn evaluate(
             let v = Verdict::pass("cc_switch.ok")
                 .param_opt("version", app.version.clone())
                 .param_opt("path", app.location.clone())
-                .detail(format!("found via {}", app.source));
+                .param("source", app.source);
             match &app.location {
                 Some(location) => v.detail(location.clone()),
                 None => v,
@@ -65,7 +65,7 @@ pub fn evaluate(
     };
     let verdict = verdict.param("dataDir", data_dir_str.clone());
     if data_dir_present {
-        verdict.detail(format!("data dir: {data_dir_str}"))
+        verdict.detail(data_dir_str)
     } else {
         verdict
     }

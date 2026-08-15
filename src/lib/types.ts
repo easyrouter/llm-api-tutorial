@@ -12,7 +12,8 @@ export type Params = Record<string, string>;
 
 export type Platform = "windows" | "macos" | "linux" | "unknown";
 export type ConfigSource = "bundled" | "bundled_with_override" | "fallback";
-export type Protocol = "responses" | "chat_completions";
+/** OpenAI shapes (Codex) plus the Anthropic Messages shape Claude Code speaks. */
+export type Protocol = "responses" | "chat_completions" | "anthropic_messages";
 /** kebab-case on the wire */
 export type ToolId = "codex" | "claude-code";
 
@@ -367,6 +368,7 @@ export type ErrorClass =
   | "network"
   | "timeout"
   | "tls"
+  | "not_https"
   | "command_not_found"
   | "command_failed"
   | "unknown";

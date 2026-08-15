@@ -13,7 +13,13 @@ import { useAppStore } from "@/stores/app";
 import { useWizardStore } from "@/stores/wizard";
 
 import { CliCheckView, GatewayCheckView, TerminalsAlert } from "./VerifyResultView";
-import { symptomsFromResult, toolBinary, verifyTelemetryEvent } from "./verify-logic";
+import {
+  baseUrlNeedsHttps,
+  probeProtocol,
+  symptomsFromResult,
+  toolBinary,
+  verifyTelemetryEvent,
+} from "./verify-logic";
 
 export interface VerifyCardProps {
   tool: ToolId;
@@ -64,9 +70,10 @@ export function VerifyCard({ tool }: VerifyCardProps) {
     onSuccess: (list: Diagnosis[]) => setExtraDiagnoses(list),
   });
 
-  const protocol = config?.gateway.protocol ?? "responses";
+  const protocol = probeProtocol(config, tool);
   const gatewayFieldsMissing =
     gatewayEnabled && (baseUrl.trim() === "" || model.trim() === "" || apiKey.length === 0);
+  const urlNeedsHttps = gatewayEnabled && baseUrlNeedsHttps(baseUrl);
 
   const runVerify = () => {
     if (gatewayFieldsMissing) {
@@ -134,6 +141,11 @@ export function VerifyCard({ tool }: VerifyCardProps) {
                 className={cn(inputClass, "w-full font-mono")}
                 data-testid="gateway-url"
               />
+              {urlNeedsHttps && (
+                <Alert variant="warning" data-testid="gateway-url-not-https">
+                  {t("verify:gateway.notHttps")}
+                </Alert>
+              )}
             </div>
             <div className="space-y-1.5">
               <label htmlFor={`${ids}-model`} className="block text-sm font-medium">
@@ -189,13 +201,11 @@ export function VerifyCard({ tool }: VerifyCardProps) {
                 {t("verify:gateway.keyNote")}
               </p>
             </div>
-            {tool === "codex" && (
-              <p className="text-xs text-neutral-500">
-                {t("verify:gateway.protocol", {
-                  protocol: t(`guide:values.protocolValue.${protocol}`),
-                })}
-              </p>
-            )}
+            <p className="text-xs text-neutral-500">
+              {t("verify:gateway.protocol", {
+                protocol: t(`guide:values.protocolValue.${protocol}`),
+              })}
+            </p>
             {showMissing && gatewayFieldsMissing && (
               <Alert variant="warning">{t("verify:gateway.missingFields")}</Alert>
             )}

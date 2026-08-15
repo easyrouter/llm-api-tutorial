@@ -118,7 +118,7 @@ fn broken(code: &str, exit_code: Option<i32>, timed_out: bool, tail: &str) -> Ve
         v = v.param("exitCode", c.to_string());
     }
     if timed_out {
-        v = v.detail("timed out");
+        v = v.param("timedOut", "true");
     }
     for line in tail.lines().filter(|l| !l.trim().is_empty()) {
         v = v.detail(line.trim());

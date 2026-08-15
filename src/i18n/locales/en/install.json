@@ -7,14 +7,15 @@
     "noSnapshot": "There is no environment check result yet. Please go back to “Environment” and run it first.",
     "progress": "{{done}} of {{total}} handled",
     "allDone": "Every item in this step is handled. You can move on.",
-    "pendingHint": "Finish or skip each item above before continuing."
+    "pendingHint": "Finish or skip each item above before continuing.",
+    "navigationLocked": "An install or download is running — wait for it to finish (or cancel it) before leaving this step."
   },
   "plan": {
     "generic": "{{tool}} will be installed as shown below.",
     "npm_global": "{{tool}} will be installed with npm into the current user's global folder. The output of the install is shown live below.",
     "node": {
       "download_page": "Node.js is installed from the official installer. Use the button below to open the download page, download the “LTS” installer (Windows: .msi, macOS: .pkg) and click through it with the defaults.",
-      "homebrew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal (if a new terminal still cannot find node afterwards, run brew link --overwrite for that node@ version once); or simply install it from the download page below."
+      "homebrew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal (open a new terminal window afterwards; if node is still not found, run brew link --overwrite node once); or simply install it from the download page below."
     },
     "cc_switch": {
       "download": "CC Switch is a desktop app. The installer is downloaded from the official release channel, its integrity is verified, and then you run it yourself."
@@ -49,6 +50,7 @@
     "openInstaller": "Open installer",
     "openReleasePage": "Open release page",
     "changeMirror": "Switch mirror and retry",
+    "installerBlocked": "The installer was blocked or does not open",
     "showOutput": "Show output",
     "hideOutput": "Hide output"
   },
@@ -107,6 +109,7 @@
     "verified": "SHA-256 verified",
     "unverified": "Not verified (the publisher provided no hash)",
     "verifiedFalse": "Verification failed — do not run this file",
+    "blockedNote": "Windows SmartScreen or macOS Gatekeeper may block an installer it does not recognise. Follow the steps below, then run the installer again.",
     "afterDownload": {
       "title": "Next",
       "open": "Click “Open installer” to run it (or double-click the file at the location above).",

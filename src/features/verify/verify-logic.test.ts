@@ -4,7 +4,9 @@ import type { AppConfig, Diagnosis, ToolSpec, VerifyResult } from "@/lib/types";
 
 import {
   GATEWAY_TARGET,
+  baseUrlNeedsHttps,
   primaryErrorClass,
+  probeProtocol,
   symptomsFromResult,
   toolBinary,
   unverifiedTools,
@@ -247,5 +249,34 @@ describe("unverifiedTools / toolBinary", () => {
     expect(toolBinary(config, "claude-code")).toBe("claude");
     expect(toolBinary(config, "codex")).toBe("codex");
     expect(toolBinary(null, "codex")).toBe("codex");
+  });
+});
+
+describe("probeProtocol / baseUrlNeedsHttps", () => {
+  it("uses Anthropic Messages for Claude Code and the preset protocol for Codex", () => {
+    const chat = { gateway: { protocol: "chat_completions" } } as unknown as AppConfig;
+    expect(probeProtocol(chat, "codex")).toBe("chat_completions");
+    expect(probeProtocol(chat, "claude-code")).toBe("anthropic_messages");
+    expect(probeProtocol(null, "codex")).toBe("responses");
+    expect(probeProtocol(null, "claude-code")).toBe("anthropic_messages");
+  });
+
+  it("flags every non-https address except loopback and empty input", () => {
+    const cases: Array<[string, boolean]> = [
+      ["https://gateway.example.com/v1", false],
+      ["  https://gateway.example.com/v1  ", false],
+      ["", false],
+      ["   ", false],
+      ["http://127.0.0.1:8080/v1", false],
+      ["http://localhost/v1", false],
+      ["http://[::1]/v1", false],
+      ["http://gateway.example.com/v1", true],
+      ["http://10.0.0.5/v1", true],
+      ["ftp://gateway.example.com/v1", true],
+      ["gateway.example.com/v1", true],
+    ];
+    for (const [input, expected] of cases) {
+      expect(baseUrlNeedsHttps(input), input).toBe(expected);
+    }
   });
 });

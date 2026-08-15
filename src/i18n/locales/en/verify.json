@@ -23,6 +23,7 @@
     "hide": "Hide",
     "keyNote": "The key is held in memory only for this one request: it is cleared as soon as the request is sent and is never stored, logged, uploaded or written to a report.",
     "protocol": "Protocol: {{protocol}}",
+    "notHttps": "This address is not https, so the key would travel unencrypted. The tool only sends the key over https; use the company gateway address.",
     "missingFields": "Enter the gateway address, model and API key before verifying."
   },
   "actions": {
@@ -63,6 +64,7 @@
     "network": "Network unreachable",
     "timeout": "Request timed out",
     "tls": "TLS / certificate error",
+    "not_https": "Address is not https — the key was not sent",
     "command_not_found": "Command not found",
     "command_failed": "Command failed",
     "unknown": "Unknown error"

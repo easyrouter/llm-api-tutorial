@@ -8,7 +8,7 @@ import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
 
 import { InstallItemCard } from "./InstallItemCard";
-import { allHandled, countHandled } from "./install-state";
+import { allHandled, countHandled, hasRunningWork } from "./install-state";
 import { deriveInstallTargets, installKind } from "./install-targets";
 import { useInstallController } from "./useInstallController";
 
@@ -16,7 +16,8 @@ import { useInstallController } from "./useInstallController";
  * M2 — Install. The list of targets is derived once when the screen mounts (from the
  * environment snapshot, the selected tools and explicit requests) and stays stable while the
  * user works through it — a target that becomes installed does not vanish mid-flow. Next is
- * enabled once every item is done or skipped.
+ * enabled once every item is done or skipped. While an npm job or a download is running the
+ * wizard navigation is locked (leaving would orphan the job and lose its output).
  */
 export function InstallScreen() {
   const { t } = useTranslation();
@@ -26,6 +27,7 @@ export function InstallScreen() {
   const selectedTools = useWizardStore((s) => s.selectedTools);
   const next = useWizardStore((s) => s.next);
   const back = useWizardStore((s) => s.back);
+  const setNavigationLocked = useWizardStore((s) => s.setNavigationLocked);
   const requested = useInstallStore((s) => s.requested);
   const skipped = useInstallStore((s) => s.skipped);
 
@@ -52,6 +54,12 @@ export function InstallScreen() {
 
   const done = allHandled(state, targets);
   const handled = countHandled(state, targets);
+  const running = hasRunningWork(state, targets);
+
+  useEffect(() => {
+    setNavigationLocked(running);
+    return () => setNavigationLocked(false);
+  }, [running, setNavigationLocked]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -95,7 +103,19 @@ export function InstallScreen() {
         </>
       )}
 
-      <StepFooter onBack={back} onNext={next} nextDisabled={!done} />
+      <StepFooter
+        onBack={back}
+        onNext={next}
+        backDisabled={running}
+        nextDisabled={!done || running}
+        extra={
+          running ? (
+            <span className="text-sm text-neutral-500" data-testid="navigation-locked">
+              {t("install:screen.navigationLocked")}
+            </span>
+          ) : undefined
+        }
+      />
     </div>
   );
 }

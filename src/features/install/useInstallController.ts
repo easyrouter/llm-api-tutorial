@@ -5,7 +5,8 @@
  * subscribed once for the lifetime of the screen and released on unmount.
  *
  * Side effects that follow a state transition (auto re-check after a successful npm install,
- * forgetting an explicit request once the target is installed) live here, not in components.
+ * forgetting an explicit request once the target is installed, one `step_result` telemetry
+ * event per finished job / download) live here, not in components.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
@@ -18,20 +19,31 @@ import {
   planInstall,
   runEnvCheck,
   startInstall,
+  trackEvent,
 } from "@/lib/tauri";
 import type { CcSwitchRelease, InstallDoneEvent, InstallPlan, InstallTarget } from "@/lib/types";
 import { applyResultToSnapshot } from "@/features/env-check/snapshot-utils";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
 
-import { createInstallState, installReducer, type InstallState } from "./install-state";
+import {
+  createInstallState,
+  installReducer,
+  installTelemetryEvent,
+  type InstallState,
+} from "./install-state";
 import { RECHECK_ID } from "./install-targets";
 
 type Unlisten = () => void;
 
+export interface PlanOptions {
+  /** npm registry id a previous attempt failed on; the new plan uses another one when possible. */
+  excludeRegistry?: string | null;
+}
+
 export interface InstallActions {
   /** idle/failed → planning → confirm. */
-  plan: (target: InstallTarget) => Promise<void>;
+  plan: (target: InstallTarget, options?: PlanOptions) => Promise<void>;
   /** confirm → starting → running (the user confirmed the displayed command). */
   run: (target: InstallTarget, plan: InstallPlan) => Promise<void>;
   cancel: (target: InstallTarget, jobId: string) => Promise<void>;
@@ -48,6 +60,11 @@ export interface InstallActions {
 export interface InstallController {
   state: InstallState;
   actions: InstallActions;
+}
+
+/** Fire-and-forget telemetry (opt-in and enumerated fields only; never blocks the flow). */
+function track(event: ReturnType<typeof installTelemetryEvent>): void {
+  trackEvent(event).catch(() => undefined);
 }
 
 function newJobId(): string {
@@ -111,7 +128,9 @@ export function useInstallController(
   const afterJobDone = useCallback(
     (target: InstallTarget, event: InstallDoneEvent) => {
       jobTargets.current.delete(event.jobId);
-      if (event.success && !event.cancelled) {
+      const passed = event.success && !event.cancelled;
+      track(installTelemetryEvent(passed ? "pass" : "fail", event.durationMs));
+      if (passed) {
         unrequest(target);
         void recheck(target);
       }
@@ -135,10 +154,10 @@ export function useInstallController(
     [afterJobDone],
   );
 
-  const plan = useCallback(async (target: InstallTarget) => {
+  const plan = useCallback(async (target: InstallTarget, options: PlanOptions = {}) => {
     dispatch({ type: "plan_start", target });
     try {
-      const result = await planInstall(target);
+      const result = await planInstall(target, options.excludeRegistry ?? null);
       dispatch({ type: "plan_ok", target, plan: result });
     } catch (e) {
       dispatch({ type: "plan_failed", target, error: toWireError(e) });
@@ -182,6 +201,7 @@ export function useInstallController(
 
   const download = useCallback(async (target: InstallTarget, release: CcSwitchRelease) => {
     const jobId = newJobId();
+    const startedAt = Date.now();
     dispatch({ type: "download_start", target, jobId });
     try {
       const result = await downloadFile({
@@ -191,8 +211,12 @@ export function useInstallController(
         expectedSha256: release.sha256,
       });
       dispatch({ type: "download_ok", target, download: result });
+      track(
+        installTelemetryEvent(result.verified === false ? "fail" : "pass", Date.now() - startedAt),
+      );
     } catch (e) {
       dispatch({ type: "download_failed", target, error: toWireError(e) });
+      track(installTelemetryEvent("fail", Date.now() - startedAt));
     }
   }, []);
 

@@ -5,8 +5,10 @@
 //! - `Process`         — set in this process (`std::env::var`), i.e. inherited at launch;
 //! - `UserRegistry`    — Windows `HKCU\Environment`;
 //! - `MachineRegistry` — Windows `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`;
-//! - `ShellRc`         — macOS/Linux shell start-up files (`export NAME=` / `NAME=` /
-//!                       `setenv NAME` / fish `set -x NAME`), with `file:line`;
+//! - `ShellRc`         — shell start-up files with `file:line`: macOS/Linux rc files
+//!                       (`export NAME=` / `NAME=` / `setenv NAME` / fish `set -x NAME`),
+//!                       Windows PowerShell profiles (`$env:NAME = …`,
+//!                       `[Environment]::SetEnvironmentVariable("NAME", …)`);
 //! - `Launchctl`       — macOS `launchctl getenv NAME` (3 s timeout).
 //!
 //! Status: any `*_API_KEY` / `*_BASE_URL` / `*_AUTH_TOKEN` / `*_API_BASE` present anywhere →
@@ -185,26 +187,68 @@ pub fn is_conflict_name(name: &str) -> bool {
 
 /// Scans one file's content for definitions of `names`; returns `(name, line)` pairs with
 /// 1-based line numbers, in file order. Recognises `export NAME=…`, `NAME=…` (also several
-/// assignments on one line), `setenv NAME …` and fish `set -x|-gx|-Ux NAME …`. Comment
-/// lines are ignored.
+/// assignments on one line), `setenv NAME …`, fish `set -x|-gx|-Ux NAME …`, and the
+/// PowerShell forms `$env:NAME = …` / `$env:NAME += …` and
+/// `[Environment]::SetEnvironmentVariable("NAME", …)`. Comment lines are ignored; names are
+/// matched case-insensitively (PowerShell / Windows treat them so).
 pub fn scan_rc_content(content: &str, names: &[String]) -> Vec<(String, usize)> {
     let mut hits = Vec::new();
     for (idx, line) in content.lines().enumerate() {
-        for name in assignments_in_line(line) {
-            if names.iter().any(|n| n == name) {
-                hits.push((name.to_owned(), idx + 1));
+        for found in assignments_in_line(line) {
+            if let Some(name) = names.iter().find(|n| n.eq_ignore_ascii_case(found)) {
+                hits.push((name.clone(), idx + 1));
             }
         }
     }
     hits
 }
 
-/// Variable names assigned/exported on a single shell line.
+/// Variable names assigned/exported on a single line (shell and PowerShell syntax).
 fn assignments_in_line(line: &str) -> Vec<&str> {
     let trimmed = line.trim_start();
     if trimmed.starts_with('#') {
         return Vec::new();
     }
+    let mut names = shell_assignments_in_line(trimmed);
+    names.extend(powershell_assignments_in_line(trimmed));
+    names
+}
+
+/// `$env:NAME =` / `$env:NAME +=` and `SetEnvironmentVariable("NAME"` occurrences.
+fn powershell_assignments_in_line(line: &str) -> Vec<&str> {
+    let lower = line.to_ascii_lowercase();
+    let mut names = Vec::new();
+    for (start, _) in lower.match_indices("$env:") {
+        let name_start = start + "$env:".len();
+        let name_end = line[name_start..]
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .map_or(line.len(), |i| name_start + i);
+        let name = &line[name_start..name_end];
+        let rest = line[name_end..].trim_start();
+        let assigns = rest.starts_with("+=") || (rest.starts_with('=') && !rest.starts_with("=="));
+        if is_var_name(name) && assigns {
+            names.push(name);
+        }
+    }
+    for (start, _) in lower.match_indices("setenvironmentvariable(") {
+        let after = &line[start + "setenvironmentvariable(".len()..];
+        let after = after.trim_start();
+        let Some(quote) = after.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
+            continue;
+        };
+        let inner = &after[quote.len_utf8()..];
+        if let Some(end) = inner.find(quote) {
+            let name = &inner[..end];
+            if is_var_name(name) {
+                names.push(name);
+            }
+        }
+    }
+    names
+}
+
+/// Variable names assigned/exported on a single POSIX/fish shell line (already trimmed).
+fn shell_assignments_in_line(trimmed: &str) -> Vec<&str> {
     let tokens: Vec<&str> = trimmed.split_whitespace().collect();
     match tokens.as_slice() {
         ["setenv", name, ..] if is_var_name(name) => vec![name],
@@ -252,8 +296,8 @@ pub fn rc_location(path: &Path, home: Option<&Path>, line: usize) -> String {
     format!("{display}:{line}")
 }
 
-/// Scans the current user's shell rc files (`platform::shell_rc_files`, empty on Windows):
-/// name → locations.
+/// Scans the current user's shell start-up files (`platform::shell_rc_files`: rc files on
+/// macOS/Linux, PowerShell profiles on Windows): name → locations.
 fn scan_rc_files(names: &[String]) -> BTreeMap<String, Vec<String>> {
     let home = platform::home_dir();
     let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -503,6 +547,56 @@ export OPENAI_API_KEY
             ]
         );
         assert!(scan_rc_content("", &names()).is_empty());
+    }
+
+    #[test]
+    fn rc_scanner_recognises_powershell_forms() {
+        let content = "\
+# $env:OPENAI_API_KEY = 'commented'
+$env:OPENAI_API_KEY = 'sk-abc'
+$Env:openai_base_url=\"https://x\"
+$env:HTTPS_PROXY += ';x'
+if ($env:OPENAI_API_KEY -eq 'x') { Write-Host $env:ANTHROPIC_AUTH_TOKEN }
+[Environment]::SetEnvironmentVariable('ANTHROPIC_AUTH_TOKEN', 'abc', 'User')
+[System.Environment]::SetEnvironmentVariable( \"OPENAI_BASE_URL\", $v )
+Write-Output \"OPENAI_API_KEY=notanassignment\"
+$env:PATH = \"$env:PATH;C:\\x\"
+";
+        let hits = scan_rc_content(content, &names());
+        assert_eq!(
+            hits,
+            vec![
+                ("OPENAI_API_KEY".to_owned(), 2),
+                ("OPENAI_BASE_URL".to_owned(), 3),
+                ("HTTPS_PROXY".to_owned(), 4),
+                ("ANTHROPIC_AUTH_TOKEN".to_owned(), 6),
+                ("OPENAI_BASE_URL".to_owned(), 7),
+            ]
+        );
+    }
+
+    #[test]
+    fn rc_scanner_reads_powershell_profile_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let profile = dir
+            .path()
+            .join("Documents")
+            .join("PowerShell")
+            .join("profile.ps1");
+        std::fs::create_dir_all(profile.parent().expect("parent")).expect("mkdir");
+        std::fs::write(
+            &profile,
+            "Set-Alias ll ls\n$env:OPENAI_API_KEY = \"sk-1\"\n",
+        )
+        .expect("write");
+        assert_eq!(
+            scan_rc_file(&profile, &names()),
+            vec![("OPENAI_API_KEY".to_owned(), 2)]
+        );
+        assert_eq!(
+            rc_location(&profile, Some(dir.path()), 2),
+            "~/Documents/PowerShell/profile.ps1:2"
+        );
     }
 
     #[test]

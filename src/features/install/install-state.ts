@@ -23,6 +23,7 @@ import type {
   InstallOutputEvent,
   InstallPlan,
   InstallTarget,
+  TelemetryEvent,
   WireError,
 } from "@/lib/types";
 
@@ -401,4 +402,47 @@ export function itemBadge(item: ItemState): { status: BadgeStatus; labelKey: str
     case "downloading":
       return { status: "running", labelKey: step.phase };
   }
+}
+
+// ---------------------------------------------------------------------------
+// telemetry
+// ---------------------------------------------------------------------------
+
+/**
+ * `step_result` event for the Install step (PRD #16 "install success rate / failing stage"):
+ * `pass` for a successful npm job or verified download, `fail` for a failed / cancelled job or a
+ * failed download. Carries duration only — no package names, URLs, paths or output.
+ */
+export function installTelemetryEvent(
+  status: "pass" | "fail",
+  durationMs: number | null,
+): TelemetryEvent {
+  return {
+    name: "step_result",
+    step: "install",
+    status,
+    durationMs: durationMs === null ? null : Math.max(0, Math.round(durationMs)),
+    errorClass: null,
+    ruleId: null,
+  };
+}
+
+/**
+ * True while a job or download that would be orphaned by leaving the screen is in flight
+ * (`starting` / `running` npm job, `downloading` installer). Short IPC calls (planning,
+ * fetching a release, re-checking) do not count.
+ */
+export function hasRunningWork(state: InstallState, targets: readonly InstallTarget[]): boolean {
+  return targets.some((t) => {
+    const item = state.items[t];
+    if (!item) return false;
+    switch (item.step.phase) {
+      case "starting":
+      case "running":
+      case "downloading":
+        return true;
+      default:
+        return false;
+    }
+  });
 }

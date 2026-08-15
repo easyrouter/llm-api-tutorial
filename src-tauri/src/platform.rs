@@ -277,22 +277,71 @@ pub fn shell_rc_candidates(home: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Existing shell rc files for the current user (macOS/Linux); empty on Windows.
-pub fn shell_rc_files() -> Vec<PathBuf> {
-    if cfg!(windows) {
-        return Vec::new();
-    }
-    home_dir()
-        .map(|h| shell_rc_candidates(&h))
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|p| p.is_file())
+/// PowerShell profile files (`$PROFILE` variants) that may set `$env:NAME` for every new
+/// PowerShell window: `Documents\PowerShell\*profile.ps1` (PowerShell 7) and
+/// `Documents\WindowsPowerShell\*profile.ps1` (Windows PowerShell 5), under the user profile
+/// and — when Documents is redirected — under `onedrive`. Pure.
+pub fn powershell_profile_candidates(home: &Path, onedrive: Option<&Path>) -> Vec<PathBuf> {
+    let roots = std::iter::once(home).chain(onedrive);
+    roots
+        .flat_map(|root| {
+            ["PowerShell", "WindowsPowerShell"]
+                .into_iter()
+                .flat_map(move |edition| {
+                    ["profile.ps1", "Microsoft.PowerShell_profile.ps1"]
+                        .into_iter()
+                        .map(move |file| root.join("Documents").join(edition).join(file))
+                })
+        })
         .collect()
+}
+
+/// Existing shell start-up files for the current user: shell rc files on macOS/Linux,
+/// PowerShell profiles on Windows.
+pub fn shell_rc_files() -> Vec<PathBuf> {
+    let Some(home) = home_dir() else {
+        return Vec::new();
+    };
+    let candidates = if cfg!(windows) {
+        let onedrive = std::env::var_os("OneDrive").map(PathBuf::from);
+        powershell_profile_candidates(&home, onedrive.as_deref())
+    } else {
+        shell_rc_candidates(&home)
+    };
+    candidates.into_iter().filter(|p| p.is_file()).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn powershell_profile_candidates_cover_both_editions_and_onedrive() {
+        let home = Path::new(r"C:\Users\alice");
+        let list = powershell_profile_candidates(home, None);
+        assert_eq!(list.len(), 4);
+        assert!(list.contains(
+            &home
+                .join("Documents")
+                .join("PowerShell")
+                .join("profile.ps1")
+        ));
+        assert!(list.contains(
+            &home
+                .join("Documents")
+                .join("WindowsPowerShell")
+                .join("Microsoft.PowerShell_profile.ps1")
+        ));
+        let onedrive = Path::new(r"C:\Users\alice\OneDrive");
+        let with_onedrive = powershell_profile_candidates(home, Some(onedrive));
+        assert_eq!(with_onedrive.len(), 8);
+        assert!(with_onedrive.contains(
+            &onedrive
+                .join("Documents")
+                .join("PowerShell")
+                .join("profile.ps1")
+        ));
+    }
 
     #[test]
     fn expand_tilde_uses_home() {

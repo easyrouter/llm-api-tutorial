@@ -12,7 +12,8 @@ import {
 } from "@/components/ui";
 import { useCopy } from "@/hooks/useCopy";
 import { cn } from "@/lib/cn";
-import type { Diagnosis, EnvSnapshot } from "@/lib/types";
+import type { Diagnosis, EnvSnapshot, VerifyResult } from "@/lib/types";
+import { useWizardStore } from "@/stores/wizard";
 
 import { severityBadge, sortDiagnoses } from "./diagnoses";
 import { exportDiagnosticReport, fetchReportMarkdown, type ExportOutcome } from "./report";
@@ -159,6 +160,13 @@ function DiagnosisCard({ diagnosis, onRerun }: { diagnosis: Diagnosis; onRerun?:
 
 type Busy = "copy" | "export" | null;
 
+/** Verification results kept by the wizard (one per tool), for the report's Verification section. */
+function latestVerifyResults(): VerifyResult[] {
+  return Object.values(useWizardStore.getState().verifyResults).filter(
+    (r): r is VerifyResult => r !== undefined,
+  );
+}
+
 function ReportFooter({
   snapshot,
   diagnoses,
@@ -177,7 +185,7 @@ function ReportFooter({
     setError(null);
     setOutcome(null);
     try {
-      const markdown = await fetchReportMarkdown(snapshot, diagnoses);
+      const markdown = await fetchReportMarkdown(snapshot, diagnoses, latestVerifyResults());
       await copy(markdown);
     } catch (e) {
       setError(e);
@@ -191,7 +199,7 @@ function ReportFooter({
     setError(null);
     setOutcome(null);
     try {
-      setOutcome(await exportDiagnosticReport(snapshot, diagnoses));
+      setOutcome(await exportDiagnosticReport(snapshot, diagnoses, latestVerifyResults()));
     } catch (e) {
       setError(e);
     } finally {

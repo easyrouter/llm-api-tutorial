@@ -1,11 +1,14 @@
-import { Download, FolderOpen, ShieldCheck, ShieldOff, ShieldX } from "lucide-react";
+import { Download, FolderOpen, ShieldAlert, ShieldCheck, ShieldOff, ShieldX } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Alert, Button, ErrorBanner, KeyValueList, ProgressBar } from "@/components/ui";
+import { DiagnosePanel } from "@/features/diagnose/DiagnosePanel";
+import { useAsync } from "@/hooks";
 import { formatBytes } from "@/lib/format";
-import { openDownloadedFile } from "@/lib/tauri";
-import type { AppConfig, DownloadResult, Platform } from "@/lib/types";
+import { diagnose, openDownloadedFile } from "@/lib/tauri";
+import type { AppConfig, Diagnosis, DownloadResult, Platform } from "@/lib/types";
+import { useWizardStore } from "@/stores/wizard";
 
 import { OpenPageButton, PhaseSpinner, RecheckButton, RecheckFeedback } from "./ItemParts";
 import type { InstallActions } from "./useInstallController";
@@ -46,6 +49,50 @@ function VerificationBadge({ download }: { download: DownloadResult }) {
       <ShieldOff className="size-4" aria-hidden />
       {t("install:ccSwitch.unverified")}
     </span>
+  );
+}
+
+/** App name handed to the rule engine for guide fault G (shown verbatim in the diagnosis). */
+export const CC_SWITCH_APP_NAME = "CC Switch";
+
+/**
+ * "The installer was blocked or does not open" — runs the rule engine with the
+ * `app_blocked_by_os` symptom (guide fault G: SmartScreen / Gatekeeper) and shows the resulting
+ * checklist inline, so the fault is reachable from the wizard and not only from the docs.
+ */
+function BlockedInstallerHelp({ disabled }: { disabled?: boolean }) {
+  const { t } = useTranslation();
+  const snapshot = useWizardStore((s) => s.snapshot);
+  const run = useAsync(diagnose);
+  const diagnoses: Diagnosis[] | null = run.data;
+  const ask = () =>
+    void run.run({
+      symptoms: [{ kind: "app_blocked_by_os", app: CC_SWITCH_APP_NAME }],
+      snapshot,
+    });
+  return (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={ask}
+        disabled={disabled}
+        loading={run.loading}
+        leftIcon={<ShieldAlert className="size-4" aria-hidden />}
+        data-testid="installer-blocked"
+      >
+        {t("install:actions.installerBlocked")}
+      </Button>
+      {run.error && <ErrorBanner error={run.error} className="basis-full" onRetry={ask} />}
+      {diagnoses && (
+        <DiagnosePanel
+          diagnoses={diagnoses}
+          snapshot={snapshot}
+          note={t("install:ccSwitch.blockedNote")}
+          className="basis-full"
+        />
+      )}
+    </>
   );
 }
 
@@ -200,6 +247,7 @@ export function CcSwitchItemBody({
             >
               {t("install:actions.retry")}
             </Button>
+            {runnable && <BlockedInstallerHelp disabled={rechecking} />}
           </div>
           {feedback}
         </div>

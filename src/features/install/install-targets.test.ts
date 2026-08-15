@@ -9,6 +9,7 @@ import {
   installKind,
   nodeDownloadPage,
   RECHECK_ID,
+  registryToAvoidOnRetry,
 } from "./install-targets";
 
 const ALL_TOOLS = ["codex", "claude-code"] as const;
@@ -143,5 +144,34 @@ describe("download pages", () => {
       "https://github.com/farion1231/cc-switch/releases/latest",
     );
     expect(ccSwitchDownloadPage(null)).toContain("github.com");
+  });
+});
+
+describe("registryToAvoidOnRetry", () => {
+  const twoRegistries = {
+    mirrors: {
+      npmRegistries: [
+        { id: "official", url: "https://registry.npmjs.org/", downloadPage: "" },
+        { id: "npmmirror", url: "https://registry.npmmirror.com/", downloadPage: "" },
+      ],
+    },
+  } as unknown as AppConfig;
+  const oneRegistry = {
+    mirrors: {
+      npmRegistries: [
+        { id: "npmmirror", url: "https://registry.npmmirror.com/", downloadPage: "" },
+      ],
+    },
+  } as unknown as AppConfig;
+
+  it("names the failed registry only when another one is configured", () => {
+    const plan = installPlan("codex"); // registry npmmirror
+    expect(registryToAvoidOnRetry(plan, twoRegistries)).toBe("npmmirror");
+    expect(registryToAvoidOnRetry(plan, oneRegistry)).toBeNull();
+    expect(registryToAvoidOnRetry(plan, null)).toBeNull();
+    expect(
+      registryToAvoidOnRetry(installPlan("codex", { registry: null }), twoRegistries),
+    ).toBeNull();
+    expect(registryToAvoidOnRetry(null, twoRegistries)).toBeNull();
   });
 });

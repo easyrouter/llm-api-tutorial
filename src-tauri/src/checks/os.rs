@@ -57,6 +57,8 @@ fn evaluate_macos(info: &OsInfo, req: &OsRequirements) -> Verdict {
 fn with_facts(verdict: Verdict, info: &OsInfo) -> Verdict {
     let platform = platform_name(info.platform);
     let build = info.build.map(|b| b.to_string());
+    // Facts only in details (shown verbatim in both languages): platform, version, build,
+    // then arch and shell as raw tokens.
     let summary = match &build {
         Some(b) => format!("{platform} {} (build {b})", info.version),
         None => format!("{platform} {}", info.version),
@@ -68,8 +70,8 @@ fn with_facts(verdict: Verdict, info: &OsInfo) -> Verdict {
         .param("arch", info.arch.clone())
         .param("shell", info.shell.clone())
         .detail(summary)
-        .detail(format!("arch: {}", info.arch))
-        .detail(format!("shell: {}", info.shell))
+        .detail(info.arch.clone())
+        .detail(info.shell.clone())
 }
 
 /// Wire name of a platform (`windows`, `macos`, `linux`, `unknown`).
@@ -201,8 +203,8 @@ mod tests {
             Some("Windows 10 2004+")
         );
         assert_eq!(v.details[0], "windows 10.0.19045 (build 19045)");
-        assert!(v.details.iter().any(|d| d == "arch: x86_64"));
-        assert!(v.details.iter().any(|d| d == "shell: zsh"));
+        assert!(v.details.iter().any(|d| d == "x86_64"));
+        assert!(v.details.iter().any(|d| d == "zsh"));
 
         let mac = evaluate(&info(Platform::Macos, "14.5", None), &requirements());
         assert!(!mac.params.contains_key("build"));

@@ -87,11 +87,14 @@ pub struct GatewayPreset {
     pub default_reasoning_effort: String,
 }
 
+/// Wire protocol of a gateway / provider. `Responses` and `ChatCompletions` are the OpenAI
+/// shapes (Codex); `AnthropicMessages` is what Claude Code speaks (`/v1/messages`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Protocol {
     Responses,
     ChatCompletions,
+    AnthropicMessages,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -621,6 +624,8 @@ pub enum ErrorClass {
     Network,
     Timeout,
     Tls,
+    /// The gateway base URL is not `https` — the probe refused to send the key in clear text.
+    NotHttps,
     CommandNotFound,
     CommandFailed,
     Unknown,

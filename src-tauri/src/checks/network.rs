@@ -72,7 +72,7 @@ pub async fn check_gateway(
     let Some(origin) = origin_of(&gateway.base_url) else {
         return Verdict::fail("network.unreachable")
             .param("target", crate::redact::redact_secrets(&gateway.base_url))
-            .detail("invalid gateway URL");
+            .detail(crate::redact::redact_secrets(gateway.base_url.trim()));
     };
     let probe = net::probe(client, "gateway", &origin, probe_timeout(mirrors)).await;
     let target = host_of(&origin);
@@ -106,10 +106,11 @@ pub async fn check_github(
         .param("target", GITHUB_TARGET)
         .detail(describe(&probe));
     if !probe.reachable && !cc_switch.intranet_mirror.trim().is_empty() {
-        verdict.detail(format!(
-            "intranet mirror: {}",
-            cc_switch.intranet_mirror.trim()
-        ))
+        // The configured intranet mirror is the alternative the UI text points to; details
+        // carry the raw URL only (params `intranetMirror` for the report).
+        verdict
+            .param("intranetMirror", cc_switch.intranet_mirror.trim())
+            .detail(cc_switch.intranet_mirror.trim())
     } else {
         verdict
     }
@@ -134,18 +135,22 @@ pub fn host_of(url: &str) -> String {
         .unwrap_or_else(|| url.trim().to_owned())
 }
 
-/// One detail line per probe: `<id>: <url> → <status> (<latency> ms)` or `→ unreachable (<error>)`.
+/// One detail line per probe, facts only (no wording of ours — details are shown verbatim in
+/// both languages, ADR-0004): `<id>: <url> → HTTP <status> (<latency> ms)` when reachable,
+/// `<id>: <url> → <redacted transport error>` otherwise.
 pub fn describe(probe: &ProbeResult) -> String {
     match (probe.reachable, probe.http_status, probe.latency_ms) {
         (true, Some(status), Some(ms)) => {
             format!("{}: {} → HTTP {status} ({ms} ms)", probe.id, probe.url)
         }
-        (true, _, _) => format!("{}: {} → reachable", probe.id, probe.url),
+        (true, Some(status), None) => format!("{}: {} → HTTP {status}", probe.id, probe.url),
+        (true, None, Some(ms)) => format!("{}: {} → {ms} ms", probe.id, probe.url),
+        (true, None, None) => format!("{}: {}", probe.id, probe.url),
         (false, _, _) => format!(
-            "{}: {} → unreachable ({})",
+            "{}: {} → {}",
             probe.id,
             probe.url,
-            probe.error.as_deref().unwrap_or("error")
+            probe.error.as_deref().unwrap_or("-")
         ),
     }
 }
@@ -298,8 +303,13 @@ mod tests {
         assert_eq!(describe(&ok), "official: https://r/ → HTTP 404 (12 ms)");
         assert_eq!(
             describe(&probe("https://r/", false)),
-            "x: https://r/ → unreachable (connect: refused)"
+            "x: https://r/ → connect: refused"
         );
+        let no_error = ProbeResult {
+            error: None,
+            ..probe("https://r/", false)
+        };
+        assert_eq!(describe(&no_error), "x: https://r/ → -");
     }
 
     #[test]
@@ -349,7 +359,8 @@ mod tests {
             v.params.get("target").map(String::as_str),
             Some("127.0.0.1")
         );
-        assert!(v.details[0].contains("unreachable"), "{v:?}");
+        assert!(v.details[0].contains("127.0.0.1:9"), "{v:?}");
+        assert!(!v.details[0].contains("HTTP"), "{v:?}");
     }
 
     #[tokio::test]
@@ -371,6 +382,10 @@ mod tests {
         assert_eq!(v.code, "network.unreachable");
         assert_eq!(v.status, CheckStatus::Warn);
         assert_eq!(v.params.get("target").map(String::as_str), Some("GitHub"));
-        assert!(v.details.iter().any(|d| d.contains("intranet mirror")));
+        assert_eq!(
+            v.params.get("intranetMirror").map(String::as_str),
+            Some("https://intranet.example/cc")
+        );
+        assert!(v.details.iter().any(|d| d == "https://intranet.example/cc"));
     }
 }

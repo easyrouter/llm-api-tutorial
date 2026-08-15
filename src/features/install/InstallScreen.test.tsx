@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import i18n from "@/i18n";
 import { EVENTS } from "@/lib/events";
-import type { InstallJob, InstallTarget } from "@/lib/types";
+import type { AppConfig, InstallJob, InstallTarget, TelemetryEvent } from "@/lib/types";
 import { useAppStore } from "@/stores/app";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
@@ -50,6 +50,7 @@ describe("InstallScreen", () => {
         configSource: "bundled",
         logDir: "",
       },
+      config: null,
     });
     useWizardStore.getState().goTo("install");
   });
@@ -87,8 +88,8 @@ describe("InstallScreen", () => {
     // every item is prepared once on mount
     await waitFor(() => expect(card("codex")).toHaveAttribute("data-phase", "confirm"));
     expect(calls("plan_install").map((c) => c[1])).toEqual([
-      { target: "node" },
-      { target: "codex" },
+      { target: "node", excludeRegistry: null },
+      { target: "codex", excludeRegistry: null },
     ]);
     expect(calls("fetch_cc_switch_release")).toHaveLength(1);
     expect(listenerCount(EVENTS.installOutput)).toBe(1);
@@ -125,6 +126,10 @@ describe("InstallScreen", () => {
     fireEvent.click(within(codex).getByRole("button", { name: "Confirm and run" }));
     expect(calls("start_install")[0]?.[1]).toEqual({ plan });
     await waitFor(() => expect(codex).toHaveAttribute("data-phase", "running"));
+    // navigation is locked while the job runs
+    expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
+    expect(screen.getByTestId("navigation-locked")).toBeInTheDocument();
+    expect(useWizardStore.getState().navigationLocked).toBe(true);
 
     act(() => {
       emitMockEvent(EVENTS.installOutput, {
@@ -148,6 +153,8 @@ describe("InstallScreen", () => {
       });
     });
     expect(codex).toHaveAttribute("data-phase", "done");
+    expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
+    expect(useWizardStore.getState().navigationLocked).toBe(false);
     await waitFor(() => expect(calls("run_env_check")).toHaveLength(1));
     expect(calls("run_env_check")[0]?.[1]).toEqual({ id: "codex" });
     await waitFor(() =>
@@ -165,10 +172,22 @@ describe("InstallScreen", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
   });
 
-  it("npm target: a failed job shows the exit code, the output and a retry that re-plans", async () => {
+  it("npm target: a failed job shows the exit code, the output and a retry that switches mirror", async () => {
     useWizardStore
       .getState()
       .setSnapshot(envSnapshot({ codex: checkResult("codex", "fail", { code: "tool.missing" }) }));
+    useAppStore.setState({
+      config: {
+        mirrors: {
+          npmRegistries: [
+            { id: "official", url: "https://registry.npmjs.org/", downloadPage: "" },
+            { id: "npmmirror", url: "https://registry.npmmirror.com/", downloadPage: "" },
+          ],
+          nodeDist: [],
+          probeTimeoutMs: 1000,
+        },
+      } as unknown as AppConfig,
+    });
     setInvokeHandlers({
       plan_install: () => installPlan("codex"),
       start_install: () => ({ jobId: "job-1", target: "codex" }),
@@ -200,10 +219,54 @@ describe("InstallScreen", () => {
     expect(within(codex).getByRole("alert")).toHaveTextContent("exit code 1");
     expect(within(codex).getByRole("log")).toHaveTextContent("ETIMEDOUT");
     expect(calls("run_env_check")).toHaveLength(0);
+    // the failed job is reported to telemetry (duration only, no free text)
+    const tracked = calls("track_event").map((c) => (c[1] as { event: TelemetryEvent }).event);
+    expect(tracked).toContainEqual({
+      name: "step_result",
+      step: "install",
+      status: "fail",
+      durationMs: 10,
+      errorClass: null,
+      ruleId: null,
+    });
 
+    // the retry re-plans without the registry the job failed on
     fireEvent.click(within(codex).getByRole("button", { name: "Switch mirror and retry" }));
     await waitFor(() => expect(calls("plan_install")).toHaveLength(2));
+    expect(calls("plan_install")[1]?.[1]).toEqual({
+      target: "codex",
+      excludeRegistry: "npmmirror",
+    });
     await waitFor(() => expect(codex).toHaveAttribute("data-phase", "confirm"));
+  });
+
+  it("npm target: without an alternate registry the retry is a plain retry", async () => {
+    useWizardStore
+      .getState()
+      .setSnapshot(envSnapshot({ codex: checkResult("codex", "fail", { code: "tool.missing" }) }));
+    setInvokeHandlers({
+      plan_install: () => installPlan("codex"),
+      start_install: () => ({ jobId: "job-2", target: "codex" }),
+    });
+    render(<InstallScreen />);
+    const codex = card("codex");
+    await waitFor(() => expect(codex).toHaveAttribute("data-phase", "confirm"));
+    fireEvent.click(within(codex).getByRole("button", { name: "Confirm and run" }));
+    await waitFor(() => expect(codex).toHaveAttribute("data-phase", "running"));
+    act(() => {
+      emitMockEvent(EVENTS.installDone, {
+        jobId: "job-2",
+        success: false,
+        exitCode: 1,
+        durationMs: 5,
+        cancelled: false,
+      });
+    });
+    expect(codex).toHaveAttribute("data-phase", "failed");
+    expect(within(codex).queryByRole("button", { name: "Switch mirror and retry" })).toBeNull();
+    fireEvent.click(within(codex).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(calls("plan_install")).toHaveLength(2));
+    expect(calls("plan_install")[1]?.[1]).toEqual({ target: "codex", excludeRegistry: null });
   });
 
   it("node target: opens the download page and is done once the re-check passes", async () => {
@@ -278,6 +341,31 @@ describe("InstallScreen", () => {
 
     fireEvent.click(within(cc).getByRole("button", { name: "Open installer" }));
     expect(calls("open_downloaded_file")[0]?.[1]).toEqual({ path: downloadResult().path });
+
+    // guide fault G is reachable from here: "the installer was blocked" runs the rule engine
+    setInvokeHandlers({
+      diagnose: () => [
+        {
+          ruleId: "G",
+          severity: "warning",
+          code: "os.app_blocked",
+          params: { app: "CC Switch" },
+          actions: [],
+          checklist: ["smartscreen_more_info", "run_anyway"],
+        },
+      ],
+    });
+    fireEvent.click(within(cc).getByTestId("installer-blocked"));
+    await waitFor(() => expect(within(cc).getByTestId("diagnose-panel")).toBeInTheDocument());
+    expect(calls("diagnose")[0]?.[1]).toEqual({
+      request: {
+        symptoms: [{ kind: "app_blocked_by_os", app: "CC Switch" }],
+        snapshot: useWizardStore.getState().snapshot,
+      },
+    });
+    expect(within(cc).getByTestId("diagnose-panel")).toHaveTextContent(
+      /Installer blocked by the operating system/,
+    );
 
     // a re-check that does not pass keeps the item open with an explanation
     fireEvent.click(within(cc).getByRole("button", { name: "I installed it — re-check" }));

@@ -23,6 +23,7 @@
     "hide": "隐藏",
     "keyNote": "Key 只在内存中保留这一次请求的时间：请求发出后立即清空，不会保存、记录、上传或写入报告。",
     "protocol": "协议：{{protocol}}",
+    "notHttps": "这个地址不是 https，Key 会以明文传输。工具只会通过 https 发送 Key，请使用公司网关地址。",
     "missingFields": "请填写网关地址、模型和 API Key 后再开始验证。"
   },
   "actions": {
@@ -63,6 +64,7 @@
     "network": "网络不通",
     "timeout": "请求超时",
     "tls": "TLS / 证书错误",
+    "not_https": "地址不是 https，未发送 Key",
     "command_not_found": "命令不存在",
     "command_failed": "命令执行失败",
     "unknown": "未知错误"

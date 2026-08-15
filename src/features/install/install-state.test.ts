@@ -7,7 +7,9 @@ import {
   allHandled,
   countHandled,
   createInstallState,
+  hasRunningWork,
   installReducer,
+  installTelemetryEvent,
   isBusy,
   itemBadge,
   itemOutcome,
@@ -275,5 +277,53 @@ describe("skip / unskip", () => {
       { type: "recheck_ok", target: "codex", result: checkResult("codex", "pass") },
     );
     expect(codex(s).step.phase).toBe("skipped");
+  });
+});
+
+describe("hasRunningWork / installTelemetryEvent", () => {
+  it("is true only while a job runs or a download is in flight", () => {
+    const targets = ["codex", "cc-switch"] as const;
+    let state = createInstallState(targets);
+    expect(hasRunningWork(state, targets)).toBe(false);
+
+    state = reduce(state, { type: "plan_start", target: "codex" });
+    expect(hasRunningWork(state, targets)).toBe(false);
+    state = reduce(
+      state,
+      { type: "plan_ok", target: "codex", plan },
+      { type: "run_start", target: "codex" },
+    );
+    expect(hasRunningWork(state, targets)).toBe(true);
+    state = reduce(state, {
+      type: "run_ok",
+      target: "codex",
+      job: { jobId: "job-1", target: "codex" },
+    });
+    expect(hasRunningWork(state, targets)).toBe(true);
+    state = reduce(state, { type: "job_done", event: done() });
+    expect(hasRunningWork(state, targets)).toBe(false);
+
+    state = reduce(
+      state,
+      { type: "release_ok", target: "cc-switch", release: ccSwitchRelease() },
+      { type: "download_start", target: "cc-switch", jobId: "dl-1" },
+    );
+    expect(hasRunningWork(state, targets)).toBe(true);
+    state = reduce(state, { type: "download_ok", target: "cc-switch", download: downloadResult() });
+    expect(hasRunningWork(state, targets)).toBe(false);
+    expect(hasRunningWork(state, ["node"])).toBe(false);
+  });
+
+  it("builds a step_result event with enumerated fields only", () => {
+    expect(installTelemetryEvent("pass", 1234.6)).toEqual({
+      name: "step_result",
+      step: "install",
+      status: "pass",
+      durationMs: 1235,
+      errorClass: null,
+      ruleId: null,
+    });
+    expect(installTelemetryEvent("fail", null).durationMs).toBeNull();
+    expect(installTelemetryEvent("fail", -5).durationMs).toBe(0);
   });
 });

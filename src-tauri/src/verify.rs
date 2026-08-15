@@ -19,19 +19,28 @@
 //!   row; entries are deduplicated by `(name, pid)`, sorted, and capped at [`MAX_TERMINALS`].
 //!   Names are shown verbatim (they are not secrets).
 //! - [`probe_gateway`]: one minimal request per protocol —
-//!     responses:        `POST {base}/responses`        `{"model": m, "input": "ping", "max_output_tokens": 16}`
-//!     chat_completions: `POST {base}/chat/completions` `{"model": m, "messages":[{"role":"user","content":"ping"}], "max_tokens": 1}`
+//!     responses:          `POST {base}/responses`        `{"model": m, "input": "ping", "max_output_tokens": 16}`
+//!     chat_completions:   `POST {base}/chat/completions` `{"model": m, "messages":[{"role":"user","content":"ping"}], "max_tokens": 1}`
+//!     anthropic_messages: `POST {base}/v1/messages`      `{"model": m, "messages":[{"role":"user","content":"ping"}], "max_tokens": 1}`
 //!   (`max_output_tokens` is 16 because OpenAI-compatible Responses endpoints reject smaller
-//!   values with a 400 that would look like a protocol mismatch). `Authorization: Bearer <key>`
-//!   is the only place the key goes; [`GATEWAY_TIMEOUT`] bounds the whole exchange. Status
-//!   mapping lives in the pure [`classify_response`]: 2xx → ok; 400/422 mentioning `model`
-//!   (unknown model — auth and URL are proven) → ok with message; other 400/422 →
-//!   `ProtocolMismatch`; 401/403 → `Auth`; 404/405/410 → `NotFound`; 429 → `RateLimited`;
-//!   5xx → `ServerError`; transport errors → `Timeout` / `Network` / `Tls`
-//!   ([`transport_error_class`]). `message` is the server's error text (or body prefix), scrubbed
-//!   of the key itself — including partially masked echoes such as `sk-abcde***6789`
-//!   ([`scrub_known_secret`]) — passed through [`redact_secrets`] and truncated to
-//!   [`MAX_MESSAGE_CHARS`] characters.
+//!   values with a 400 that would look like a protocol mismatch). The OpenAI shapes carry the
+//!   key as `Authorization: Bearer <key>`; the Anthropic shape (what Claude Code speaks) sends
+//!   `x-api-key: <key>` *and* `Authorization: Bearer <key>` (Claude Code uses either,
+//!   depending on whether CC Switch wrote `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`) plus
+//!   `anthropic-version`. `{base}/v1/messages` mirrors the Anthropic SDK literally (it appends
+//!   `/v1/messages` to `ANTHROPIC_BASE_URL` without deduplicating a `/v1`), so a base URL that
+//!   ends in `/v1` produces the same 404 for the probe as for Claude Code itself (fault B).
+//!   Headers are the only place the key goes; a base URL that is not `https` (loopback
+//!   excepted) is refused *before* anything is sent (`ErrorClass::NotHttps`, PRD #14 / hard
+//!   rule 3). [`GATEWAY_TIMEOUT`] bounds the whole exchange. Status mapping lives in the pure
+//!   [`classify_response`]: 2xx → ok; 400/422 mentioning `model`, or 404 whose JSON error text
+//!   mentions `model` (Anthropic-style unknown model — auth and URL are proven) → ok with
+//!   message; other 400/422 → `ProtocolMismatch`; 401/403 → `Auth`; other 404/405/410 →
+//!   `NotFound`; 429 → `RateLimited`; 5xx → `ServerError`; transport errors → `Timeout` /
+//!   `Network` / `Tls` ([`transport_error_class`]). `message` is the server's error text (or
+//!   body prefix), scrubbed of the key itself — including partially masked echoes such as
+//!   `sk-abcde***6789` ([`scrub_known_secret`]) — passed through [`redact_secrets`] and
+//!   truncated to [`MAX_MESSAGE_CHARS`] characters.
 //! - [`verify`]: resolves the tool's `ToolSpec`, runs `<binary> <version_args>` against the
 //!   fresh-session environment (`process::fresh_session_env`), probes the gateway when
 //!   requested and scans terminals — all three concurrently — then derives [`Symptom`]s
@@ -78,6 +87,8 @@ const OUTPUT_TAIL_LINES: usize = 5;
 const RESPONSES_MIN_OUTPUT_TOKENS: u32 = 16;
 /// Secrets shorter than this are not scrubbed literally (they would match too much).
 const MIN_SCRUB_LEN: usize = 4;
+/// `anthropic-version` header sent with Anthropic Messages probes.
+const ANTHROPIC_VERSION: &str = "2023-06-01";
 
 // ---------------------------------------------------------------------------
 // Running terminals
@@ -313,6 +324,7 @@ pub fn probe_url(base_url: &str, protocol: Protocol) -> String {
     let path = match protocol {
         Protocol::Responses => "/responses",
         Protocol::ChatCompletions => "/chat/completions",
+        Protocol::AnthropicMessages => "/v1/messages",
     };
     if base.ends_with(path) {
         base.to_owned()
@@ -329,11 +341,45 @@ pub fn probe_body(model: &str, protocol: Protocol) -> Value {
             "input": "ping",
             "max_output_tokens": RESPONSES_MIN_OUTPUT_TOKENS,
         }),
-        Protocol::ChatCompletions => json!({
+        Protocol::ChatCompletions | Protocol::AnthropicMessages => json!({
             "model": model,
             "messages": [{"role": "user", "content": "ping"}],
             "max_tokens": 1,
         }),
+    }
+}
+
+/// `true` when sending the key to `url` would expose it: the URL parses and its scheme is not
+/// `https` — except plain `http` to a loopback host (local proxies / tests: the key never
+/// leaves the machine). An unparsable URL is *not* flagged here; reqwest rejects it before
+/// anything is sent and the probe reports `Unknown`. Pure.
+pub fn key_would_leak_to(url: &str) -> bool {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    match parsed.scheme() {
+        "https" => false,
+        "http" => !is_loopback_host(parsed.host_str().unwrap_or_default()),
+        _ => true,
+    }
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim_matches(['[', ']']);
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+}
+
+/// Result returned instead of probing when the base URL is not `https` (nothing was sent).
+fn not_https_check() -> GatewayCheck {
+    GatewayCheck {
+        ok: false,
+        http_status: None,
+        latency_ms: None,
+        error_class: Some(ErrorClass::NotHttps),
+        message: None,
     }
 }
 
@@ -378,6 +424,13 @@ fn mentions_model(body: &str) -> bool {
     body.to_ascii_lowercase().contains("model")
 }
 
+/// `true` when the body is a JSON error whose text talks about the model. Anthropic-style
+/// endpoints answer an unknown model with `404 {"error":{"type":"not_found_error","message":
+/// "model: x"}}`; a plain 404 page (wrong URL, fault B) has no such JSON error.
+fn json_error_mentions_model(body: &str) -> bool {
+    extract_error_text(body).is_some_and(|text| mentions_model(&text))
+}
+
 /// `error.message` / `error` / `message` / `detail` from a JSON error body, if any.
 fn extract_error_text(body: &str) -> Option<String> {
     let value: Value = serde_json::from_str(body).ok()?;
@@ -415,6 +468,7 @@ pub fn classify_response(status: u16, body: &str) -> GatewayCheck {
     let (ok, error_class) = match status {
         200..=299 => (true, None),
         400 | 422 if mentions_model(body) => (true, None),
+        404 if json_error_mentions_model(body) => (true, None),
         400 | 422 => (false, Some(ErrorClass::ProtocolMismatch)),
         401 | 403 => (false, Some(ErrorClass::Auth)),
         404 | 405 | 410 => (false, Some(ErrorClass::NotFound)),
@@ -490,15 +544,33 @@ fn elapsed_ms(since: Instant) -> u64 {
     u64::try_from(since.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
-/// One minimal request against the gateway. The key travels in the `Authorization` header
-/// only and is never logged; the response body is scrubbed before it becomes `message`.
+/// Adds the credential headers for `protocol` (see module docs). The key goes nowhere else.
+fn with_auth_headers(
+    request: reqwest::RequestBuilder,
+    protocol: Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    let request = request.bearer_auth(api_key);
+    match protocol {
+        Protocol::Responses | Protocol::ChatCompletions => request,
+        Protocol::AnthropicMessages => request
+            .header("x-api-key", api_key)
+            .header("anthropic-version", ANTHROPIC_VERSION),
+    }
+}
+
+/// One minimal request against the gateway. The key travels in request headers only and is
+/// never logged; the response body is scrubbed before it becomes `message`. Non-`https` base
+/// URLs (loopback excepted) are refused before anything is sent.
 pub async fn probe_gateway(client: &reqwest::Client, req: &GatewayProbeRequest) -> GatewayCheck {
     let url = probe_url(&req.base_url, req.protocol);
+    if key_would_leak_to(&url) {
+        log::info!("gateway probe refused: base URL is not https");
+        return not_https_check();
+    }
     let body = probe_body(&req.model, req.protocol);
     let started = Instant::now();
-    let sent = client
-        .post(&url)
-        .bearer_auth(req.api_key.trim())
+    let sent = with_auth_headers(client.post(&url), req.protocol, req.api_key.trim())
         .timeout(GATEWAY_TIMEOUT)
         .json(&body)
         .send()
@@ -681,6 +753,8 @@ pub fn symptoms_from(
                 symptoms.push(Symptom::NetworkError { target });
             }
             (Some(ErrorClass::Timeout), None) => symptoms.push(Symptom::Timeout { target }),
+            // `NotHttps` never has a status (nothing was sent; the UI explains it), so it ends
+            // up in the last arm together with the other status-less classes.
             (_, Some(status)) => symptoms.push(Symptom::HttpStatus { status, tool }),
             (_, None) => {}
         }
@@ -799,6 +873,20 @@ mod tests {
             (
                 404,
                 "<html>Not Found</html>",
+                false,
+                Some(ErrorClass::NotFound),
+            ),
+            // Anthropic-style unknown model: auth + URL proven, only the model hint is wrong
+            (
+                404,
+                r#"{"type":"error","error":{"type":"not_found_error","message":"model: claude-x"}}"#,
+                true,
+                None,
+            ),
+            // a 404 page that merely contains the word does not count
+            (
+                404,
+                "<html>model not found</html>",
                 false,
                 Some(ErrorClass::NotFound),
             ),
@@ -1001,6 +1089,48 @@ mod tests {
             probe_url("https://g.example.com", r),
             "https://g.example.com/responses"
         );
+        // Anthropic Messages mirrors the SDK: `/v1/messages` appended, `/v1` not deduplicated
+        let a = Protocol::AnthropicMessages;
+        assert_eq!(
+            probe_url("https://g.example.com", a),
+            "https://g.example.com/v1/messages"
+        );
+        assert_eq!(
+            probe_url("https://g.example.com/anthropic/", a),
+            "https://g.example.com/anthropic/v1/messages"
+        );
+        assert_eq!(
+            probe_url("https://g.example.com/v1", a),
+            "https://g.example.com/v1/v1/messages"
+        );
+        assert_eq!(
+            probe_url("https://g.example.com/v1/messages/", a),
+            "https://g.example.com/v1/messages"
+        );
+    }
+
+    #[test]
+    fn key_leaks_only_over_non_https_non_loopback_urls() {
+        for fine in [
+            "https://gateway.example.com/v1/responses",
+            "http://127.0.0.1:8080/v1/responses",
+            "http://localhost/v1/responses",
+            "http://LOCALHOST:3000/x",
+            "http://[::1]:9/v1/messages",
+            // unparsable: reqwest refuses it itself, nothing is sent
+            "not a url",
+            "",
+        ] {
+            assert!(!key_would_leak_to(fine), "{fine}");
+        }
+        for leaks in [
+            "http://gateway.example.com/v1/responses",
+            "http://10.0.0.5/v1",
+            "http://127.0.0.1.evil.example/v1",
+            "ftp://gateway.example.com/v1",
+        ] {
+            assert!(key_would_leak_to(leaks), "{leaks}");
+        }
     }
 
     #[test]
@@ -1015,6 +1145,12 @@ mod tests {
         assert_eq!(b["model"], "");
         assert_eq!(b["max_tokens"], 1);
         assert_eq!(b["messages"][0]["role"], "user");
+        assert_eq!(b["messages"][0]["content"], "ping");
+        assert!(b.get("input").is_none());
+
+        let b = probe_body("claude-sonnet-4-5", Protocol::AnthropicMessages);
+        assert_eq!(b["model"], "claude-sonnet-4-5");
+        assert_eq!(b["max_tokens"], 1);
         assert_eq!(b["messages"][0]["content"], "ping");
         assert!(b.get("input").is_none());
     }
@@ -1132,6 +1268,55 @@ mod tests {
         assert_eq!(check.http_status, Some(200));
         assert_eq!(check.error_class, None);
         assert_eq!(check.message, None);
+    }
+
+    #[tokio::test]
+    async fn probe_anthropic_messages_sends_x_api_key_and_version() {
+        let (base, server) = serve_once("200 OK", r#"{"id":"msg_1","type":"message"}"#);
+        let req = GatewayProbeRequest {
+            base_url: base.trim_end_matches("/v1").to_owned(),
+            api_key: KEY.into(),
+            model: "claude-sonnet-4-5".into(),
+            protocol: Protocol::AnthropicMessages,
+        };
+        let check = probe_gateway(&test_client(), &req).await;
+        let request = server.join().expect("server thread");
+        assert!(
+            request.starts_with("POST /v1/messages HTTP/1.1"),
+            "{request}"
+        );
+        let lower = request.to_ascii_lowercase();
+        assert!(lower.contains(&format!("x-api-key: {KEY}")), "{request}");
+        assert!(
+            lower.contains(&format!("authorization: bearer {KEY}")),
+            "{request}"
+        );
+        assert!(
+            lower.contains(&format!("anthropic-version: {ANTHROPIC_VERSION}")),
+            "{request}"
+        );
+        assert!(request.contains(r#""max_tokens":1"#), "{request}");
+        assert!(check.ok);
+        assert_eq!(check.http_status, Some(200));
+    }
+
+    #[tokio::test]
+    async fn probe_refuses_plain_http_without_sending_the_key() {
+        // Nothing listens here; if the probe tried to send, the result would be `Network`.
+        let req = GatewayProbeRequest {
+            base_url: "http://gateway.example.invalid/v1".into(),
+            api_key: KEY.into(),
+            model: "m".into(),
+            protocol: Protocol::Responses,
+        };
+        let check = probe_gateway(&test_client(), &req).await;
+        assert!(!check.ok);
+        assert_eq!(check.error_class, Some(ErrorClass::NotHttps));
+        assert_eq!(check.http_status, None);
+        assert_eq!(check.latency_ms, None);
+        assert_eq!(check.message, None);
+        // …and it yields no symptom (the UI explains it)
+        assert!(symptoms_from(ToolId::Codex, &cli(true, None, None), Some(&check), "x").is_empty());
     }
 
     #[tokio::test]

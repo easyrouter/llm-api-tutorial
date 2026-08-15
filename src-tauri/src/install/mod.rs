@@ -1,12 +1,13 @@
 //! M2 — installation. Nothing is executed without the frontend first showing
-//! `InstallPlan.display_command` and the user confirming (`start` only ever runs the exact
-//! program/args of a plan the UI handed back).
+//! `InstallPlan.display_command` and the user confirming. `start` re-validates the plan the UI
+//! hands back against the current config ([`plan::validate_plan`]) before running its exact
+//! program/args, so the show-before-run guarantee does not rest on the webview alone.
 //!
 //! Flow
 //! - [`plan`] gathers machine facts ([`plan::PlanContext`]) and delegates to the pure
 //!   [`plan::build_plan`]:
 //!     * Node      → no command; `download_url` = download page of the chosen mirror
-//!                   (macOS with Homebrew: `brew install node@<lts>` alternative)
+//!                   (macOS with Homebrew: `brew install node` alternative)
 //!     * Codex / ClaudeCode → `npm install -g <pkg> --registry <chosen mirror>`;
 //!                   `requires_admin` = npm prefix not writable by the user (we never elevate —
 //!                   PRD #7; the UI shows how to switch to a per-user prefix)
@@ -27,6 +28,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::watch;
 
+use crate::checks;
 use crate::error::{AppError, AppResult};
 use crate::events::{DOWNLOAD_PROGRESS, INSTALL_DONE, INSTALL_OUTPUT};
 use crate::models::{
@@ -114,7 +116,7 @@ async fn plan_context() -> PlanContext {
     PlanContext {
         platform,
         homebrew: resolve_brew(),
-        npm_program: resolve_npm(platform),
+        npm_program: resolve_npm(platform).await,
         npm_prefix_writable: npm_prefix_writable().await,
     }
 }
@@ -134,23 +136,33 @@ fn resolve_brew() -> Option<String> {
         .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// Full path of the `npm` shim, or the bare name when it cannot be found.
-fn resolve_npm(platform: Platform) -> String {
-    platform::find_binary("npm", &node_install_dirs(platform)).map_or_else(
-        || "npm".to_owned(),
-        |(path, _)| path.to_string_lossy().into_owned(),
-    )
+/// Full path of the `npm` shim the way the environment check finds it (`checks::locate_binary`:
+/// process `PATH`, then the *fresh-session* `PATH` a new terminal would have, then the standard
+/// install locations), or the bare name when it cannot be found anywhere. Carrying the full
+/// path in the plan means `start` works right after Node was installed, before the app is
+/// restarted — the same machine state in which the Node check already passes.
+async fn resolve_npm(platform: Platform) -> String {
+    checks::locate_binary("npm", &node_install_dirs(platform))
+        .await
+        .map_or_else(
+            || "npm".to_owned(),
+            |(path, _)| path.to_string_lossy().into_owned(),
+        )
 }
 
-/// Standard Node.js install locations searched when `npm` is not on this process' `PATH`
-/// (typically: Node was installed a moment ago and the app has not been restarted).
+/// Standard Node.js install locations searched when `npm` is on neither the process nor the
+/// fresh-session `PATH` (mirrors `checks::node::node_candidates_for`).
 fn node_install_dirs(platform: Platform) -> Vec<PathBuf> {
     match platform {
-        Platform::Windows => ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
-            .iter()
-            .filter_map(std::env::var_os)
-            .map(|base| PathBuf::from(base).join("nodejs"))
-            .collect(),
+        Platform::Windows => {
+            let program_files = ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
+                .iter()
+                .filter_map(std::env::var_os)
+                .map(|base| PathBuf::from(base).join("nodejs"));
+            let per_user = std::env::var_os("LOCALAPPDATA")
+                .map(|base| PathBuf::from(base).join("Programs").join("nodejs"));
+            program_files.chain(per_user).collect()
+        }
         Platform::Macos | Platform::Linux => {
             vec![
                 PathBuf::from("/opt/homebrew/bin"),
@@ -222,9 +234,16 @@ pub fn dir_writable(dir: &Path) -> bool {
 
 /// Starts the command of a confirmed plan and returns immediately with the job id. Output
 /// arrives on `install://output` (first line: the display command, stream `system`), the
-/// outcome on `install://done`. Plans without a command (`program == ""`) are rejected.
-pub async fn start(app: AppHandle, jobs: &JobRegistry, plan: InstallPlan) -> AppResult<InstallJob> {
+/// outcome on `install://done`. Plans without a command (`program == ""`) and plans this
+/// module could not have produced for `config` are rejected.
+pub async fn start(
+    app: AppHandle,
+    jobs: &JobRegistry,
+    config: &AppConfig,
+    plan: InstallPlan,
+) -> AppResult<InstallJob> {
     let spec = command_spec(&plan)?;
+    plan::validate_plan(&plan, config)?;
     ensure_program_exists(&spec.program)?;
     let job_id = uuid::Uuid::new_v4().to_string();
     let cancel = jobs.register(&job_id);
@@ -411,11 +430,11 @@ fn downloads_dir(app: &AppHandle) -> AppResult<PathBuf> {
     Ok(cache.join(DOWNLOADS_DIR))
 }
 
-/// Client for installer downloads: same rustls / proxy / user-agent setup as the shared client
-/// but without its 60 s overall request timeout (installers are tens of MB on slow links; the
-/// 30 s read timeout still bounds stalls). Falls back to `shared` when building fails.
+/// Client for installer downloads (`net::download_client`: no overall timeout, `https_only`).
+/// Falls back to `shared` when building fails — `net::download` still gates the initial URL
+/// and refuses downgraded redirects itself.
 fn download_client(shared: &reqwest::Client) -> reqwest::Client {
-    net::client_with_timeout(0).unwrap_or_else(|e| {
+    net::download_client().unwrap_or_else(|e| {
         log::warn!("download client unavailable, using shared client: {e}");
         shared.clone()
     })
@@ -583,9 +602,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn resolve_npm_falls_back_to_bare_name() {
-        let resolved = resolve_npm(platform::platform());
+    #[tokio::test]
+    async fn resolve_npm_falls_back_to_bare_name() {
+        let resolved = resolve_npm(platform::platform()).await;
         assert!(
             resolved == "npm" || Path::new(&resolved).is_file(),
             "either the bare name or an existing shim: {resolved}"

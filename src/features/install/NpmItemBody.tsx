@@ -3,11 +3,12 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Alert, Button, ErrorBanner, LogView } from "@/components/ui";
-import type { InstallDoneEvent, Platform } from "@/lib/types";
+import type { AppConfig, InstallDoneEvent, Platform } from "@/lib/types";
 
 import { PhaseSpinner, RecheckFeedback } from "./ItemParts";
 import type { InstallActions } from "./useInstallController";
 import type { ItemState, JobLog } from "./install-state";
+import { registryToAvoidOnRetry } from "./install-targets";
 import { PlanDetails } from "./PlanDetails";
 
 export interface NpmItemBodyProps {
@@ -15,6 +16,7 @@ export interface NpmItemBodyProps {
   log: JobLog | null;
   toolName: string;
   platform: Platform | null;
+  config: AppConfig | null;
   actions: InstallActions;
 }
 
@@ -70,9 +72,11 @@ function failureMessage(
 
 /**
  * Codex / Claude Code via `npm install -g`: plan → confirm (command shown) → live output →
- * done (auto re-check) | failed (retry re-plans, which re-probes the registry mirrors).
+ * done (auto re-check) | failed. Retry re-plans; when the job itself failed and another npm
+ * registry is configured, the registry it failed on is excluded so the new plan switches
+ * mirror ("Switch mirror and retry"), otherwise it is a plain retry.
  */
-export function NpmItemBody({ item, log, toolName, platform, actions }: NpmItemBodyProps) {
+export function NpmItemBody({ item, log, toolName, platform, config, actions }: NpmItemBodyProps) {
   const { t } = useTranslation();
   const { target, step } = item;
 
@@ -132,9 +136,11 @@ export function NpmItemBody({ item, log, toolName, platform, actions }: NpmItemB
         </div>
       );
     case "failed": {
-      const retryLabel =
-        step.stage === "run" ? t("install:actions.changeMirror") : t("install:actions.retry");
-      const retry = () => void actions.plan(target);
+      const avoidRegistry = step.stage === "run" ? registryToAvoidOnRetry(step.plan, config) : null;
+      const retryLabel = avoidRegistry
+        ? t("install:actions.changeMirror")
+        : t("install:actions.retry");
+      const retry = () => void actions.plan(target, { excludeRegistry: avoidRegistry });
       return (
         <div className="space-y-3">
           {step.plan && step.stage !== "plan" && (

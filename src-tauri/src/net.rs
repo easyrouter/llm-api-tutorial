@@ -8,9 +8,13 @@
 //!   short, redacted and never contain the URL.
 //! - `choose_mirrors` probes every entry concurrently and picks the lowest-latency reachable one
 //!   per category, preferring `official` when it is within [`PREFER_OFFICIAL_MARGIN_MS`];
-//!   falls back to the first entry when nothing is reachable.
-//! - `download` accepts https only, writes to `dest_dir/<file_name>.part` and renames on
-//!   success, streams SHA-256, reports progress (throttled) and rejects on hash mismatch.
+//!   falls back to the first entry when nothing is reachable. `choose_mirrors_avoiding` is the
+//!   retry variant: the npm registry an install just failed on is left out of the choice (PRD
+//!   M2 "switch mirror when the network is slow"), unless it is the only one configured.
+//! - `download` accepts https only (and refuses a redirect that leaves https), writes to
+//!   `dest_dir/<file_name>.part` and renames on success, streams SHA-256, reports progress
+//!   (throttled) and rejects on hash mismatch. Installer downloads use [`download_client`],
+//!   which additionally lets reqwest refuse any non-https hop (`https_only`).
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -57,16 +61,31 @@ pub fn build_client() -> AppResult<reqwest::Client> {
 /// Builds a client with a custom overall request timeout (seconds); `0` disables it (used
 /// for long downloads, which are still bounded by the 30 s read timeout).
 pub fn client_with_timeout(secs: u64) -> AppResult<reqwest::Client> {
+    client_builder(secs)
+        .build()
+        .map_err(|e| AppError::Network(short_error(&e)))
+}
+
+/// Client for installer downloads: no overall timeout (installers are tens of MB on slow
+/// links; the read timeout still bounds stalls) and `https_only`, so an `https → http`
+/// redirect from a mirror is refused by reqwest instead of silently followed (hard rule 7).
+pub fn download_client() -> AppResult<reqwest::Client> {
+    client_builder(0)
+        .https_only(true)
+        .build()
+        .map_err(|e| AppError::Network(short_error(&e)))
+}
+
+/// Common builder: rustls, system/env proxies, custom UA, connect/read timeouts.
+fn client_builder(overall_timeout_secs: u64) -> reqwest::ClientBuilder {
     let mut builder = reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .connect_timeout(Duration::from_secs(10))
         .read_timeout(Duration::from_secs(30));
-    if secs > 0 {
-        builder = builder.timeout(Duration::from_secs(secs));
+    if overall_timeout_secs > 0 {
+        builder = builder.timeout(Duration::from_secs(overall_timeout_secs));
     }
     builder
-        .build()
-        .map_err(|e| AppError::Network(short_error(&e)))
 }
 
 // ---------------------------------------------------------------------------
@@ -228,19 +247,32 @@ async fn probe_all(
 /// Probes all npm registries and Node dist mirrors concurrently and picks one per category
 /// (see [`select_mirror`]). All probe results are returned for display.
 pub async fn choose_mirrors(client: &reqwest::Client, mirrors: &Mirrors) -> MirrorChoice {
+    choose_mirrors_avoiding(client, mirrors, None).await
+}
+
+/// [`choose_mirrors`] that leaves the npm registry `avoid_npm_registry` (an entry id) out of the
+/// npm choice — used when re-planning after an install failed on that registry. When it is the
+/// only registry configured it is still chosen (there is nothing to switch to).
+pub async fn choose_mirrors_avoiding(
+    client: &reqwest::Client,
+    mirrors: &Mirrors,
+    avoid_npm_registry: Option<&str>,
+) -> MirrorChoice {
     let timeout = probe_timeout(mirrors);
     let (npm_probes, node_probes) = tokio::join!(
         probe_all(client, &mirrors.npm_registries, timeout),
         probe_all(client, &mirrors.node_dist, timeout)
     );
+    let npm_candidates = registries_avoiding(&mirrors.npm_registries, avoid_npm_registry);
     let npm_registry =
-        select_mirror(&mirrors.npm_registries, &npm_probes).unwrap_or_else(default_npm_registry);
+        select_mirror(&npm_candidates, &npm_probes).unwrap_or_else(default_npm_registry);
     let node_dist =
         select_mirror(&mirrors.node_dist, &node_probes).unwrap_or_else(default_node_dist);
     log::info!(
-        "mirror choice: npm={} node={}",
+        "mirror choice: npm={} node={} (avoiding {:?})",
         npm_registry.id,
-        node_dist.id
+        node_dist.id,
+        avoid_npm_registry
     );
     let mut probes = npm_probes;
     probes.extend(node_probes);
@@ -248,6 +280,19 @@ pub async fn choose_mirrors(client: &reqwest::Client, mirrors: &Mirrors) -> Mirr
         npm_registry,
         node_dist,
         probes,
+    }
+}
+
+/// `entries` without the one whose id is `avoid` — unless that would leave nothing. Pure.
+pub fn registries_avoiding(entries: &[MirrorEntry], avoid: Option<&str>) -> Vec<MirrorEntry> {
+    let Some(avoid) = avoid.map(str::trim).filter(|a| !a.is_empty()) else {
+        return entries.to_vec();
+    };
+    let remaining: Vec<MirrorEntry> = entries.iter().filter(|e| e.id != avoid).cloned().collect();
+    if remaining.is_empty() {
+        entries.to_vec()
+    } else {
+        remaining
     }
 }
 
@@ -414,6 +459,13 @@ where
     let part_path = dest_dir.join(format!("{file_name}.part"));
 
     let response = client.get(&req.url).send().await?;
+    if is_https(&req.url) && response.url().scheme() != "https" {
+        // Belt and braces next to `download_client`'s `https_only`: never stream a body that
+        // arrived over a downgraded redirect.
+        return Err(AppError::InvalidInput(
+            "download was redirected to a non-https URL".to_owned(),
+        ));
+    }
     let status = response.status();
     if !status.is_success() {
         return Err(AppError::Http {
@@ -513,6 +565,48 @@ mod tests {
     }
 
     #[test]
+    fn registries_avoiding_drops_the_failed_one_unless_it_is_alone() {
+        let entries = [
+            entry("official", "https://official/"),
+            entry("npmmirror", "https://mirror/"),
+        ];
+        let ids = |v: Vec<MirrorEntry>| v.into_iter().map(|e| e.id).collect::<Vec<_>>();
+        assert_eq!(
+            ids(registries_avoiding(&entries, Some("npmmirror"))),
+            vec!["official"]
+        );
+        assert_eq!(
+            ids(registries_avoiding(&entries, Some("official"))),
+            vec!["npmmirror"]
+        );
+        assert_eq!(
+            ids(registries_avoiding(&entries, Some("unknown"))),
+            vec!["official", "npmmirror"]
+        );
+        assert_eq!(
+            ids(registries_avoiding(&entries, None)),
+            vec!["official", "npmmirror"]
+        );
+        assert_eq!(
+            ids(registries_avoiding(&entries, Some("  "))),
+            vec!["official", "npmmirror"]
+        );
+        // the only registry stays even when it just failed
+        assert_eq!(
+            ids(registries_avoiding(&entries[..1], Some("official"))),
+            vec!["official"]
+        );
+        // combined with selection: the failed (faster) mirror loses to the remaining one
+        let probes = [
+            probe_result("https://official/", Some(900)),
+            probe_result("https://mirror/", Some(50)),
+        ];
+        let chosen = select_mirror(&registries_avoiding(&entries, Some("npmmirror")), &probes)
+            .expect("non-empty");
+        assert_eq!(chosen.id, "official");
+    }
+
+    #[test]
     fn select_mirror_without_official_picks_fastest() {
         let entries = [entry("a", "https://a/"), entry("b", "https://b/")];
         let probes = [
@@ -608,10 +702,22 @@ mod tests {
         assert_eq!(truncate_chars("abcdef", 3), "abc…");
     }
 
+    #[tokio::test]
+    async fn download_client_refuses_plain_http_even_before_the_gate() {
+        let client = download_client().expect("client");
+        let err = client
+            .get("http://127.0.0.1:9/installer.exe")
+            .send()
+            .await
+            .expect_err("https_only client must refuse http");
+        assert!(err.is_builder(), "{err}");
+    }
+
     #[test]
     fn client_builders_succeed() {
         assert!(build_client().is_ok());
         assert!(client_with_timeout(0).is_ok());
+        assert!(download_client().is_ok());
     }
 
     #[tokio::test]

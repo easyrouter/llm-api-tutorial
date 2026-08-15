@@ -7,9 +7,14 @@
 //! | target              | code                 | command                                        |
 //! | ------------------- | -------------------- | ---------------------------------------------- |
 //! | Node (default)      | `node.download_page` | none — `download_url` = mirror download page   |
-//! | Node (macOS + brew) | `node.homebrew`      | `brew install node@<recommended LTS>`          |
+//! | Node (macOS + brew) | `node.homebrew`      | `brew install node` (linked into `PATH`)       |
 //! | Codex / Claude Code | `npm_global`         | `npm install -g <pkg> --registry <mirror url>` |
 //! | CC Switch           | `cc_switch.download` | none — release fetched via `cc_switch`         |
+//!
+//! [`validate_plan`] is the server-side counterpart of "show before run": `start_install`
+//! only executes a plan that this module could have produced for the current config (program
+//! basename, exact argument shape, package from the preset, registry from the preset, no
+//! environment overrides), so a tampered DTO from the webview cannot run anything else.
 
 use std::collections::BTreeMap;
 
@@ -69,22 +74,22 @@ fn manual_plan(target: InstallTarget, code: &str, download_url: Option<String>) 
     }
 }
 
+/// Homebrew formula proposed for Node.js. The unversioned `node` formula is used on purpose:
+/// versioned formulae (`node@22`) are keg-only — their binaries are not linked into `PATH`, so a
+/// fresh terminal (and the re-check) would still report "node missing" until the user runs
+/// `brew link --force --overwrite node@22`. Any current `node` satisfies the minimum version.
+pub const HOMEBREW_NODE_FORMULA: &str = "node";
+
 /// Node.js: manual download from the chosen mirror; on macOS with Homebrew the plan proposes
-/// `brew install node@<lts>` and still carries the download page as an alternative.
-fn node_plan(config: &AppConfig, mirrors: &MirrorChoice, ctx: &PlanContext) -> InstallPlan {
+/// `brew install node` and still carries the download page as an alternative.
+fn node_plan(_config: &AppConfig, mirrors: &MirrorChoice, ctx: &PlanContext) -> InstallPlan {
     let download_url = node_download_url(mirrors);
     let brew = ctx
         .homebrew
         .as_deref()
         .filter(|_| ctx.platform == Platform::Macos);
     if let Some(brew) = brew {
-        let spec = CommandSpec::new(
-            brew,
-            [
-                "install".to_owned(),
-                homebrew_node_formula(&config.requirements.node_recommended_lts),
-            ],
-        );
+        let spec = CommandSpec::new(brew, ["install", HOMEBREW_NODE_FORMULA]);
         return InstallPlan {
             target: InstallTarget::Node,
             display_command: spec.display(),
@@ -108,21 +113,6 @@ fn node_download_url(mirrors: &MirrorChoice) -> Option<String> {
         .map(|s| s.trim())
         .find(|s| !s.is_empty())
         .map(str::to_owned)
-}
-
-/// `node@<major>` (Homebrew versioned formula); a bare `node` when the LTS hint is empty.
-fn homebrew_node_formula(recommended_lts: &str) -> String {
-    let major: String = recommended_lts
-        .trim()
-        .trim_start_matches('v')
-        .chars()
-        .take_while(char::is_ascii_digit)
-        .collect();
-    if major.is_empty() {
-        "node".to_owned()
-    } else {
-        format!("node@{major}")
-    }
 }
 
 /// `npm install -g <package> --registry <chosen registry>` for a CLI tool.
@@ -165,6 +155,91 @@ fn npm_plan(
 /// CC Switch is a desktop app: no command, the UI fetches the release and downloads it.
 fn cc_switch_plan() -> InstallPlan {
     manual_plan(InstallTarget::CcSwitch, CODE_CC_SWITCH_DOWNLOAD, None)
+}
+
+// ---------------------------------------------------------------------------
+// Server-side plan validation (start_install)
+// ---------------------------------------------------------------------------
+
+/// File-name stems `program` may resolve to (case-insensitive, extension ignored).
+const NPM_PROGRAM_STEMS: &[&str] = &["npm"];
+const BREW_PROGRAM_STEMS: &[&str] = &["brew"];
+
+/// Rejects a plan that this module could not have built for `config` (see module docs). Pure.
+pub fn validate_plan(plan: &InstallPlan, config: &AppConfig) -> AppResult<()> {
+    let invalid = |why: &str| AppError::InvalidInput(format!("install plan rejected: {why}"));
+    if !plan.env.is_empty() {
+        return Err(invalid("environment overrides are not allowed"));
+    }
+    match plan.target {
+        InstallTarget::Codex | InstallTarget::ClaudeCode => {
+            validate_npm_plan(plan, config).map_err(invalid)
+        }
+        InstallTarget::Node => validate_brew_plan(plan).map_err(invalid),
+        InstallTarget::CcSwitch => Err(invalid("CC Switch has no command to run")),
+    }
+}
+
+/// `npm install -g <package of the plan's tool> --registry <configured registry url>`.
+fn validate_npm_plan(plan: &InstallPlan, config: &AppConfig) -> Result<(), &'static str> {
+    if !program_matches(&plan.program, NPM_PROGRAM_STEMS) {
+        return Err("program must be npm");
+    }
+    let tool = match plan.target {
+        InstallTarget::Codex => ToolId::Codex,
+        InstallTarget::ClaudeCode => ToolId::ClaudeCode,
+        InstallTarget::Node | InstallTarget::CcSwitch => return Err("not an npm target"),
+    };
+    let package = config
+        .tools
+        .iter()
+        .find(|t| t.id == tool)
+        .map(|t| t.npm_package.as_str())
+        .ok_or("tool is not configured")?;
+    let [install, global, pkg, registry_flag, registry_url] = plan.args.as_slice() else {
+        return Err("unexpected argument shape");
+    };
+    if install != "install" || global != "-g" || registry_flag != "--registry" {
+        return Err("unexpected arguments");
+    }
+    if pkg != package {
+        return Err("package does not match the preset");
+    }
+    let known_registry = config
+        .mirrors
+        .npm_registries
+        .iter()
+        .any(|m| &m.url == registry_url);
+    if !known_registry {
+        return Err("registry is not one of the configured mirrors");
+    }
+    Ok(())
+}
+
+/// `brew install node` (the only Node command plan).
+fn validate_brew_plan(plan: &InstallPlan) -> Result<(), &'static str> {
+    if !program_matches(&plan.program, BREW_PROGRAM_STEMS) {
+        return Err("program must be brew");
+    }
+    if plan.args != ["install", HOMEBREW_NODE_FORMULA] {
+        return Err("unexpected arguments");
+    }
+    Ok(())
+}
+
+/// `true` when the file-name stem of `program` (bare name or full path, extension ignored) is
+/// one of `stems`, case-insensitively.
+fn program_matches(program: &str, stems: &[&str]) -> bool {
+    let trimmed = program.trim();
+    let file_name = trimmed
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(trimmed)
+        .to_ascii_lowercase();
+    let stem = file_name
+        .rsplit_once('.')
+        .map_or(file_name.as_str(), |(stem, _)| stem);
+    !stem.is_empty() && stems.contains(&stem)
 }
 
 #[cfg(test)]
@@ -246,11 +321,12 @@ mod tests {
         c.homebrew = Some("/opt/homebrew/bin/brew".to_owned());
         let plan = build_plan(InstallTarget::Node, &cfg(), &mirrors(), &c).expect("plan");
         assert_eq!(plan.program, "/opt/homebrew/bin/brew");
-        assert_eq!(plan.args, vec!["install", "node@22"]);
         assert_eq!(
-            plan.display_command,
-            "/opt/homebrew/bin/brew install node@22"
+            plan.args,
+            vec!["install", "node"],
+            "unversioned: linked into PATH"
         );
+        assert_eq!(plan.display_command, "/opt/homebrew/bin/brew install node");
         assert_eq!(plan.explanation_code, CODE_NODE_HOMEBREW);
         assert!(plan.registry.is_none());
         assert!(!plan.requires_admin);
@@ -267,20 +343,6 @@ mod tests {
         let plan = build_plan(InstallTarget::Node, &cfg(), &mirrors(), &c).expect("plan");
         assert!(plan.program.is_empty());
         assert_eq!(plan.explanation_code, CODE_NODE_DOWNLOAD_PAGE);
-    }
-
-    #[test]
-    fn homebrew_formula_from_lts_hint() {
-        let cases = [
-            ("22", "node@22"),
-            ("v20.11.0", "node@20"),
-            (" 18 ", "node@18"),
-            ("", "node"),
-            ("lts", "node"),
-        ];
-        for (input, expected) in cases {
-            assert_eq!(homebrew_node_formula(input), expected, "input {input:?}");
-        }
     }
 
     #[test]
@@ -344,6 +406,115 @@ mod tests {
         )
         .expect_err("missing tool");
         assert_eq!(err.code(), "config");
+    }
+
+    #[test]
+    fn validate_plan_accepts_what_build_plan_produces() {
+        let cfg = cfg();
+        let m = mirrors();
+        let mut c = ctx(Platform::Windows);
+        c.npm_program = r"C:\Program Files\nodejs\npm.cmd".to_owned();
+        for target in [InstallTarget::Codex, InstallTarget::ClaudeCode] {
+            let plan = build_plan(target, &cfg, &m, &c).expect("plan");
+            validate_plan(&plan, &cfg).expect("own npm plan is valid");
+        }
+        let mut mac = ctx(Platform::Macos);
+        mac.homebrew = Some("/opt/homebrew/bin/brew".to_owned());
+        let brew = build_plan(InstallTarget::Node, &cfg, &m, &mac).expect("plan");
+        validate_plan(&brew, &cfg).expect("own brew plan is valid");
+    }
+
+    type Mutation = Box<dyn Fn(&mut InstallPlan)>;
+
+    #[test]
+    fn validate_plan_rejects_tampered_plans() {
+        let cfg = cfg();
+        let base = build_plan(
+            InstallTarget::Codex,
+            &cfg,
+            &mirrors(),
+            &ctx(Platform::Windows),
+        )
+        .expect("plan");
+        let tampered: Vec<(&str, Mutation)> = vec![
+            (
+                "other program",
+                Box::new(|p| p.program = "powershell".into()),
+            ),
+            (
+                "path to other program",
+                Box::new(|p| p.program = r"C:\x\cmd.exe".into()),
+            ),
+            (
+                "extra arg",
+                Box::new(|p| p.args.push("--ignore-scripts".into())),
+            ),
+            (
+                "missing arg",
+                Box::new(|p| {
+                    p.args.pop();
+                }),
+            ),
+            (
+                "other package",
+                Box::new(|p| p.args[2] = "evil-package".into()),
+            ),
+            (
+                "other registry",
+                Box::new(|p| p.args[4] = "https://evil.example/".into()),
+            ),
+            ("not install", Box::new(|p| p.args[0] = "exec".into())),
+            (
+                "env override",
+                Box::new(|p| {
+                    p.env.insert("NODE_OPTIONS".into(), "--require x".into());
+                }),
+            ),
+            (
+                "target swap",
+                Box::new(|p| p.target = InstallTarget::ClaudeCode),
+            ),
+            (
+                "manual target",
+                Box::new(|p| p.target = InstallTarget::CcSwitch),
+            ),
+            (
+                "node with npm",
+                Box::new(|p| p.target = InstallTarget::Node),
+            ),
+        ];
+        for (name, mutate) in tampered {
+            let mut plan = base.clone();
+            mutate(&mut plan);
+            let err = validate_plan(&plan, &cfg).expect_err(name);
+            assert_eq!(err.code(), "invalid_input", "{name}");
+        }
+        // brew plan with tampered args
+        let mut mac = ctx(Platform::Macos);
+        mac.homebrew = Some("/opt/homebrew/bin/brew".to_owned());
+        let mut brew = build_plan(InstallTarget::Node, &cfg, &mirrors(), &mac).expect("plan");
+        brew.args = vec!["install".into(), "--cask".into(), "something".into()];
+        assert!(validate_plan(&brew, &cfg).is_err());
+    }
+
+    #[test]
+    fn program_matches_by_stem_case_insensitively() {
+        for ok in [
+            "npm",
+            "NPM.CMD",
+            r"C:\Program Files\nodejs\npm.cmd",
+            "/opt/homebrew/bin/npm",
+            "/usr/local/bin/npm",
+        ] {
+            assert!(program_matches(ok, NPM_PROGRAM_STEMS), "{ok}");
+        }
+        for bad in ["npx", "npm-evil", "cmd.exe", "", "/bin/sh", "npm/", "brew"] {
+            assert!(!program_matches(bad, NPM_PROGRAM_STEMS), "{bad}");
+        }
+        assert!(program_matches(
+            "/opt/homebrew/bin/brew",
+            BREW_PROGRAM_STEMS
+        ));
     }
 
     #[test]

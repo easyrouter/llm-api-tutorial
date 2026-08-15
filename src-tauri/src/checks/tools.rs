@@ -145,7 +145,7 @@ fn broken(spec: &ToolSpec, exit_code: Option<i32>, timed_out: bool, tail: &str) 
         v = v.param("exitCode", c.to_string());
     }
     if timed_out {
-        v = v.detail("timed out");
+        v = v.param("timedOut", "true");
     }
     for line in tail.lines().filter(|l| !l.trim().is_empty()) {
         v = v.detail(line.trim());
@@ -321,7 +321,8 @@ mod tests {
             },
         );
         assert_eq!(v.params.get("exitCode").map(String::as_str), Some("2"));
-        assert_eq!(v.details, vec!["timed out", "line one", "line two"]);
+        assert_eq!(v.params.get("timedOut").map(String::as_str), Some("true"));
+        assert_eq!(v.details, vec!["line one", "line two"]);
         assert!(v.fixes.contains(&FixAction::Install {
             tool: InstallTarget::Codex
         }));

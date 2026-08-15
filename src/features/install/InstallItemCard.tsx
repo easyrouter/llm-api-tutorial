@@ -45,6 +45,7 @@ export function InstallItemCard({ item, state, actions, config, platform }: Inst
             log={jobId ? (state.jobs[jobId] ?? null) : null}
             toolName={toolName}
             platform={platform}
+            config={config}
             actions={actions}
           />
         );

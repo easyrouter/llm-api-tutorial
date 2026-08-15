@@ -80,11 +80,13 @@ pub(crate) fn tool_key(tool: ToolId) -> &'static str {
     }
 }
 
-/// Wire form of a [`Protocol`] (`responses` / `chat_completions`), used as an i18n param.
+/// Wire form of a [`Protocol`] (`responses` / `chat_completions` / `anthropic_messages`), used
+/// as an i18n param.
 pub(crate) fn protocol_key(protocol: Protocol) -> &'static str {
     match protocol {
         Protocol::Responses => "responses",
         Protocol::ChatCompletions => "chat_completions",
+        Protocol::AnthropicMessages => "anthropic_messages",
     }
 }
 

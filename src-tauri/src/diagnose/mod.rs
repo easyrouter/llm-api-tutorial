@@ -55,6 +55,7 @@ pub mod report;
 
 use std::collections::{BTreeSet, HashSet};
 
+use crate::checks::env_vars;
 use crate::guide::{protocol_key, tool_key};
 use crate::models::{
     AppConfig, CheckId, CheckStatus, DiagnoseRequest, Diagnosis, EnvSnapshot, FixAction, Params,
@@ -194,8 +195,9 @@ fn tools_not_on_path(snapshot: &EnvSnapshot, ctx: &Context<'_>) -> Vec<Diagnosis
 }
 
 /// Env-var names for rule D: explicit `EnvVarConflict` symptoms plus, when the snapshot's
-/// `env_vars` check is Warn/Fail, every finding that is present or has a persistent source
-/// (falling back to the check's `names` param).
+/// `env_vars` check is Warn/Fail, every *conflicting* finding (`is_conflict_name`: `*_API_KEY`
+/// / `*_BASE_URL` / …; proxy variables are informational) that is present or has a persistent
+/// source — falling back to the check's `names` param.
 fn env_conflict_names(symptoms: &[Symptom], snapshot: Option<&EnvSnapshot>) -> BTreeSet<String> {
     let mut names: BTreeSet<String> = symptoms
         .iter()
@@ -217,7 +219,7 @@ fn env_conflict_names(symptoms: &[Symptom], snapshot: Option<&EnvSnapshot>) -> B
     let from_findings: Vec<String> = snapshot
         .env_vars
         .iter()
-        .filter(|f| f.present_in_session || !f.sources.is_empty())
+        .filter(|f| env_vars::is_present(f) && env_vars::is_conflict_name(&f.name))
         .map(|f| f.name.clone())
         .collect();
     if from_findings.is_empty() {
@@ -973,6 +975,16 @@ mod tests {
                 present_in_session: false,
                 value_masked: None,
                 sources: vec![],
+            },
+            // present, but a proxy variable is informational — never a "conflict"
+            EnvVarFinding {
+                name: "HTTPS_PROXY".into(),
+                present_in_session: true,
+                value_masked: Some("http://proxy.corp:8080".into()),
+                sources: vec![EnvVarSource {
+                    kind: EnvVarSourceKind::ShellRc,
+                    location: "~/.zshrc:3".into(),
+                }],
             },
         ];
         let out = run(vec![], Some(snap));

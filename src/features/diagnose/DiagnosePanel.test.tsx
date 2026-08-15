@@ -128,6 +128,7 @@ describe("DiagnosePanel", () => {
     expect(mockInvoke).toHaveBeenCalledWith("build_diagnostic_report", {
       snapshot,
       diagnoses: [auth],
+      verify: [],
     });
     expect(mockWriteText).toHaveBeenCalledWith(REPORT_MD);
     expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();

@@ -318,4 +318,42 @@ describe("VerifyScreen", () => {
       /Runs claude --version/,
     );
   });
+
+  it("probes the gateway for Claude Code with the Anthropic Messages protocol", async () => {
+    useWizardStore.getState().setSelectedTools(["claude-code"]);
+    render(<VerifyScreen />);
+    const card = screen.getByTestId("verify-card-claude-code");
+    fireEvent.click(within(card).getByTestId("gateway-toggle"));
+    expect(card).toHaveTextContent("Protocol: Anthropic Messages");
+    fireEvent.change(within(card).getByTestId("gateway-model"), {
+      target: { value: "claude-sonnet-4-5" },
+    });
+    fireEvent.change(within(card).getByTestId("gateway-key"), { target: { value: "sk-ant-key" } });
+    await clickVerify();
+    expect(mockInvoke).toHaveBeenCalledWith("verify_setup", {
+      request: {
+        tool: "claude-code",
+        gateway: {
+          baseUrl: BASE_URL,
+          apiKey: "sk-ant-key",
+          model: "claude-sonnet-4-5",
+          protocol: "anthropic_messages",
+        },
+      },
+    });
+  });
+
+  it("warns inline when the gateway address is not https", () => {
+    render(<VerifyScreen />);
+    fireEvent.click(screen.getByTestId("gateway-toggle"));
+    expect(screen.queryByTestId("gateway-url-not-https")).toBeNull();
+    fireEvent.change(screen.getByTestId("gateway-url"), {
+      target: { value: "http://gateway.example.com/v1" },
+    });
+    expect(screen.getByTestId("gateway-url-not-https")).toHaveTextContent(/not https/);
+    fireEvent.change(screen.getByTestId("gateway-url"), {
+      target: { value: "http://127.0.0.1:8080/v1" },
+    });
+    expect(screen.queryByTestId("gateway-url-not-https")).toBeNull();
+  });
 });
