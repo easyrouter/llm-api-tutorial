@@ -1,1 +1,136 @@
-{}
+{
+  "title": "Configure the company gateway in CC Switch",
+  "intro": "Configuration happens inside CC Switch; this tool never writes a config file for you. Copy the values below into CC Switch — only the API key is something you type yourself. When you are done, come back here and the tool checks and verifies your work.",
+  "tabs": {
+    "label": "Choose the tool to configure"
+  },
+  "loading": "Preparing the {{tool}} walkthrough…",
+  "values": {
+    "title": "Values to enter",
+    "description": "Fill in the “Add provider” form in CC Switch with these values.",
+    "providerName": "Provider name",
+    "providerNameHint": "Any name works; this one keeps things recognisable later.",
+    "baseUrl": "API address (Base URL)",
+    "baseUrlHint": "Paste it exactly as shown — do not add or remove a trailing slash or /v1.",
+    "protocol": "Protocol / request format",
+    "protocolValue": {
+      "responses": "Responses",
+      "chat_completions": "Chat Completions"
+    },
+    "protocolHint": "The company gateway supports and recommends Responses. If the form has no such option, the current version already uses it by default.",
+    "protocolNoteClaude": "Claude Code has no protocol setting — only the address, key and model are needed.",
+    "modelHint": "Model (suggested)",
+    "modelHintEmpty": "There is no company-wide model name; enter the model you were assigned.",
+    "reasoningEffortHint": "Reasoning effort (suggested)",
+    "apiKeyRow": "API key",
+    "apiKeyRowValue": "The key you were issued (this tool never stores or fills it in for you)"
+  },
+  "steps": {
+    "title": "Steps",
+    "description": "Follow these in order inside CC Switch. Steps with an “I did this” button can be checked by the tool.",
+    "checkDone": "I did this — check",
+    "checking": "Checking…",
+    "checkedAt": "Check result"
+  },
+  "open_cc_switch": {
+    "title": "Open CC Switch",
+    "body": "Find CC Switch in the Start menu / Launchpad and open it. If it is not installed yet, go back to the “Install” step first."
+  },
+  "select_tool_tab": {
+    "title": "Switch to the {{tool}} tab",
+    "body": "CC Switch has Claude / Codex tabs at the top (or on the left). Pick “{{tool}}”. If you use both tools, configure each one separately."
+  },
+  "add_provider": {
+    "title": "Click “Add provider”",
+    "body": "On the {{tool}} tab click “Add provider” (it may be labelled “New” or “+”). A form opens."
+  },
+  "paste_base_url": {
+    "title": "Paste the API address",
+    "body": "Paste the address below into “API address / Base URL” exactly as shown. Do not add or remove a trailing slash or /v1; the “URL rules preview” above shows the address that will actually be used."
+  },
+  "choose_protocol": {
+    "title": "Choose the protocol: {{protocol}}",
+    "body": "Under “Protocol / request format” choose “{{protocol}}”. It is the protocol the company gateway supports and recommends; if the option is missing, the default is already correct."
+  },
+  "paste_api_key": {
+    "title": "Paste your API key",
+    "body": "Paste the key you were issued into “API key”. Make sure there is no space or line break at the beginning or end — that is the most common cause of authentication failures (401). You can run it through the “Key format check” below first."
+  },
+  "set_model": {
+    "title": "Enter the model",
+    "body": "In “Model” enter: {{model_hint}}. This value can differ per person — use the one you were assigned."
+  },
+  "save_and_activate": {
+    "title": "Save and switch to this provider",
+    "body": "Click “Save”. A newly added provider is not active automatically: click “Use / Switch” in the list so it becomes the current provider (the card usually changes colour or shows a check mark)."
+  },
+  "close_terminals": {
+    "title": "Close every terminal window",
+    "body": "The configuration does not take effect in terminals that are already open. Close all terminal windows, including the built-in terminals of VS Code, Cursor and similar editors (safest: quit the editor entirely)."
+  },
+  "verify": {
+    "title": "Verify",
+    "body": "Click “Next” below. The tool checks {{tool}} in a fresh terminal session and can optionally send one test request to the gateway."
+  },
+  "key": {
+    "title": "Key format check",
+    "description": "Paste your key here and the tool checks for common formatting problems (stray spaces, line breaks, placeholder text, …).",
+    "label": "Paste your API key here",
+    "placeholder": "sk-…",
+    "show": "Show",
+    "hide": "Hide",
+    "clear": "Clear",
+    "privacy": "Checked in memory on this machine only — never stored, logged or uploaded; cleared automatically when you leave this page.",
+    "checking": "Checking…",
+    "valid": "The format looks fine ({{length}} characters). You can paste it into CC Switch now.",
+    "invalid": "Problems that need fixing:",
+    "blockingLabel": "Must fix",
+    "hintLabel": "Hint",
+    "issue": {
+      "empty": "Nothing entered yet.",
+      "leading_or_trailing_whitespace": "There is a space / tab at the beginning or end. Some whitespace was selected when copying — remove it and paste again.",
+      "contains_whitespace": "Contains a space in the middle. Keys have no spaces; the copy may have wrapped or picked up extra text.",
+      "contains_newline": "Contains a line break. Paste it as a single line (try pasting into a plain text editor first).",
+      "non_ascii": "Contains non-Latin or full-width characters. Switch to an English keyboard layout and paste again.",
+      "unexpected_prefix": "Does not start with the usual sk-. Key formats differ between gateways; ignore this if the key came from the gateway.",
+      "too_short": "Looks short. Make sure the whole key was copied.",
+      "looks_like_placeholder": "Looks like example placeholder text (e.g. <your-key>, sk-xxxx), not a real key."
+    }
+  },
+  "url": {
+    "title": "URL rules preview",
+    "description": "The tool applies the same address rules as CC Switch / Codex and shows the address that will actually be used. The company gateway address is pre-filled; normally there is nothing to change.",
+    "label": "API address",
+    "effective": "Effective address",
+    "checking": "Working…",
+    "resetToPreset": "Reset to company address",
+    "ruleLabel": "Rule applied",
+    "rule": {
+      "already_versioned": "The address already ends in /v1 and is used as-is.",
+      "appended_v1": "Only a host was given, so /v1 is appended automatically.",
+      "literal_hash": "A trailing # means “use literally” — nothing is appended. Only use this when the gateway explicitly asks for it.",
+      "custom_path": "A custom path is kept as-is. Unless the gateway requires it, switch back to the company address.",
+      "invalid": "This is not a valid address. Please check it and try again."
+    },
+    "warningsLabel": "Note",
+    "warning": {
+      "not_https": "The address is not https, so traffic would be unencrypted. Make sure this is what the gateway requires.",
+      "trailing_slash_removed": "The trailing slash is removed automatically.",
+      "contains_whitespace": "The address contains whitespace — remove it.",
+      "contains_credentials": "The address contains a username / password. Never put the key into the address.",
+      "looks_like_chat_completions_endpoint": "The address ends in /chat/completions, which is an endpoint path rather than a Base URL — remove that part.",
+      "differs_from_company_gateway": "This differs from the company gateway address. Unless there is a specific reason, use the company address."
+    }
+  },
+  "reminders": {
+    "closeTerminals": {
+      "title": "After saving in CC Switch, close ALL terminal windows",
+      "body": "Terminals that are already open will not see the new configuration — including the built-in terminals of VS Code, Cursor and similar editors. Close them all before moving on to verification.",
+      "help": "Why is this needed?"
+    },
+    "noWrite": "This tool never edits ~/.codex, ~/.claude or CC Switch configuration files; all configuration is done by you inside CC Switch."
+  },
+  "footer": {
+    "next": "Go to verification"
+  }
+}

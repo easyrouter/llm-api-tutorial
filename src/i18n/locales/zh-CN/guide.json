@@ -1,1 +1,136 @@
-{}
+{
+  "title": "在 CC Switch 中配置公司网关",
+  "intro": "配置在 CC Switch 的界面里完成，本工具不会替你写任何配置文件。下面的值可以直接复制粘贴，只有 API Key 需要你自己填写；填完后回到这里，工具会帮你检查并验证。",
+  "tabs": {
+    "label": "选择要配置的工具"
+  },
+  "loading": "正在准备 {{tool}} 的配置指引…",
+  "values": {
+    "title": "要填写的值",
+    "description": "在 CC Switch 的「添加供应商」表单里，按下面的值填写。",
+    "providerName": "供应商名称",
+    "providerNameHint": "名称可以随意起，建议用这个，方便以后辨认。",
+    "baseUrl": "API 地址（Base URL）",
+    "baseUrlHint": "请原样粘贴，不要自己增删结尾的斜杠或 /v1。",
+    "protocol": "协议 / 请求格式",
+    "protocolValue": {
+      "responses": "Responses",
+      "chat_completions": "Chat Completions"
+    },
+    "protocolHint": "公司网关支持并推荐 Responses。如果表单里没有这个选项，说明当前版本默认就是它。",
+    "protocolNoteClaude": "Claude Code 不需要选择协议，只填地址、Key 和模型即可。",
+    "modelHint": "模型（建议值）",
+    "modelHintEmpty": "本次没有统一的模型名，请填写你被分配的模型名称。",
+    "reasoningEffortHint": "Reasoning Effort（建议值）",
+    "apiKeyRow": "API Key",
+    "apiKeyRowValue": "你申请到的 Key（本工具不会替你保存或填写）"
+  },
+  "steps": {
+    "title": "操作步骤",
+    "description": "按顺序在 CC Switch 中操作；带「我已完成」按钮的步骤可以让工具帮你检查。",
+    "checkDone": "我已完成，检查一下",
+    "checking": "检查中…",
+    "checkedAt": "检查结果"
+  },
+  "open_cc_switch": {
+    "title": "打开 CC Switch",
+    "body": "在开始菜单 / 启动台里找到 CC Switch 并打开。如果还没安装，先回到「安装」步骤。"
+  },
+  "select_tool_tab": {
+    "title": "切换到 {{tool}} 标签页",
+    "body": "CC Switch 顶部（或左侧）有 Claude / Codex 两个标签，请选择「{{tool}}」。如果两个工具都要用，需要各配置一次。"
+  },
+  "add_provider": {
+    "title": "点击「添加供应商」",
+    "body": "在 {{tool}} 标签页里点击「添加供应商」（也可能叫「新建」或「+」），会弹出一个表单。"
+  },
+  "paste_base_url": {
+    "title": "粘贴 API 地址",
+    "body": "把下面的地址原样粘贴到「API 地址 / Base URL」一栏。不要自己加或去掉结尾的斜杠、/v1；上方的「地址处理规则预览」会显示最终生效的地址。"
+  },
+  "choose_protocol": {
+    "title": "选择协议：{{protocol}}",
+    "body": "在「协议 / 请求格式」中选择「{{protocol}}」。这是公司网关支持并推荐的协议；如果表单里没有这个选项，说明默认就是它。"
+  },
+  "paste_api_key": {
+    "title": "粘贴你的 API Key",
+    "body": "把你申请到的 Key 粘贴到「API Key」一栏。粘贴前请确认开头和结尾没有空格或换行——这是认证失败（401）最常见的原因。可以先用下方的「API Key 格式检查」看一眼。"
+  },
+  "set_model": {
+    "title": "填写模型",
+    "body": "在「模型」一栏填写：{{model_hint}}。这个值每个人可能不同，以你被分配的为准。"
+  },
+  "save_and_activate": {
+    "title": "保存并切换到这个供应商",
+    "body": "点击「保存」。新添加的供应商不会自动生效，请在列表里点「使用 / 切换」，让它成为当前供应商（通常卡片会变色或出现勾选）。"
+  },
+  "close_terminals": {
+    "title": "关闭所有终端窗口",
+    "body": "配置不会在已经打开的终端里生效。请关闭所有终端窗口，包括 VS Code、Cursor 等编辑器里的内置终端（最稳妥的做法是把编辑器整个退出）。"
+  },
+  "verify": {
+    "title": "去验证",
+    "body": "点击下方「下一步」，工具会以全新终端会话检查 {{tool}} 是否可用，并可选地向网关发送一条测试请求。"
+  },
+  "key": {
+    "title": "API Key 格式检查",
+    "description": "把 Key 粘贴到这里，工具会检查常见的格式问题（多余空格、换行、占位符等）。",
+    "label": "在此粘贴 API Key",
+    "placeholder": "sk-…",
+    "show": "显示",
+    "hide": "隐藏",
+    "clear": "清空",
+    "privacy": "只在本机内存中检查格式，不会保存、记录或上传；离开本页时会自动清空。",
+    "checking": "检查中…",
+    "valid": "格式看起来没问题（共 {{length}} 个字符）。现在可以把它粘贴到 CC Switch 了。",
+    "invalid": "发现需要修正的问题：",
+    "blockingLabel": "必须修正",
+    "hintLabel": "提示",
+    "issue": {
+      "empty": "还没有输入内容。",
+      "leading_or_trailing_whitespace": "开头或结尾有空格 / 制表符。复制时多选了空白，请删掉后重新粘贴。",
+      "contains_whitespace": "中间含有空格。Key 里不会有空格，可能是复制时断行或粘进了别的内容。",
+      "contains_newline": "含有换行。请粘贴为一整行（可以先粘到记事本里检查一下）。",
+      "non_ascii": "含有中文或全角字符。请切换到英文输入法后重新粘贴。",
+      "unexpected_prefix": "开头不是常见的 sk-。不同网关的 Key 格式不同，如果这是网关发给你的 Key，可以忽略。",
+      "too_short": "长度偏短。请确认复制完整了。",
+      "looks_like_placeholder": "看起来像示例占位符（例如 <your-key>、sk-xxxx），不是真正的 Key。"
+    }
+  },
+  "url": {
+    "title": "地址处理规则预览",
+    "description": "工具会按 CC Switch / Codex 的规则处理你填写的地址，这里显示最终生效的地址。默认已填入公司网关地址，一般不需要修改。",
+    "label": "API 地址",
+    "effective": "最终生效地址",
+    "checking": "计算中…",
+    "resetToPreset": "恢复为公司地址",
+    "ruleLabel": "处理规则",
+    "rule": {
+      "already_versioned": "地址已经带 /v1，原样使用。",
+      "appended_v1": "只填了域名，会自动补上 /v1。",
+      "literal_hash": "结尾的 # 表示按字面使用，不会再追加任何路径。只有网关明确要求时才这样填。",
+      "custom_path": "自定义路径会原样保留。如果不是网关要求的路径，建议改回公司地址。",
+      "invalid": "这不是一个有效的地址，请检查后重新填写。"
+    },
+    "warningsLabel": "注意",
+    "warning": {
+      "not_https": "地址不是 https，数据会明文传输。请确认这是网关要求的写法。",
+      "trailing_slash_removed": "结尾的斜杠会被自动去掉。",
+      "contains_whitespace": "地址里含有空格，请删掉。",
+      "contains_credentials": "地址里带有用户名 / 密码，不要把 Key 写进地址里。",
+      "looks_like_chat_completions_endpoint": "地址以 /chat/completions 结尾，这是接口路径而不是 Base URL，请去掉这一段。",
+      "differs_from_company_gateway": "与公司网关地址不一致。除非有明确原因，建议使用公司地址。"
+    }
+  },
+  "reminders": {
+    "closeTerminals": {
+      "title": "在 CC Switch 中保存后，请关闭所有终端窗口",
+      "body": "已经打开的终端不会看到新配置——包括 VS Code、Cursor 等编辑器里的内置终端。全部关掉再进入下一步验证。",
+      "help": "为什么要这样做？"
+    },
+    "noWrite": "本工具不会修改 ~/.codex、~/.claude 或 CC Switch 的配置文件；所有配置由你在 CC Switch 中完成。"
+  },
+  "footer": {
+    "next": "去验证"
+  }
+}
