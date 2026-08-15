@@ -384,6 +384,11 @@ pub struct InstallPlan {
     pub requires_admin: bool,
     /// i18n code explaining what will happen (e.g. `install.plan.npm_global`).
     pub explanation_code: String,
+    /// Page / file the user downloads manually when the plan has no command (Node.js download
+    /// page of the chosen mirror). `None` for command plans and for CC Switch (the UI fetches
+    /// the release through `fetch_cc_switch_release`).
+    #[serde(default)]
+    pub download_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

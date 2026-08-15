@@ -125,7 +125,7 @@ pub async fn plan_install(
 ) -> AppResult<InstallPlan> {
     let cfg = state.config_snapshot().config;
     let mirrors = crate::net::choose_mirrors(&state.http, &cfg.mirrors).await;
-    install::plan(target, &cfg, &mirrors)
+    install::plan(target, &cfg, &mirrors).await
 }
 
 #[tauri::command]
