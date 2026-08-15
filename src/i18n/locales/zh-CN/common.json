@@ -119,6 +119,21 @@
     "openPanel": "打开帮助",
     "closePanel": "关闭帮助"
   },
+  "ui": {
+    "loading": "加载中…",
+    "indeterminate": "处理中，请稍候…",
+    "progress": "进度",
+    "copyFailed": "复制失败，请手动选中并复制",
+    "secretMasked": "为安全起见已隐藏部分内容，复制时会使用完整的真实值。",
+    "hideInstructions": "收起操作说明",
+    "errorCode": "错误代码：{{code}}",
+    "opensInBrowser": "（在浏览器中打开）",
+    "openLinkFailed": "无法打开链接：{{url}}",
+    "log": {
+      "empty": "暂无输出",
+      "truncated": "已省略更早的 {{count}} 行"
+    }
+  },
   "footer": {
     "logDir": "日志目录：{{path}}",
     "configSource": {
