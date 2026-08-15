@@ -60,6 +60,7 @@ pub fn run() {
         .setup(|app| {
             let state = state::AppState::init(app.handle())?;
             app.manage(state);
+            start_telemetry_flush(app.handle());
             log::info!("codex-onboarding {} started", env!("CARGO_PKG_VERSION"));
             Ok(())
         })
@@ -102,5 +103,17 @@ pub fn run() {
 
     if let Err(e) = result {
         log::error!("error while running tauri application: {e}");
+    }
+}
+
+/// Starts the opt-in telemetry periodic flush loop (no-op when no endpoint is configured).
+///
+/// The loop is detached: it lives for the whole process and only posts already-queued,
+/// secret-free aggregate events, so nothing needs to be joined on shutdown.
+fn start_telemetry_flush(app: &tauri::AppHandle) {
+    let state = app.state::<state::AppState>();
+    let interval = state.telemetry.flush_interval();
+    if state.telemetry.spawn_periodic_flush(interval).is_some() {
+        log::info!("telemetry periodic flush every {}s", interval.as_secs());
     }
 }
