@@ -7,7 +7,7 @@
  * Side effects that follow a state transition (auto re-check after a successful npm install,
  * forgetting an explicit request once the target is installed) live here, not in components.
  */
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import { onDownloadProgress, onInstallDone, onInstallOutput } from "@/lib/events";
 import { toWireError } from "@/lib/errors";
@@ -212,8 +212,10 @@ export function useInstallController(
     [storeUnskip],
   );
 
-  return {
-    state,
-    actions: { plan, run, cancel, fetchRelease, download, recheck, skip, unskip },
-  };
+  const actions = useMemo<InstallActions>(
+    () => ({ plan, run, cancel, fetchRelease, download, recheck, skip, unskip }),
+    [plan, run, cancel, fetchRelease, download, recheck, skip, unskip],
+  );
+
+  return { state, actions };
 }
