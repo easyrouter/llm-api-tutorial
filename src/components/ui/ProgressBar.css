@@ -1,0 +1,22 @@
+/* Indeterminate progress: a 40%-wide bar sliding left → right. Static (pulse-free) when the
+   user prefers reduced motion. Kept next to the component; the theme tokens live in
+   src/styles/index.css. */
+@keyframes ui-progress-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.ui-progress-indeterminate {
+  animation: ui-progress-indeterminate 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress-indeterminate {
+    animation: none;
+    transform: translateX(75%);
+  }
+}

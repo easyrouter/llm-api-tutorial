@@ -119,6 +119,21 @@
     "openPanel": "Open help",
     "closePanel": "Close help"
   },
+  "ui": {
+    "loading": "Loading…",
+    "indeterminate": "Working, please wait…",
+    "progress": "Progress",
+    "copyFailed": "Copy failed — please select the text and copy it by hand",
+    "secretMasked": "Part of this value is hidden for safety; copying uses the full real value.",
+    "hideInstructions": "Hide instructions",
+    "errorCode": "Error code: {{code}}",
+    "opensInBrowser": "(opens in your browser)",
+    "openLinkFailed": "Could not open link: {{url}}",
+    "log": {
+      "empty": "No output yet",
+      "truncated": "{{count}} earlier lines hidden"
+    }
+  },
   "footer": {
     "logDir": "Log directory: {{path}}",
     "configSource": {
