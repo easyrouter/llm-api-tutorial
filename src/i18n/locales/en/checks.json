@@ -96,7 +96,6 @@
   "envVars": {
     "title": "Environment variables found",
     "intro": "These variables influence which address and key Codex / Claude Code use. Values are partially hidden for safety. This tool never modifies them.",
-    "name": "Name",
     "value": "Current value",
     "session": "This session",
     "present": "Set",

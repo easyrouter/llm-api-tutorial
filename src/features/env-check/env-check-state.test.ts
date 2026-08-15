@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { Translate } from "@/lib/errors";
 import type { CheckId, CheckResult, CheckStatus } from "@/lib/types";
 import { CHECK_IDS } from "@/lib/types";
 import { checkResult, envSnapshot } from "@/test/fixtures/env";
@@ -16,7 +17,7 @@ import {
   visibleCheckIds,
   type EnvCheckState,
 } from "./env-check-state";
-import { applyResultToSnapshot } from "./snapshot-utils";
+import { applyResultToSnapshot, checkMessage } from "./snapshot-utils";
 
 const err = { code: "network", message: "boom", params: {} };
 
@@ -179,6 +180,41 @@ describe("install-fixable failures and the Next gate", () => {
     const s = doneState([checkResult("claude_code", "fail", { code: "tool.missing" })]);
     expect(nextGate(s, visibleCheckIds(["codex"])).canProceed).toBe(true);
     expect(nextGate(s, CHECK_IDS).canProceed).toBe(false);
+  });
+});
+
+describe("checkMessage", () => {
+  const t: Translate = (key, options) => {
+    const params = options ?? {};
+    switch (key) {
+      case "common:tools.codex":
+        return "Codex CLI";
+      case "checks:tool.ok":
+        return `${String(params.tool)} ${String(params.version)} is installed`;
+      case "checks:screen.unknownCode":
+        return `unknown (${String(params.code)})`;
+      default:
+        return typeof params.defaultValue === "string" ? params.defaultValue : key;
+    }
+  };
+
+  it("maps the tool param through common:tools and defaults it from the check id", () => {
+    expect(checkMessage(t, { id: "codex", code: "tool.ok", params: { version: "1.0" } })).toBe(
+      "Codex CLI 1.0 is installed",
+    );
+    expect(
+      checkMessage(t, { id: "codex", code: "tool.ok", params: { tool: "codex", version: "2" } }),
+    ).toBe("Codex CLI 2 is installed");
+    // unknown tool ids are shown verbatim
+    expect(
+      checkMessage(t, { id: "os", code: "tool.ok", params: { tool: "gemini", version: "3" } }),
+    ).toBe("gemini 3 is installed");
+  });
+
+  it("falls back to a neutral sentence for unknown codes", () => {
+    expect(checkMessage(t, { id: "os", code: "os.brand_new", params: {} })).toBe(
+      "unknown (os.brand_new)",
+    );
   });
 });
 

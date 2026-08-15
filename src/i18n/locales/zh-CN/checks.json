@@ -96,7 +96,6 @@
   "envVars": {
     "title": "检测到的环境变量",
     "intro": "以下变量会影响 Codex / Claude Code 选择哪个地址和密钥。为安全起见，值已部分隐藏。本工具不会修改它们。",
-    "name": "变量名",
     "value": "当前值",
     "session": "本次会话",
     "present": "已生效",

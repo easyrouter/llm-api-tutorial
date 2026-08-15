@@ -2,7 +2,7 @@
  * Helpers around `EnvSnapshot` / `CheckResult` shared by the Environment and Install screens.
  */
 import type { Translate } from "@/lib/errors";
-import type { CheckResult, EnvSnapshot, Params } from "@/lib/types";
+import type { CheckId, CheckResult, EnvSnapshot, Params } from "@/lib/types";
 
 import { overallOf } from "./env-check-state";
 
@@ -23,20 +23,25 @@ export function applyResultToSnapshot(
   return { ...snapshot, checks, overall: overallOf(checks) };
 }
 
-/** Params whose value is a tool id are shown with the tool's display name. */
-const TOOL_NAME_PARAMS = new Set(["tool"]);
+/** Tool-check rows → the tool id used by `common:tools.<id>`. */
+const TOOL_OF_CHECK: Partial<Record<CheckId, string>> = {
+  codex: "codex",
+  claude_code: "claude-code",
+};
 
 /**
  * Localised one-line message for a check result: `checks:<code>` with the Rust params. The
- * `tool` param is mapped through `common:tools.<id>` when it is a known id, and an unknown code
- * falls back to a neutral sentence that still shows the code (never the raw key).
+ * `tool` param is mapped through `common:tools.<id>` when it is a known id (and defaulted from
+ * the check id for `tool.*` codes), and an unknown code falls back to a neutral sentence that
+ * still shows the code (never the raw key).
  */
-export function checkMessage(t: Translate, result: Pick<CheckResult, "code" | "params">): string {
+export function checkMessage(
+  t: Translate,
+  result: Pick<CheckResult, "id" | "code" | "params">,
+): string {
   const params: Params = { ...result.params };
-  for (const key of TOOL_NAME_PARAMS) {
-    const value = params[key];
-    if (value) params[key] = t(`common:tools.${value}`, { defaultValue: value });
-  }
+  const tool = params.tool ?? TOOL_OF_CHECK[result.id];
+  if (tool) params.tool = t(`common:tools.${tool}`, { defaultValue: tool });
   return t(`checks:${result.code}`, {
     ...params,
     defaultValue: t("checks:screen.unknownCode", { code: result.code }),

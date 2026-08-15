@@ -67,8 +67,14 @@ function SummaryAlert({ summary, running }: { summary: CheckSummary; running: bo
   );
 }
 
+/** RFC 3339 timestamp → local date/time in the current UI language; raw string if unparsable. */
+function formatTimestamp(iso: string, lang: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString(lang);
+}
+
 function SystemFacts({ snapshot }: { snapshot: EnvSnapshot }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const os = snapshot.os;
   return (
     <Card title={t("checks:screen.system")}>
@@ -79,6 +85,10 @@ function SystemFacts({ snapshot }: { snapshot: EnvSnapshot }) {
           { label: t("checks:screen.systemItems.version"), value: os.version, mono: true },
           { label: t("checks:screen.systemItems.arch"), value: os.arch, mono: true },
           { label: t("checks:screen.systemItems.shell"), value: os.shell || "—", mono: true },
+          {
+            label: t("checks:screen.systemItems.generatedAt"),
+            value: formatTimestamp(snapshot.generatedAt, i18n.language),
+          },
         ]}
       />
     </Card>
