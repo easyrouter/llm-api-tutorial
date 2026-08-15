@@ -1,0 +1,67 @@
+{
+  "sections": [
+    {
+      "id": "overview",
+      "title": "欢迎与总览",
+      "path": "overview.md",
+      "lang": "zh-CN",
+      "wizardStep": "welcome"
+    },
+    {
+      "id": "env-check",
+      "title": "环境检查",
+      "path": "env-check.md",
+      "lang": "zh-CN",
+      "wizardStep": "env_check"
+    },
+    {
+      "id": "install-node",
+      "title": "安装 Node.js",
+      "path": "install-node.md",
+      "lang": "zh-CN",
+      "wizardStep": "install"
+    },
+    {
+      "id": "install-cli",
+      "title": "安装 Codex CLI / Claude Code",
+      "path": "install-cli.md",
+      "lang": "zh-CN",
+      "wizardStep": "install"
+    },
+    {
+      "id": "install-cc-switch",
+      "title": "安装 CC Switch",
+      "path": "install-cc-switch.md",
+      "lang": "zh-CN",
+      "wizardStep": "install"
+    },
+    {
+      "id": "configure-cc-switch",
+      "title": "在 CC Switch 中配置公司网关",
+      "path": "configure-cc-switch.md",
+      "lang": "zh-CN",
+      "wizardStep": "configure"
+    },
+    {
+      "id": "verify",
+      "title": "生效与验证",
+      "path": "verify.md",
+      "lang": "zh-CN",
+      "wizardStep": "verify"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "故障排查 A–G",
+      "path": "troubleshooting.md",
+      "lang": "zh-CN",
+      "wizardStep": "diagnose"
+    },
+    {
+      "id": "faq",
+      "title": "常见问题",
+      "path": "faq.md",
+      "lang": "zh-CN",
+      "wizardStep": null
+    }
+  ]
+}
