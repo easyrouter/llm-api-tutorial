@@ -1,1 +1,33 @@
-{}
+{
+  "search": {
+    "label": "Search help topics",
+    "placeholder": "Search help topics…",
+    "noResults": "No topics match “{{query}}”"
+  },
+  "tree": {
+    "label": "Help topics",
+    "show": "Show topics",
+    "hide": "Hide topics"
+  },
+  "source": {
+    "label": "Where this content comes from",
+    "remote": "Online",
+    "cache": "Cached copy",
+    "bundled": "Built-in copy"
+  },
+  "state": {
+    "loading": "Loading help…",
+    "loadingPage": "Loading topic…",
+    "empty": "No help topics are available.",
+    "loadFailed": "Help could not be loaded"
+  },
+  "actions": {
+    "goToStep": "Go to this step: {{step}}",
+    "goToStepLocked": "Finish the earlier steps first — the wizard will bring you here."
+  },
+  "links": {
+    "toStep": "Jump to the “{{step}}” step",
+    "toTopic": "Open this help topic",
+    "unsupported": "This link cannot be opened from here"
+  }
+}

@@ -1,1 +1,33 @@
-{}
+{
+  "search": {
+    "label": "搜索帮助主题",
+    "placeholder": "搜索帮助主题…",
+    "noResults": "没有与“{{query}}”匹配的主题"
+  },
+  "tree": {
+    "label": "帮助目录",
+    "show": "展开目录",
+    "hide": "收起目录"
+  },
+  "source": {
+    "label": "内容来源",
+    "remote": "在线版本",
+    "cache": "缓存副本",
+    "bundled": "内置副本"
+  },
+  "state": {
+    "loading": "正在加载帮助…",
+    "loadingPage": "正在加载主题…",
+    "empty": "暂无可用的帮助主题。",
+    "loadFailed": "帮助内容加载失败"
+  },
+  "actions": {
+    "goToStep": "前往该步骤：{{step}}",
+    "goToStepLocked": "请先完成前面的步骤，向导会自动带你到这里。"
+  },
+  "links": {
+    "toStep": "跳转到「{{step}}」步骤",
+    "toTopic": "打开这个帮助主题",
+    "unsupported": "此链接无法在这里打开"
+  }
+}
