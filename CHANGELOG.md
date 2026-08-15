@@ -50,3 +50,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   wizard links) and Done screen.
 - Tooling: `scripts/check-codes.mjs` (part of `npm run i18n:check`) verifies that every code
   the Rust core emits has a `zh-CN` translation.
+
+### Fixed (review wave 2)
+
+- Verify: the gateway probe for Claude Code now speaks Anthropic Messages
+  (`POST {base}/v1/messages`, `x-api-key` + `anthropic-version`; `Protocol::AnthropicMessages`
+  added to the IPC contract) instead of the OpenAI Responses shape; a non-`https` base URL is
+  refused before the key is sent (`ErrorClass::NotHttps`, inline warning in the UI); the
+  diagnostic report gains a `Verification` section (`build_diagnostic_report(…, verify)`).
+- Install: "Switch mirror and retry" really switches — the retry re-plans without the registry
+  the job failed on (`plan_install(target, excludeRegistry)`); `start_install` re-validates the
+  plan server-side against the preset (program, arguments, package, registry, no env); `npm`
+  is resolved on the fresh-session `PATH` like the checks do; Homebrew proposes `brew install
+  node` (linked into `PATH`) instead of the keg-only `node@<major>`; installer downloads use an
+  `https_only` client and refuse downgraded redirects; the Install step reports `step_result`
+  telemetry; wizard navigation is locked while a job / download runs; the CC Switch download
+  offers "The installer was blocked" (guide fault G) inline.
+- Core: `open_downloaded_file` canonicalises and requires a file directly inside the downloads
+  dir; `save_diagnostic_report` refuses paths inside `~/.codex` / `~/.claude` / `~/.cc-switch`;
+  rule D no longer counts proxy variables as conflicts; Unix children run in their own process
+  group and the group is killed on timeout / cancel; Windows scans PowerShell profiles for
+  `$env:NAME =` / `SetEnvironmentVariable`; check details carry raw facts only (no English
+  wording).
+- UI: `diagnose` navigation targets land on Verify (Next/Back no longer jump to Welcome);
+  re-requesting the same help section works; "Start over" also resets the install store; the
+  env-check diagnosis is cleared on re-run; Done / guide copy corrected.
