@@ -4,6 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import type { AppConfig, ToolId, VerifyResult } from "@/lib/types";
 import { useAppStore } from "@/stores/app";
+import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
 import { mockInvoke, mockWriteText } from "@/test/mocks/tauri";
 
@@ -119,13 +120,15 @@ describe("DoneScreen", () => {
     expect(screen.getByText(/contact it-support@acme\.example/)).toBeInTheDocument();
   });
 
-  it("start over resets the wizard; open help opens the FAQ", () => {
+  it("start over resets the wizard and the install store; open help opens the FAQ", () => {
     useWizardStore.setState({
       step: "done",
       furthestStep: "done",
       selectedTools: ["codex"],
       verifyResults: { codex: verifyResult("codex", true, "1.0.0") },
     });
+    useInstallStore.getState().skip("cc-switch");
+    useInstallStore.getState().request("node");
     render(<DoneScreen />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open help" }));
@@ -135,6 +138,8 @@ describe("DoneScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));
     expect(useWizardStore.getState().step).toBe("welcome");
     expect(useWizardStore.getState().verifyResults).toEqual({});
+    expect(useInstallStore.getState().skipped).toEqual([]);
+    expect(useInstallStore.getState().requested).toEqual([]);
   });
 
   it("explains an empty selection instead of rendering an empty list", () => {

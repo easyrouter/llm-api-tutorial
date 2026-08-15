@@ -80,10 +80,10 @@
   },
   "done": {
     "title": "Setup complete",
-    "summary": "The following tools are ready to use:",
+    "summary": "Setup summary",
     "nextSteps": "Next steps",
     "openTerminalHint": "Open a new terminal window and run {{command}} to get started.",
-    "helpHint": "If anything goes wrong later, open the Diagnose page of this tool or contact {{contact}}."
+    "helpHint": "If anything goes wrong later, run this tool again and use the diagnosis in the “Verify” step, or contact {{contact}}."
   },
   "errors": {
     "title": "Something went wrong",

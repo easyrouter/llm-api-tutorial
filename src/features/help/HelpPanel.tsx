@@ -60,6 +60,7 @@ export function HelpPanel() {
 
   const closeHelp = useWizardStore((s) => s.closeHelp);
   const helpSectionId = useWizardStore((s) => s.helpSectionId);
+  const helpRequestId = useWizardStore((s) => s.helpRequestId);
   const furthestStep = useWizardStore((s) => s.furthestStep);
   const goTo = useWizardStore((s) => s.goTo);
 
@@ -84,15 +85,16 @@ export function HelpPanel() {
   }, [lang, loadIndex]);
 
   // 2. selection: resolved when the index arrives, when the language changes and when a new
-  //    section is requested via `openHelp(id)` (see the module doc for the priority).
-  const resolvedRef = useRef<{ lang: Lang | null; request: string | null }>({
+  //    section is requested via `openHelp(id)` (see the module doc for the priority). The
+  //    request counter makes a repeated `openHelp` for the same id count as a new request.
+  const resolvedRef = useRef<{ lang: Lang | null; request: number | null }>({
     lang: null,
     request: null,
   });
   useEffect(() => {
     if (!indexSlot.data) return;
     const prev = resolvedRef.current;
-    const requestChanged = helpSectionId !== prev.request;
+    const requestChanged = helpRequestId !== prev.request;
     const langChanged = lang !== prev.lang;
     if (!requestChanged && !langChanged) return;
 
@@ -107,10 +109,10 @@ export function HelpPanel() {
       if (langChanged) candidates.push(selected[prev.lang]);
       candidates.push(selected[lang], stepMatch);
     }
-    resolvedRef.current = { lang, request: helpSectionId };
+    resolvedRef.current = { lang, request: helpRequestId };
     const id = resolveSelection(sections, candidates);
     if (id) select(lang, id);
-  }, [indexSlot.data, sections, lang, helpSectionId, select]);
+  }, [indexSlot.data, sections, lang, helpSectionId, helpRequestId, select]);
 
   // 3. page for the selection.
   useEffect(() => {

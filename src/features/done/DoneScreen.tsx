@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Card, CopyField, StatusBadge } from "@/components/ui";
 import { trackEvent } from "@/lib/tauri";
 import { useAppStore } from "@/stores/app";
+import { startOver } from "@/stores/start-over";
 import { useWizardStore } from "@/stores/wizard";
 
 import { allVerified, DONE_HELP_SECTION, summarizeTools, type ToolSummary } from "./done-summary";
@@ -58,7 +59,6 @@ export function DoneScreen() {
   const selectedTools = useWizardStore((s) => s.selectedTools);
   const verifyResults = useWizardStore((s) => s.verifyResults);
   const goTo = useWizardStore((s) => s.goTo);
-  const reset = useWizardStore((s) => s.reset);
   const openHelp = useWizardStore((s) => s.openHelp);
 
   const summaries = useMemo(
@@ -124,7 +124,7 @@ export function DoneScreen() {
       <div className="flex items-center justify-between gap-4 border-t border-neutral-200 pt-5 dark:border-neutral-800">
         <Button
           variant="secondary"
-          onClick={reset}
+          onClick={startOver}
           leftIcon={<RotateCcw className="size-4" aria-hidden />}
         >
           {t("actions.startOver")}

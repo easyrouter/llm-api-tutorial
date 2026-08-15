@@ -194,6 +194,6 @@ export function docsUrlTransform(url: string): string {
  * furthest step reached (the wizard is linear). `diagnose` is a panel inside Verify.
  */
 export function stepReachable(step: WizardStep, furthest: WizardStep): boolean {
-  const target = step === "diagnose" ? stepIndex("verify") : stepIndex(step);
+  const target = stepIndex(step);
   return target >= 0 && target <= stepIndex(furthest);
 }

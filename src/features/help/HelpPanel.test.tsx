@@ -157,6 +157,25 @@ describe("HelpPanel", () => {
     expect(useWizardStore.getState().helpSectionId).toBe("env-check");
   });
 
+  it("re-requesting the section that was already requested selects it again", async () => {
+    useWizardStore.setState({ step: "verify", furthestStep: "verify", helpOpen: true });
+    useWizardStore.getState().openHelp("env-check");
+    render(
+      <>
+        <HelpLink sectionId="env-check">Learn</HelpLink>
+        <HelpPanel />
+      </>,
+    );
+    expect(await pageHeading("Environment check")).toBeInTheDocument();
+
+    fireEvent.click(within(topics()).getByRole("button", { name: "FAQ" }));
+    expect(await pageHeading("FAQ")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+    expect(await pageHeading("Environment check")).toBeInTheDocument();
+    expect(useDocsStore.getState().selected.en).toBe("env-check");
+  });
+
   it("filters the topic tree by title and loaded page text", async () => {
     useWizardStore.setState({ step: "welcome", helpOpen: true });
     render(<HelpPanel />);

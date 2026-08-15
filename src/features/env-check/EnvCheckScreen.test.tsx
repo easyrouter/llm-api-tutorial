@@ -236,6 +236,15 @@ describe("EnvCheckScreen", () => {
       request: { symptoms: [], snapshot },
     });
     expect(screen.getByText(i18n.t("diagnose:path.not_refreshed.title"))).toBeInTheDocument();
+
+    // a re-run drops the stale findings; the offer comes back once the new run is blocked again
+    fireEvent.click(screen.getByRole("button", { name: "Re-check everything" }));
+    await waitFor(() =>
+      expect(mockInvoke.mock.calls.filter((c) => c[0] === "run_env_checks")).toHaveLength(2),
+    );
+    await waitFor(() => expect(screen.getByTestId("env-summary")).toHaveTextContent("1 blocked"));
+    expect(screen.queryByTestId("diagnose-panel")).toBeNull();
+    expect(screen.getByTestId("env-diagnose")).toBeInTheDocument();
   });
 
   it("does not offer diagnosis when nothing is blocked, and links to the help section", async () => {

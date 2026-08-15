@@ -15,7 +15,8 @@
     "protocol": "Protocol / request format",
     "protocolValue": {
       "responses": "Responses",
-      "chat_completions": "Chat Completions"
+      "chat_completions": "Chat Completions",
+      "anthropic_messages": "Anthropic Messages"
     },
     "protocolHint": "The company gateway supports and recommends Responses. If the form has no such option, the current version already uses it by default.",
     "protocolNoteClaude": "Claude Code has no protocol setting — only the address, key and model are needed.",
@@ -46,7 +47,7 @@
   },
   "paste_base_url": {
     "title": "Paste the API address",
-    "body": "Paste the address below into “API address / Base URL” exactly as shown. Do not add or remove a trailing slash or /v1; the “URL rules preview” above shows the address that will actually be used."
+    "body": "Paste the address below into “API address / Base URL” exactly as shown. Do not add or remove a trailing slash or /v1; the “URL rules preview” below shows the address that will actually be used."
   },
   "choose_protocol": {
     "title": "Choose the protocol: {{protocol}}",

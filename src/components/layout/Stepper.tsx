@@ -4,11 +4,15 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { stepIndex, useWizardStore, WIZARD_STEPS } from "@/stores/wizard";
 
-/** Vertical step list. Completed and current steps are clickable; future steps are locked. */
+/**
+ * Vertical step list. Completed and current steps are clickable; future steps are locked, and
+ * every other step is locked while a screen holds the navigation lock (running install job).
+ */
 export function Stepper() {
   const { t } = useTranslation();
   const step = useWizardStore((s) => s.step);
   const furthest = useWizardStore((s) => s.furthestStep);
+  const navigationLocked = useWizardStore((s) => s.navigationLocked);
   const goTo = useWizardStore((s) => s.goTo);
 
   const current = stepIndex(step);
@@ -20,7 +24,7 @@ export function Stepper() {
         {WIZARD_STEPS.map((s, i) => {
           const isCurrent = i === current;
           const isDone = i < current;
-          const isLocked = i > reachable;
+          const isLocked = i > reachable || (navigationLocked && !isCurrent);
           return (
             <li key={s}>
               <button

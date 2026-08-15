@@ -80,10 +80,10 @@
   },
   "done": {
     "title": "接入完成",
-    "summary": "以下工具已可以正常使用：",
+    "summary": "本次接入结果",
     "nextSteps": "接下来",
     "openTerminalHint": "打开一个新的终端窗口，运行 {{command}} 开始使用。",
-    "helpHint": "遇到问题时可随时打开本工具的「诊断」页，或联系 {{contact}}。"
+    "helpHint": "遇到问题时可以重新运行本工具，在「验证」步骤查看诊断，或联系 {{contact}}。"
   },
   "errors": {
     "title": "出错了",

@@ -13,6 +13,8 @@ export interface StepFooterProps {
   onNext?: () => void;
   backLabel?: ReactNode;
   nextLabel?: ReactNode;
+  /** Disable Back (e.g. while a job that must not be abandoned is running). */
+  backDisabled?: boolean;
   nextDisabled?: boolean;
   /** Spinner on Next (e.g. while checks are still running). */
   nextLoading?: boolean;
@@ -27,6 +29,7 @@ export function StepFooter({
   onNext,
   backLabel,
   nextLabel,
+  backDisabled = false,
   nextDisabled = false,
   nextLoading = false,
   extra,
@@ -45,6 +48,7 @@ export function StepFooter({
           <Button
             variant="secondary"
             onClick={onBack}
+            disabled={backDisabled}
             leftIcon={<ArrowLeft className="size-4" aria-hidden />}
           >
             {backLabel ?? t("actions.back")}

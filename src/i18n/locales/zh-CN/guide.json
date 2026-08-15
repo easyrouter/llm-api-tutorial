@@ -15,7 +15,8 @@
     "protocol": "协议 / 请求格式",
     "protocolValue": {
       "responses": "Responses",
-      "chat_completions": "Chat Completions"
+      "chat_completions": "Chat Completions",
+      "anthropic_messages": "Anthropic Messages"
     },
     "protocolHint": "公司网关支持并推荐 Responses。如果表单里没有这个选项，说明当前版本默认就是它。",
     "protocolNoteClaude": "Claude Code 不需要选择协议，只填地址、Key 和模型即可。",
@@ -46,7 +47,7 @@
   },
   "paste_base_url": {
     "title": "粘贴 API 地址",
-    "body": "把下面的地址原样粘贴到「API 地址 / Base URL」一栏。不要自己加或去掉结尾的斜杠、/v1；上方的「地址处理规则预览」会显示最终生效的地址。"
+    "body": "把下面的地址原样粘贴到「API 地址 / Base URL」一栏。不要自己加或去掉结尾的斜杠、/v1；下方的「地址处理规则预览」会显示最终生效的地址。"
   },
   "choose_protocol": {
     "title": "选择协议：{{protocol}}",

@@ -122,6 +122,7 @@ export function EnvCheckScreen() {
   // M5 seam: the rule engine derives env-var conflicts (D) and PATH problems (E) from the
   // snapshot alone; offered when the visible checks end in a blocker.
   const diagnosis = useAsync(diagnose);
+  const resetDiagnosis = diagnosis.reset;
   const offerDiagnosis = !running && state.phase === "done" && summary.overall === "fail";
 
   // A full run that finishes after a newer one started (or after unmount) must not win.
@@ -136,6 +137,8 @@ export function EnvCheckScreen() {
   const runAll = useCallback(async () => {
     const runId = ++runIdRef.current;
     const started = performance.now();
+    // A new run invalidates the snapshot-only diagnosis of the previous one.
+    resetDiagnosis();
     dispatch({ type: "start_all" });
     try {
       const snap = await runEnvChecks();
@@ -155,7 +158,7 @@ export function EnvCheckScreen() {
       if (runIdRef.current !== runId) return;
       dispatch({ type: "all_failed", error: toWireError(e) });
     }
-  }, [ids, setSnapshot]);
+  }, [ids, resetDiagnosis, setSnapshot]);
 
   // Subscribe to streamed results first, then start the run, so no early row is missed.
   useEffect(() => {
