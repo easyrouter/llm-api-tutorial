@@ -42,6 +42,7 @@ os_info = { version = "3", default-features = false }
 sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 semver = "1"
 toml = "1"
+url = "2"
 
 # --- Utilities ---
 log = "0.4"
