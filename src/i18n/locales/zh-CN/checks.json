@@ -18,7 +18,10 @@
       "hide": "收起详情"
     },
     "duration": "耗时 {{duration}}",
-    "runFailed": "环境检查没有完成，请重试。"
+    "runFailed": "环境检查没有完成，请重试。",
+    "diagnose": "运行自动诊断",
+    "diagnoseHint": "根据检查结果分析常见原因，并给出处理步骤。",
+    "diagnoseNote": "以下诊断基于本次环境检查的结果。"
   },
   "summary": {
     "running": "正在检查，请稍候…（已完成 {{done}} / {{total}} 项）",
@@ -41,6 +44,7 @@
     "missing": "没有找到 Node.js，Codex CLI 和 Claude Code 都需要它",
     "too_old": "已安装的 Node.js {{version}} 版本过低，需要升级到较新的长期支持（LTS）版本",
     "not_on_path": "已安装 Node.js（{{path}}），但当前终端还找不到它，通常是因为安装后没有重新打开终端",
+    "broken": "找到了 Node.js（{{path}}），但它无法正常运行（node --version 执行失败）。请重新安装 Node.js 后再检查一次",
     "instructions": {
       "not_on_path": "Node.js 已经安装，只是当前的终端还没有读到新的 PATH 设置。请按下面的步骤处理：\n1. 完全关闭所有终端窗口（Windows：命令提示符、PowerShell、Windows Terminal；macOS：终端、iTerm 等）。\n2. 如果是 Windows，且刚刚安装完 Node.js，建议注销并重新登录一次。\n3. 重新打开一个终端，输入 node --version，能看到版本号即表示生效。\n4. 回到本工具点击「重新检查」。"
     }
@@ -48,7 +52,8 @@
   "npm": {
     "title": "npm",
     "ok": "npm {{version}} 可用",
-    "missing": "没有找到 npm。npm 会随 Node.js 一起安装，请先安装或重新安装 Node.js"
+    "missing": "没有找到 npm。npm 会随 Node.js 一起安装，请先安装或重新安装 Node.js",
+    "broken": "找到了 npm（{{path}}），但它无法正常运行（npm --version 执行失败）。请重新安装 Node.js 后再检查一次"
   },
   "codex": {
     "title": "Codex CLI"
@@ -60,15 +65,20 @@
     "ok": "已安装 {{tool}} {{version}}",
     "missing": "没有找到 {{tool}}，下一步可以一键安装",
     "not_on_path": "{{tool}} 已经安装在 {{path}}，但当前终端还找不到它，通常是因为安装后没有重新打开终端",
+    "broken": "找到了 {{tool}}（{{path}}），但它无法正常运行（版本命令执行失败）。请重新安装后再检查一次",
+    "not_configured": "当前配置中没有 {{toolId}} 这个工具的信息，已跳过检查",
     "instructions": {
-      "not_on_path": "{{tool}} 已经安装好了，只是终端还没有读到新的 PATH 设置：\n1. 完全关闭所有终端窗口。\n2. 重新打开一个终端，输入 {{tool}} --version，能看到版本号即表示生效。\n3. 如果仍然提示找不到命令，请确认 {{path}} 所在的目录已加入 PATH（Windows：设置 → 系统 → 关于 → 高级系统设置 → 环境变量；macOS：检查 ~/.zshrc 或 ~/.zprofile）。修改环境变量需要你手动完成，本工具不会代劳。\n4. 回到本工具点击「重新检查」。"
+      "not_on_path": "{{tool}} 已经安装好了，只是终端还没有读到新的 PATH 设置：\n1. 完全关闭所有终端窗口。\n2. 重新打开一个终端，输入 {{tool}} --version，能看到版本号即表示生效。\n3. 如果仍然提示找不到命令，请确认目录 {{dir}} 已加入 PATH（Windows：设置 → 系统 → 关于 → 高级系统设置 → 环境变量；macOS：检查 ~/.zshrc 或 ~/.zprofile）。修改环境变量需要你手动完成，本工具不会代劳。\n4. 回到本工具点击「重新检查」。"
     }
+  },
+  "check": {
+    "internal_error": "这一项检查没有正常完成，请重试；如果反复出现，请把诊断报告发给支持人员"
   },
   "cc_switch": {
     "title": "CC Switch",
     "ok": "已安装 CC Switch",
     "missing": "没有找到 CC Switch，下一步可以下载安装",
-    "data_only": "找到了 CC Switch 的数据目录（{{dir}}），但没有找到应用本身，可能已被卸载或移动，请重新安装"
+    "data_only": "找到了 CC Switch 的数据目录（{{dataDir}}），但没有找到应用本身，可能已被卸载或移动，请重新安装"
   },
   "env_vars": {
     "title": "环境变量",

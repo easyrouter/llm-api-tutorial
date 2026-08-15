@@ -161,7 +161,10 @@ describe("npm flow", () => {
 
 describe("node flow", () => {
   it("stays in confirm until a re-check passes", () => {
-    const nodePlan = installPlan("node", { displayCommand: "", explanationCode: "node_download" });
+    const nodePlan = installPlan("node", {
+      displayCommand: "",
+      explanationCode: "node.download_page",
+    });
     let s = reduce(
       createInstallState(["node"]),
       { type: "plan_start", target: "node" },

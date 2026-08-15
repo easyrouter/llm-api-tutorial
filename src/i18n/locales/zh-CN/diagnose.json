@@ -29,7 +29,12 @@
     "target": "目标",
     "path": "路径",
     "npm_global_bin": "npm 全局目录",
-    "output_tail": "命令输出"
+    "output_tail": "命令输出",
+    "expected_base_url": "预期的 API 地址",
+    "names": "环境变量",
+    "binary": "命令",
+    "dir": "所在目录",
+    "protocol": "协议"
   },
   "steps": {
     "whitespace": "检查 Key 开头结尾有没有多余的空格或换行，删掉后重新粘贴。",

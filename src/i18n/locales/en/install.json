@@ -12,9 +12,13 @@
   "plan": {
     "generic": "{{tool}} will be installed as shown below.",
     "npm_global": "{{tool}} will be installed with npm into the current user's global folder. The output of the install is shown live below.",
-    "node_download": "Node.js is installed from the official installer. Use the button below to open the download page, download the “LTS” installer (Windows: .msi, macOS: .pkg) and click through it with the defaults.",
-    "node_brew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal.",
-    "cc_switch_download": "CC Switch is a desktop app. The installer is downloaded from the official release channel, its integrity is verified, and then you run it yourself."
+    "node": {
+      "download_page": "Node.js is installed from the official installer. Use the button below to open the download page, download the “LTS” installer (Windows: .msi, macOS: .pkg) and click through it with the defaults.",
+      "homebrew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal (if a new terminal still cannot find node afterwards, run brew link --overwrite for that node@ version once); or simply install it from the download page below."
+    },
+    "cc_switch": {
+      "download": "CC Switch is a desktop app. The installer is downloaded from the official release channel, its integrity is verified, and then you run it yourself."
+    }
   },
   "state": {
     "idle": "Pending",

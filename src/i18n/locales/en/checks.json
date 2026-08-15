@@ -18,7 +18,10 @@
       "hide": "Hide details"
     },
     "duration": "took {{duration}}",
-    "runFailed": "The environment check did not complete. Please try again."
+    "runFailed": "The environment check did not complete. Please try again.",
+    "diagnose": "Run diagnosis",
+    "diagnoseHint": "Analyses the results for common causes and lists the steps to fix them.",
+    "diagnoseNote": "These findings are based on the results of this environment check."
   },
   "summary": {
     "running": "Checking, please wait… ({{done}} of {{total}} done)",
@@ -41,6 +44,7 @@
     "missing": "Node.js was not found. Both Codex CLI and Claude Code need it",
     "too_old": "The installed Node.js {{version}} is too old; please upgrade to a recent long-term-support (LTS) release",
     "not_on_path": "Node.js is installed ({{path}}) but this terminal cannot see it yet — usually because no new terminal was opened after installing",
+    "broken": "Node.js was found ({{path}}) but it does not run properly (node --version failed). Please reinstall Node.js and check again",
     "instructions": {
       "not_on_path": "Node.js is installed; the current terminal simply has not picked up the new PATH yet:\n1. Close every terminal window completely (Windows: Command Prompt, PowerShell, Windows Terminal; macOS: Terminal, iTerm, …).\n2. On Windows, if you just installed Node.js, sign out and back in once.\n3. Open a fresh terminal and type node --version — a version number means it works.\n4. Come back here and click “Re-check”."
     }
@@ -48,7 +52,8 @@
   "npm": {
     "title": "npm",
     "ok": "npm {{version}} is available",
-    "missing": "npm was not found. It ships with Node.js — install or reinstall Node.js first"
+    "missing": "npm was not found. It ships with Node.js — install or reinstall Node.js first",
+    "broken": "npm was found ({{path}}) but it does not run properly (npm --version failed). Please reinstall Node.js and check again"
   },
   "codex": {
     "title": "Codex CLI"
@@ -60,15 +65,20 @@
     "ok": "{{tool}} {{version}} is installed",
     "missing": "{{tool}} was not found; the next step can install it for you",
     "not_on_path": "{{tool}} is installed at {{path}} but this terminal cannot see it yet — usually because no new terminal was opened after installing",
+    "broken": "{{tool}} was found ({{path}}) but it does not run properly (the version command failed). Please reinstall it and check again",
+    "not_configured": "The current preset has no entry for the tool {{toolId}}; the check was skipped",
     "instructions": {
-      "not_on_path": "{{tool}} is already installed; the terminal just has not picked up the new PATH yet:\n1. Close every terminal window completely.\n2. Open a fresh terminal and type {{tool}} --version — a version number means it works.\n3. If the command is still not found, make sure the folder containing {{path}} is on your PATH (Windows: Settings → System → About → Advanced system settings → Environment Variables; macOS: check ~/.zshrc or ~/.zprofile). Editing environment variables is something you do yourself — this tool never changes them.\n4. Come back here and click “Re-check”."
+      "not_on_path": "{{tool}} is already installed; the terminal just has not picked up the new PATH yet:\n1. Close every terminal window completely.\n2. Open a fresh terminal and type {{tool}} --version — a version number means it works.\n3. If the command is still not found, make sure the folder {{dir}} is on your PATH (Windows: Settings → System → About → Advanced system settings → Environment Variables; macOS: check ~/.zshrc or ~/.zprofile). Editing environment variables is something you do yourself — this tool never changes them.\n4. Come back here and click “Re-check”."
     }
+  },
+  "check": {
+    "internal_error": "This check did not complete. Please try again; if it keeps happening, send the diagnostic report to support"
   },
   "cc_switch": {
     "title": "CC Switch",
     "ok": "CC Switch is installed",
     "missing": "CC Switch was not found; the next step can download it for you",
-    "data_only": "Found the CC Switch data folder ({{dir}}) but not the app itself — it may have been uninstalled or moved. Please reinstall it"
+    "data_only": "Found the CC Switch data folder ({{dataDir}}) but not the app itself — it may have been uninstalled or moved. Please reinstall it"
   },
   "env_vars": {
     "title": "Environment variables",

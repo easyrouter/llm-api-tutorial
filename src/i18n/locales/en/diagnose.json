@@ -29,7 +29,12 @@
     "target": "Target",
     "path": "Path",
     "npm_global_bin": "npm global directory",
-    "output_tail": "Command output"
+    "output_tail": "Command output",
+    "expected_base_url": "Expected API base URL",
+    "names": "Environment variables",
+    "binary": "Command",
+    "dir": "Directory",
+    "protocol": "Protocol"
   },
   "steps": {
     "whitespace": "Check for stray spaces or line breaks at the beginning or end of the key; remove them and paste again.",

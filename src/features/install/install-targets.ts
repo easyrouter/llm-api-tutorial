@@ -101,11 +101,12 @@ export function deriveInstallTargets(
 }
 
 /**
- * Download page for a Node.js plan: the mirror Rust chose (`plan.registry.downloadPage`),
- * otherwise the first configured Node distribution mirror, otherwise nodejs.org.
+ * Download page for a Node.js plan: the URL Rust put on the plan (`plan.downloadUrl`, the
+ * chosen Node dist mirror's page), otherwise the plan's registry page, otherwise the first
+ * configured Node distribution mirror, otherwise nodejs.org.
  */
 export function nodeDownloadPage(plan: InstallPlan | null, config: AppConfig | null): string {
-  const fromPlan = plan?.registry?.downloadPage;
+  const fromPlan = plan?.downloadUrl || plan?.registry?.downloadPage;
   if (fromPlan) return fromPlan;
   const fromConfig = config?.mirrors.nodeDist.find((m) => m.downloadPage)?.downloadPage;
   return fromConfig ?? "https://nodejs.org/en/download";

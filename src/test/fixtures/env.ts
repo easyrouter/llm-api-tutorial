@@ -93,6 +93,7 @@ export function installPlan(
     },
     requiresAdmin: false,
     explanationCode: "npm_global",
+    downloadUrl: null,
     ...overrides,
   };
 }

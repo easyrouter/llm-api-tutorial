@@ -12,9 +12,13 @@
   "plan": {
     "generic": "将按下面显示的方式安装 {{tool}}。",
     "npm_global": "将使用 npm 把 {{tool}} 安装到当前用户的全局目录，安装过程的输出会实时显示在下方。",
-    "node_download": "Node.js 需要通过官方安装包安装。点击下方按钮打开下载页，下载并运行「LTS」版本的安装包（Windows 选 .msi，macOS 选 .pkg），一路「下一步」即可。",
-    "node_brew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js。",
-    "cc_switch_download": "CC Switch 是桌面应用，将从官方发布渠道下载安装包并校验完整性，之后由你双击运行安装。"
+    "node": {
+      "download_page": "Node.js 需要通过官方安装包安装。点击下方按钮打开下载页，下载并运行「LTS」版本的安装包（Windows 选 .msi，macOS 选 .pkg），一路「下一步」即可。",
+      "homebrew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js（安装完成后若终端仍找不到 node，再执行一次 brew link --overwrite 对应的 node@ 版本）；或者直接从下方的下载页安装。"
+    },
+    "cc_switch": {
+      "download": "CC Switch 是桌面应用，将从官方发布渠道下载安装包并校验完整性，之后由你双击运行安装。"
+    }
   },
   "state": {
     "idle": "待处理",

@@ -122,7 +122,12 @@ describe("download pages", () => {
     ccSwitch: { downloadPage: "https://github.com/farion1231/cc-switch/releases/latest" },
   } as unknown as AppConfig;
 
-  it("nodeDownloadPage prefers the plan's mirror, then config, then nodejs.org", () => {
+  it("nodeDownloadPage prefers plan.downloadUrl, then the plan's mirror, then config, then nodejs.org", () => {
+    const withUrl = installPlan("node", {
+      downloadUrl: "https://mirror.example.com/node/",
+      registry: { id: "npmmirror", url: "x", downloadPage: "https://npmmirror.com/mirrors/node/" },
+    });
+    expect(nodeDownloadPage(withUrl, config)).toBe("https://mirror.example.com/node/");
     const plan = installPlan("node", {
       registry: { id: "npmmirror", url: "x", downloadPage: "https://npmmirror.com/mirrors/node/" },
     });

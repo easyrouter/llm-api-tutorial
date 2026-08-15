@@ -33,7 +33,7 @@
 //! `contains_whitespace` (inner spaces/tabs), `contains_newline`, `looks_like_placeholder`
 //! (`<`, `>`, `your`, `xxx`, `…`, `sk-xxxx`, `example`; case-insensitive), `non_ascii`.
 //! Non-blocking hints: `unexpected_prefix` (does not start with `sk-` — gateways vary),
-//! `too_short` (fewer than 20 characters after trimming). Frontend key: `guide:key_issue.<issue>`.
+//! `too_short` (fewer than 20 characters after trimming). Frontend key: `guide:key.issue.<issue>`.
 //!
 //! # `preview_url(input, config)`
 //!
@@ -49,8 +49,8 @@
 //! | any other path                          | `custom_path`       | as typed                       |
 //!
 //! Trailing slashes are always removed (`trailing_slash_removed`), credentials and fragments
-//! are never part of the effective URL. Suggested frontend keys: `guide:url_rule.<rule>` and
-//! `guide:url_warning.<warning>`. Warnings: `not_https`,
+//! are never part of the effective URL. Frontend keys: `guide:url.rule.<rule>` and
+//! `guide:url.warning.<warning>`. Warnings: `not_https`,
 //! `trailing_slash_removed`, `contains_whitespace`, `contains_credentials`,
 //! `looks_like_chat_completions_endpoint` (path ends with `/chat/completions`),
 //! `differs_from_company_gateway` (host[:port] + path differ from `gateway.base_url`).

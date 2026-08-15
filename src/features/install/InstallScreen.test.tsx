@@ -216,7 +216,7 @@ describe("InstallScreen", () => {
           program: "",
           args: [],
           displayCommand: "",
-          explanationCode: "node_download",
+          explanationCode: "node.download_page",
           registry: {
             id: "official",
             url: "https://nodejs.org/dist/",
