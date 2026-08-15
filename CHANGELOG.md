@@ -24,3 +24,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - M6 help docs: remote → cache → bundled cascade with bilingual bundled pages
   (`src-tauri/resources/docs/{zh-CN,en}`), shipped as bundle resources; telemetry batched
   opt-in flush with a periodic background flush started at app setup.
+- M4 verification (`verify`): fresh-session `<cli> --version` check (guide fault E aware),
+  minimal gateway probe per protocol with status → error-class mapping and key-scrubbed
+  messages, running-terminal detection (Windows / macOS bundles, own process tree excluded),
+  symptoms fed into the M5 rule engine.
