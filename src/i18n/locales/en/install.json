@@ -1,1 +1,131 @@
-{}
+{
+  "screen": {
+    "title": "Install what is missing",
+    "intro": "Based on the environment check, these components still need to be installed. Each one shows exactly what it is about to do and waits for your confirmation before starting.",
+    "nothingNeeded": "Everything required is already installed",
+    "nothingNeededHint": "Nothing to do in this step — go straight on to the configuration.",
+    "noSnapshot": "There is no environment check result yet. Please go back to “Environment” and run it first.",
+    "progress": "{{done}} of {{total}} handled",
+    "allDone": "Every item in this step is handled. You can move on.",
+    "pendingHint": "Finish or skip each item above before continuing."
+  },
+  "plan": {
+    "generic": "{{tool}} will be installed as shown below.",
+    "npm_global": "{{tool}} will be installed with npm into the current user's global folder. The output of the install is shown live below.",
+    "node_download": "Node.js is installed from the official installer. Use the button below to open the download page, download the “LTS” installer (Windows: .msi, macOS: .pkg) and click through it with the defaults.",
+    "node_brew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal.",
+    "cc_switch_download": "CC Switch is a desktop app. The installer is downloaded from the official release channel, its integrity is verified, and then you run it yourself."
+  },
+  "state": {
+    "idle": "Pending",
+    "planning": "Preparing…",
+    "confirm": "Awaiting confirmation",
+    "starting": "Starting…",
+    "running": "Installing…",
+    "cancelling": "Cancelling…",
+    "done": "Done",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "fetching_release": "Fetching release info…",
+    "release": "Ready to download",
+    "downloading": "Downloading…",
+    "downloaded": "Downloaded",
+    "rechecking": "Re-checking…"
+  },
+  "actions": {
+    "prepare": "Prepare install",
+    "run": "Confirm and run",
+    "cancel": "Cancel install",
+    "retry": "Retry",
+    "skip": "Skip",
+    "undoSkip": "Undo skip",
+    "openDownloadPage": "Open download page",
+    "installedRecheck": "I installed it — re-check",
+    "download": "Download installer",
+    "openInstaller": "Open installer",
+    "openReleasePage": "Open release page",
+    "changeMirror": "Switch mirror and retry",
+    "showOutput": "Show output",
+    "hideOutput": "Hide output"
+  },
+  "common": {
+    "command": "Command that will run",
+    "commandHint": "Nothing runs until you click “Confirm and run”; this tool never runs commands silently as administrator.",
+    "mirror": "Mirror",
+    "mirrorHint": "Chosen automatically by network speed",
+    "requiresAdmin": {
+      "title": "The npm global folder needs administrator rights",
+      "body": "npm's global install folder is not writable for your account, so running the command as-is will most likely fail. This tool will not elevate for you and will not change your npm configuration. Pick one of these:",
+      "optionElevated": "Open a terminal as administrator (Windows: right-click “Windows Terminal” → “Run as administrator”; macOS: prefix the command with sudo) and run the command above by hand.",
+      "optionPrefix": "Move npm's global folder into your own user folder (recommended — no administrator rights needed afterwards). Run this in a terminal yourself:",
+      "prefixCommandWindows": "npm config set prefix \"%USERPROFILE%\\.npm-global\"",
+      "prefixCommandUnix": "npm config set prefix \"$HOME/.npm-global\"",
+      "prefixHint": "Afterwards add that folder (Windows: %USERPROFILE%\\.npm-global; macOS: $HOME/.npm-global/bin) to your PATH and open a new terminal. Step-by-step guide in the npm docs:",
+      "docsLabel": "npm docs: resolving global install permission errors"
+    }
+  },
+  "npm": {
+    "outputTitle": "Install output",
+    "successHint": "The install command succeeded. Re-checking that the tool is available…",
+    "failedHint": "The install command failed (exit code {{code}}). Check the output above; for network timeouts or download errors, switch the registry and retry.",
+    "failedNoCode": "The install command did not finish normally. Check the output above and retry.",
+    "cancelled": "Install cancelled.",
+    "startFailed": "The install command could not be started.",
+    "recheckAfterDone": "Re-checked after the install: {{message}}",
+    "recheckStillMissing": "The install command succeeded, but the re-check still cannot find the command. Usually the terminal PATH has not refreshed yet: close every terminal window completely, reopen, then re-check from the “Environment” step."
+  },
+  "node": {
+    "steps": {
+      "title": "Steps",
+      "open": "Click “Open download page” and download the “LTS” (long-term support) installer.",
+      "run": "Run the installer and click through it with the default options.",
+      "close": "When it finishes, close every terminal window that is already open (only new terminals will see node).",
+      "recheck": "Come back here and click “I installed it — re-check”."
+    },
+    "downloadPage": "Download page: {{url}}",
+    "recheckPassed": "Node.js is ready: {{message}}",
+    "recheckNotPassed": "Re-check result: {{message}}. If you only just installed it, close every terminal window completely (or sign out and back in) and re-check again."
+  },
+  "ccSwitch": {
+    "intro": "CC Switch is the desktop app used to configure and switch providers. This tool fetches the latest version from the official release channel, verifies the file after download and hands it over to you to install.",
+    "release": {
+      "version": "Version",
+      "asset": "Installer",
+      "source": "Source",
+      "hash": "Integrity check",
+      "hashAvailable": "SHA-256 provided; verified automatically after download",
+      "hashMissing": "This release ships no SHA-256, so it cannot be verified automatically; make sure the source is the official release page"
+    },
+    "fetchFailed": "Could not fetch the CC Switch release information. You can also open the release page and download it by hand.",
+    "downloading": "Downloading {{asset}}",
+    "downloadedTitle": "Download complete",
+    "downloadedPath": "File location: {{path}}",
+    "verified": "SHA-256 verified",
+    "unverified": "Not verified (the publisher provided no hash)",
+    "verifiedFalse": "Verification failed — do not run this file",
+    "afterDownload": {
+      "title": "Next",
+      "open": "Click “Open installer” to run it (or double-click the file at the location above).",
+      "windows": "On Windows, if “Windows protected your PC” appears, click “More info” → “Run anyway”; choose “Install for me only” — no administrator rights needed.",
+      "macos": "On macOS, if it refuses to open, right-click the app in Finder and choose “Open”, or go to System Settings → Privacy & Security and click “Open Anyway”.",
+      "recheck": "When the install finishes, come back here and click “I installed it — re-check”."
+    },
+    "recheckPassed": "CC Switch is ready: {{message}}",
+    "recheckNotPassed": "Re-check result: {{message}}. Make sure the installer has finished, then try again."
+  },
+  "mirror": {
+    "official": "official registry",
+    "npmmirror": "npmmirror (China mirror)",
+    "intranet": "company intranet mirror"
+  },
+  "recheck": {
+    "failed": "The re-check failed; you can try again later from the “Environment” step."
+  },
+  "skip": {
+    "warning": "Skipped installing {{tool}}. Later configuration or verification steps may fail because of it; you can come back to this step at any time."
+  },
+  "download": {
+    "sizeKnown": "{{downloaded}} / {{total}}",
+    "sizeUnknown": "{{downloaded}} downloaded"
+  }
+}
