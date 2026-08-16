@@ -117,8 +117,11 @@ jobs:
         run: |
           set -euo pipefail
           # tauri-action imports the .p12 into a throwaway keychain itself when these are set.
+          # The base64 is squeezed onto one line first: macOS `base64` wraps at 76 columns by
+          # default, and a multi-line value is invalid in the NAME=value form of $GITHUB_ENV.
+          # Stripping whitespace does not change what the base64 decodes to.
           {
-            echo "APPLE_CERTIFICATE=${APPLE_CERTIFICATE}"
+            echo "APPLE_CERTIFICATE=$(printf '%s' "${APPLE_CERTIFICATE}" | tr -d '[:space:]')"
             echo "APPLE_CERTIFICATE_PASSWORD=${APPLE_CERTIFICATE_PASSWORD}"
             echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
           } >> "$GITHUB_ENV"
