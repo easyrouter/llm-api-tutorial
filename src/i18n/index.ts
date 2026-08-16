@@ -6,7 +6,8 @@
  * Namespaces map to PRD modules so each feature owns its own files:
  *   common · checks (M1) · install (M2) · guide (M3) · verify (M4) · diagnose (M5) · help (M6)
  *
- * Language resolution: persisted user choice → OS hint from Rust → navigator.language → zh-CN.
+ * Language resolution: persisted user choice → hint from Rust (the NSIS installer's language
+ * selection, else the OS UI language) → navigator.language → zh-CN.
  */
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";

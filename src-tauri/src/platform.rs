@@ -95,6 +95,49 @@ pub fn windows_build_number() -> Option<u64> {
     }
 }
 
+/// Maps a Windows LCID to one of our supported language tags.
+///
+/// Only the primary language (low 10 bits) is looked at, so every Chinese sublanguage
+/// (`zh-CN` 2052, `zh-TW` 1028, `zh-HK` 3076, …) and every English one collapses correctly.
+/// Anything else yields `None` so the caller falls back to the OS locale.
+fn lang_tag_for_lcid(lcid: u32) -> Option<&'static str> {
+    match lcid & 0x3ff {
+        0x04 => Some("zh-CN"),
+        0x09 => Some("en"),
+        _ => None,
+    }
+}
+
+/// The language the user picked in the NSIS installer's language selector.
+///
+/// The bundled installer persists the choice as a decimal LCID under
+/// `HKCU\Software\<manufacturer>\<product>\Installer Language` (MUI's `MUI_LANGDLL_SAVELANGUAGE`,
+/// reached via the `MUI_PAGE_INSTFILES` page). Reading it lets the app open in the same language
+/// the user just chose, instead of guessing from the OS UI language. `None` off Windows, when the
+/// app was not installed by the installer (dev runs, portable copies), or when the value is absent
+/// or unparsable.
+pub fn installer_language(manufacturer: &str, product: &str) -> Option<String> {
+    #[cfg(windows)]
+    {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_READ};
+        use winreg::RegKey;
+        if manufacturer.is_empty() || product.is_empty() {
+            return None;
+        }
+        let key = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey_with_flags(format!(r"Software\{manufacturer}\{product}"), KEY_READ)
+            .ok()?;
+        let raw: String = key.get_value("Installer Language").ok()?;
+        let lcid: u32 = raw.trim().parse().ok()?;
+        lang_tag_for_lcid(lcid).map(ToOwned::to_owned)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (manufacturer, product);
+        None
+    }
+}
+
 /// See [`os_info`] for the semantics and limitations.
 pub fn is_admin() -> Option<bool> {
     #[cfg(windows)]
@@ -314,6 +357,76 @@ pub fn shell_rc_files() -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lcid_maps_every_chinese_and_english_sublanguage() {
+        // zh-CN, zh-TW, zh-HK, zh-SG, zh-MO — the installer only offers SimpChinese (2052),
+        // but a pre-existing registry value may carry any of them.
+        for lcid in [2052, 1028, 3076, 4100, 5124] {
+            assert_eq!(lang_tag_for_lcid(lcid), Some("zh-CN"), "lcid {lcid}");
+        }
+        // en-US, en-GB, en-AU, en-CA
+        for lcid in [1033, 2057, 3081, 4105] {
+            assert_eq!(lang_tag_for_lcid(lcid), Some("en"), "lcid {lcid}");
+        }
+        // Unsupported languages fall through to the OS locale rather than guessing.
+        assert_eq!(lang_tag_for_lcid(1041), None, "ja-JP");
+        assert_eq!(lang_tag_for_lcid(1031), None, "de-DE");
+    }
+
+    #[test]
+    fn installer_language_is_none_without_manufacturer_or_product() {
+        assert_eq!(installer_language("", "SeedRouter Onboarding"), None);
+        assert_eq!(installer_language("company", ""), None);
+    }
+
+    /// Round-trips the real registry read against a value written exactly the way MUI's
+    /// `MUI_LANGDLL_SAVELANGUAGE` writes it (decimal LCID, REG_SZ), under a test-scoped key.
+    #[cfg(windows)]
+    #[test]
+    fn installer_language_reads_a_saved_selection() {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_ALL_ACCESS};
+        use winreg::RegKey;
+
+        let (vendor, product) = ("seedrouter-onboarding-test", "lang-roundtrip");
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let path = format!(r"Software\{vendor}\{product}");
+        let (key, _) = hkcu.create_subkey(&path).expect("create test key");
+
+        key.set_value("Installer Language", &"2052".to_owned())
+            .expect("write SimpChinese");
+        let zh = installer_language(vendor, product);
+
+        key.set_value("Installer Language", &"1033".to_owned())
+            .expect("write English");
+        let en = installer_language(vendor, product);
+
+        key.set_value("Installer Language", &"not-a-number".to_owned())
+            .expect("write garbage");
+        let broken = installer_language(vendor, product);
+
+        drop(key);
+        let root = hkcu
+            .open_subkey_with_flags(r"Software", KEY_ALL_ACCESS)
+            .expect("open Software");
+        let _ = root.delete_subkey_all(vendor);
+
+        assert_eq!(zh.as_deref(), Some("zh-CN"));
+        assert_eq!(en.as_deref(), Some("en"));
+        assert_eq!(
+            broken, None,
+            "unparsable value must fall back to the OS locale"
+        );
+    }
+
+    #[test]
+    fn installer_language_is_none_when_not_installed() {
+        // Nothing ever writes this key, on any platform.
+        assert_eq!(
+            installer_language("no-such-vendor-42", "no-such-product-42"),
+            None
+        );
+    }
 
     #[test]
     fn powershell_profile_candidates_cover_both_editions_and_onedrive() {

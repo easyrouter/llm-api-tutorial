@@ -35,7 +35,7 @@ fn app_info(app: &AppHandle, state: &AppState) -> AppInfo {
         version: app.package_info().version.to_string(),
         platform: crate::platform::platform(),
         arch: std::env::consts::ARCH.to_owned(),
-        locale_hint: sys_locale_hint(),
+        locale_hint: locale_hint(app),
         config_source: cfg.source,
         log_dir: app
             .path()
@@ -43,6 +43,26 @@ fn app_info(app: &AppHandle, state: &AppState) -> AppInfo {
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default(),
     }
+}
+
+/// Language hint for a first run: the installer's language selection wins over the OS UI
+/// language, so an app installed in 简体中文 opens in 简体中文 even on an English Windows.
+/// A language the user picked inside the app still wins over both (the frontend keeps it).
+fn locale_hint(app: &AppHandle) -> String {
+    let cfg = app.config();
+    // The NSIS installer keys the registry by publisher, falling back to the identifier's
+    // second segment ("com.company.app" -> "company") — mirror that derivation here.
+    let manufacturer = cfg
+        .bundle
+        .publisher
+        .clone()
+        .or_else(|| cfg.identifier.split('.').nth(1).map(ToOwned::to_owned))
+        .unwrap_or_default();
+    if let Some(lang) = crate::platform::installer_language(&manufacturer, &app.package_info().name)
+    {
+        return lang;
+    }
+    sys_locale_hint()
 }
 
 /// `zh-CN` when the OS UI language looks Chinese, otherwise `en`. The frontend may override.
