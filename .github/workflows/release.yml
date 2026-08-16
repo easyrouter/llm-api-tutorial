@@ -1,0 +1,94 @@
+name: Release
+
+# Produces test builds for Windows and macOS. Artifacts are UNSIGNED until IT provides
+# certificates (docs/RELEASE.md, OPEN_QUESTIONS Q-12), so every release published by this
+# workflow is marked as a pre-release and must not be handed to end users as-is.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.1.0-test.1)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the GitHub release as a pre-release"
+        required: false
+        default: true
+        type: boolean
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Bundle · ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x86_64
+            args: ""
+            targets: ""
+          - os: macos-latest
+            label: macos-universal
+            args: "--target universal-apple-darwin"
+            targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Signing material is injected here once available; see docs/RELEASE.md for the secret
+      # names. Until then the bundles are unsigned and trip SmartScreen / Gatekeeper.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "Codex Onboarding ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseBody: |
+            Test build — **unsigned**, not for distribution.
+
+            | platform | file |
+            | --- | --- |
+            | Windows 10/11 (x64) | `*-setup.exe` (per-user install, no admin) |
+            | macOS 12+ (Intel + Apple silicon) | `*.dmg` (universal) |
+
+            Windows: SmartScreen shows "Windows protected your PC" → *More info* → *Run anyway*.
+            macOS: Gatekeeper blocks the unsigned app → after dragging it to Applications run
+            `xattr -dr com.apple.quarantine "/Applications/Codex Onboarding.app"`.
+          releaseDraft: false
+          prerelease: ${{ github.event.inputs.prerelease != 'false' }}
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.label }}
+          path: |
+            src-tauri/target/**/bundle/nsis/*-setup.exe
+            src-tauri/target/**/bundle/dmg/*.dmg
+          if-no-files-found: error
