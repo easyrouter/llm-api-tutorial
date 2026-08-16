@@ -35,6 +35,26 @@ CI (`.github/workflows/ci.yml`, job `bundle`) produces:
 
 Local: `npm run tauri build` (add `--target universal-apple-darwin` on macOS).
 
+## How the release workflow is wired
+
+Three jobs, in order:
+
+1. **`create-release`** (ubuntu) — composes the release notes and creates the GitHub release
+   exactly once, then exposes the tag as an output. Re-running a release finds the existing one
+   and reuses it instead of making a second.
+2. **`bundle`** (windows + macOS, in parallel) — builds and uploads its installer into that
+   release. It deliberately does _not_ pass a release name, body or pre-release flag: those
+   belong to the single job that creates the release.
+3. **`verify-assets`** — fails the run unless the tag resolves to exactly one release carrying
+   exactly one `*-setup.exe` and one `*.dmg`.
+
+The split exists because of a real failure: when both bundle jobs created the release
+themselves, they raced. On `v0.1.0-test.3-patched` the Windows and macOS jobs each created a
+release for the same tag within the same second, GitHub accepted both, and the `.exe` landed on
+the duplicate the tag did not resolve to — a green run with a silently missing installer, fixed
+by hand afterwards. `v0.1.0-test.3` escaped only because its jobs started six seconds apart.
+`verify-assets` exists so that failure mode can never be silent again.
+
 ## Signing
 
 The wiring lives in `.github/workflows/release.yml` and is **dormant until the secrets exist**.

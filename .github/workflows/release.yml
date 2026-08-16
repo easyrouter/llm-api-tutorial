@@ -6,6 +6,11 @@ name: Release
 # secret (docs/RELEASE.md, OPEN_QUESTIONS Q-12). With no secrets configured this workflow behaves
 # exactly as before and produces UNSIGNED artifacts that must not be handed to end users as-is.
 # Adding the secrets is the only action needed to turn signing on -- no workflow edit required.
+#
+# `create-release` owns the release object; the matrix jobs only upload to it. Letting both
+# bundle jobs create it themselves raced: on v0.1.0-test.3-patched the Windows and macOS jobs
+# each created a release for the same tag within the same second, and the installer ended up on
+# the duplicate that the tag did not resolve to -- a silently missing .exe.
 
 on:
   workflow_dispatch:
@@ -31,8 +36,93 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    # Secrets cannot be read from a step-level `if:`, so presence is resolved once here into
+    # plain strings ("true" / "false") that the steps below can branch on.
+    env:
+      SIGN_WINDOWS: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+      SIGN_MACOS: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      NOTARIZE_MACOS: ${{ secrets.APPLE_ID != '' }}
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install instructions differ for signed and unsigned builds, so the release body is
+      # composed here rather than hardcoded as "unsigned". Creating the release exactly once
+      # also means this text is written exactly once, whoever wins the build race afterwards.
+      - name: Create the release if it does not exist
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          PRERELEASE_INPUT: ${{ github.event.inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          # Re-running a release (e.g. after a failed bundle job) must top up the existing
+          # release, never make a second one for the same tag.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists - the bundle jobs will upload into it."
+            exit 0
+          fi
+
+          cat > release-notes.md <<'__BODY__'
+          **SeedRouter Onboarding** walks you from a bare machine to a working
+          Codex CLI / Claude Code against the SeedRouter service gateway
+          (`https://seedrouter.net/v1`): environment check → install → CC Switch
+          configuration → verify → auto-diagnose. Windows + macOS, 简体中文 + English.
+
+          No admin rights required, every command is shown before it runs, and your
+          API key is never written to disk, logs or the diagnostic report.
+
+          | platform | file |
+          | --- | --- |
+          | Windows 10/11 (x64) | `*-setup.exe` (per-user install, no admin) |
+          | macOS 12+ (Intel + Apple silicon) | `*.dmg` (universal) |
+
+          __BODY__
+
+          {
+            if [ "$SIGN_WINDOWS" != "true" ] || [ "$SIGN_MACOS" != "true" ]; then
+              echo "Test build - **unsigned**, not for distribution."
+              echo
+            fi
+            if [ "$SIGN_WINDOWS" = "true" ]; then
+              echo "Windows: signed, so SmartScreen should stay quiet."
+            else
+              echo 'Windows: SmartScreen shows "Windows protected your PC" -> *More info* -> *Run anyway*.'
+            fi
+            if [ "$SIGN_MACOS" = "true" ] && [ "$NOTARIZE_MACOS" = "true" ]; then
+              echo "macOS: signed and notarized, so Gatekeeper opens it normally."
+            elif [ "$SIGN_MACOS" = "true" ]; then
+              echo "macOS: signed but **not notarized**; Gatekeeper still warns on first open."
+            else
+              echo "macOS: Gatekeeper blocks the unsigned app - after dragging it to Applications run"
+              echo '`xattr -dr com.apple.quarantine "/Applications/SeedRouter Onboarding.app"`.'
+            fi
+          } >> release-notes.md
+
+          # An unsigned build is never a stable release, whatever the dispatch input asked for.
+          prerelease=--prerelease
+          if [ "${PRERELEASE_INPUT:-}" = "false" ] && [ "$SIGN_WINDOWS" = "true" ] && [ "$SIGN_MACOS" = "true" ]; then
+            prerelease=
+          fi
+
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "SeedRouter Onboarding $TAG" \
+            --notes-file release-notes.md \
+            ${prerelease:+"$prerelease"}
+          echo "Created release $TAG at $GITHUB_SHA."
+
   bundle:
     name: Bundle · ${{ matrix.label }}
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -144,62 +234,16 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "macOS notarization enabled"
 
-      # Install instructions differ for signed and unsigned builds, so this part of the release
-      # body is composed here rather than hardcoded as "unsigned". Both matrix jobs publish to the
-      # same release and derive this from the same repository secrets, so they produce identical
-      # text and whichever job creates the release first writes the same body.
-      - name: Compose install notes
-        shell: bash
-        run: |
-          set -euo pipefail
-          {
-            echo "RELEASE_INSTALL_NOTES<<__NOTES_EOF__"
-            if [ "$SIGN_WINDOWS" != "true" ] || [ "$SIGN_MACOS" != "true" ]; then
-              echo "Test build - **unsigned**, not for distribution."
-              echo
-            fi
-            if [ "$SIGN_WINDOWS" = "true" ]; then
-              echo "Windows: signed, so SmartScreen should stay quiet."
-            else
-              echo 'Windows: SmartScreen shows "Windows protected your PC" -> *More info* -> *Run anyway*.'
-            fi
-            if [ "$SIGN_MACOS" = "true" ] && [ "$NOTARIZE_MACOS" = "true" ]; then
-              echo "macOS: signed and notarized, so Gatekeeper opens it normally."
-            elif [ "$SIGN_MACOS" = "true" ]; then
-              echo "macOS: signed but **not notarized**; Gatekeeper still warns on first open."
-            else
-              echo "macOS: Gatekeeper blocks the unsigned app - after dragging it to Applications run"
-              echo '`xattr -dr com.apple.quarantine "/Applications/SeedRouter Onboarding.app"`.'
-            fi
-            echo "__NOTES_EOF__"
-          } >> "$GITHUB_ENV"
-
+      # `create-release` published the release already, so this only uploads assets into it.
+      # Release name, body and pre-release status are deliberately not set here: they belong to
+      # the single job that creates the release, and passing them again would let a re-run
+      # rewrite the notes with a different job's view of the signing secrets.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "SeedRouter Onboarding ${{ github.event.inputs.tag || github.ref_name }}"
-          releaseBody: |
-            **SeedRouter Onboarding** walks you from a bare machine to a working
-            Codex CLI / Claude Code against the SeedRouter service gateway
-            (`https://seedrouter.net/v1`): environment check → install → CC Switch
-            configuration → verify → auto-diagnose. Windows + macOS, 简体中文 + English.
-
-            No admin rights required, every command is shown before it runs, and your
-            API key is never written to disk, logs or the diagnostic report.
-
-            | platform | file |
-            | --- | --- |
-            | Windows 10/11 (x64) | `*-setup.exe` (per-user install, no admin) |
-            | macOS 12+ (Intel + Apple silicon) | `*.dmg` (universal) |
-
-            ${{ env.RELEASE_INSTALL_NOTES }}
+          tagName: ${{ needs.create-release.outputs.tag }}
           releaseDraft: false
-          # An unsigned build is never a stable release, whatever the dispatch input asked for.
-          prerelease:
-            ${{ github.event.inputs.prerelease != 'false' || env.SIGN_WINDOWS != 'true' || env.SIGN_MACOS
-            != 'true' }}
           includeUpdaterJson: false
           # SIGNING_CONFIG_ARG is set only by the Windows signing step; empty everywhere else.
           args: ${{ matrix.args }} ${{ env.SIGNING_CONFIG_ARG }}
@@ -211,3 +255,34 @@ jobs:
             src-tauri/target/**/bundle/nsis/*-setup.exe
             src-tauri/target/**/bundle/dmg/*.dmg
           if-no-files-found: error
+
+  verify-assets:
+    name: Verify release assets
+    needs: [create-release, bundle]
+    runs-on: ubuntu-latest
+    steps:
+      # The race this workflow used to lose was silent: the run went green with an installer
+      # missing from the release. Fail loudly instead.
+      - name: Every platform must be present exactly once
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          duplicates=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+            --jq "[.[] | select(.tag_name == \"$TAG\")] | length")
+          if [ "$duplicates" -ne 1 ]; then
+            echo "::error::$duplicates releases share the tag $TAG (expected exactly 1)."
+            exit 1
+          fi
+
+          names=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          echo "$names"
+          for pattern in '-setup\.exe$' '\.dmg$'; do
+            count=$(printf '%s\n' "$names" | grep -c -- "$pattern" || true)
+            if [ "$count" -ne 1 ]; then
+              echo "::error::expected exactly 1 asset matching /$pattern/ on $TAG, found $count."
+              exit 1
+            fi
+          done
+          echo "Release $TAG carries one installer per platform."
