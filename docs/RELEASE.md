@@ -10,6 +10,22 @@ download page (PRD #11). Every distributed build must be signed (PRD #12).
 2. `git commit -m "chore(release): vX.Y.Z"` on a `release/vX.Y.Z` branch → PR → merge → tag
    `vX.Y.Z` on `main`.
 
+## Pilot test builds
+
+Two builds are piloted side by side; they differ only in the optional Codex Fast UI toolkit
+(ADR-0007). Keep their versions distinct so the installer file name says which one it is —
+the bundler derives it from `version`, and two files both called `…_0.1.0_x64-setup.exe` are
+indistinguishable once downloaded.
+
+| branch                      | version                | tag                     | contains the patch |
+| --------------------------- | ---------------------- | ----------------------- | ------------------ |
+| `feat/onboarding-revisions` | `0.1.0-test.3`         | `v0.1.0-test.3`         | no                 |
+| `feat/codex-fast-ui`        | `0.1.0-test.3-patched` | `v0.1.0-test.3-patched` | yes                |
+
+Both are pre-releases and unsigned until Q-12 is answered. Build either with
+_Actions → Release → Run workflow_ on the branch, or by pushing its tag. NSIS accepts the
+semver pre-release suffix; the DMG is unaffected.
+
 ## Build
 
 CI (`.github/workflows/ci.yml`, job `bundle`) produces:
