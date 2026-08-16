@@ -100,6 +100,9 @@ pub fn windows_build_number() -> Option<u64> {
 /// Only the primary language (low 10 bits) is looked at, so every Chinese sublanguage
 /// (`zh-CN` 2052, `zh-TW` 1028, `zh-HK` 3076, …) and every English one collapses correctly.
 /// Anything else yields `None` so the caller falls back to the OS locale.
+// Only reached from the Windows registry read; kept unconditional so the table is unit-tested
+// on every CI runner.
+#[cfg_attr(not(windows), allow(dead_code))]
 fn lang_tag_for_lcid(lcid: u32) -> Option<&'static str> {
     match lcid & 0x3ff {
         0x04 => Some("zh-CN"),
