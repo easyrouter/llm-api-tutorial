@@ -1,8 +1,11 @@
 name: Release
 
-# Produces test builds for Windows and macOS. Artifacts are UNSIGNED until IT provides
-# certificates (docs/RELEASE.md, OPEN_QUESTIONS Q-12), so every release published by this
-# workflow is marked as a pre-release and must not be handed to end users as-is.
+# Produces builds for Windows and macOS.
+#
+# Signing is wired but dormant: each signing step is guarded by the presence of its repository
+# secret (docs/RELEASE.md, OPEN_QUESTIONS Q-12). With no secrets configured this workflow behaves
+# exactly as before and produces UNSIGNED artifacts that must not be handed to end users as-is.
+# Adding the secrets is the only action needed to turn signing on -- no workflow edit required.
 
 on:
   workflow_dispatch:
@@ -43,6 +46,12 @@ jobs:
             args: "--target universal-apple-darwin"
             targets: "aarch64-apple-darwin,x86_64-apple-darwin"
     runs-on: ${{ matrix.os }}
+    # Secrets cannot be read from a step-level `if:`, so presence is resolved once here into
+    # plain strings ("true" / "false") that the steps below can branch on.
+    env:
+      SIGN_WINDOWS: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+      SIGN_MACOS: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      NOTARIZE_MACOS: ${{ secrets.APPLE_ID != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,8 +70,107 @@ jobs:
 
       - run: npm ci
 
-      # Signing material is injected here once available; see docs/RELEASE.md for the secret
-      # names. Until then the bundles are unsigned and trip SmartScreen / Gatekeeper.
+      # --- Signing (dormant until the matching secrets exist) -------------------------------
+      # Each step writes into $GITHUB_ENV only when it runs. A skipped step leaves the variable
+      # genuinely undefined rather than set-but-empty, which matters: an empty
+      # APPLE_SIGNING_IDENTITY would make the bundler attempt to sign with an empty identity.
+
+      - name: Prepare Windows code signing
+        if: matrix.os == 'windows-latest' && env.SIGN_WINDOWS == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Optional override; defaults to DigiCert's public RFC-3161 timestamper. Timestamping is
+          # what keeps already-issued signatures valid after the certificate itself expires.
+          WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:RUNNER_TEMP 'code-signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          # Forward slashes: PowerShell accepts them in provider paths and this file deliberately
+          # contains no backslashes, which keeps it safe to edit through any escaping layer.
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:/CurrentUser/My -Password $password
+          Remove-Item $pfx -Force
+          $timestamp = if ($env:WINDOWS_TIMESTAMP_URL) { $env:WINDOWS_TIMESTAMP_URL } else { 'http://timestamp.digicert.com' }
+          # Tauri reads the thumbprint from its config, not from the environment, so merge a
+          # fragment in with `--config`. The path is absolute and slash-separated because the
+          # value goes through tauri-action's argv splitter.
+          $fragment = Join-Path $env:RUNNER_TEMP 'tauri.signing.conf.json'
+          @{ bundle = @{ windows = @{
+              certificateThumbprint = $cert.Thumbprint
+              digestAlgorithm = 'sha256'
+              timestampUrl = $timestamp
+          } } } | ConvertTo-Json -Depth 6 | Set-Content -Path $fragment -Encoding utf8
+          $arg = '--config ' + $fragment.Replace([char]92, '/')
+          "SIGNING_CONFIG_ARG=$arg" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Windows signing enabled (thumbprint $($cert.Thumbprint.Substring(0,8))..., timestamp $timestamp)"
+
+      - name: Prepare macOS code signing
+        if: matrix.os == 'macos-latest' && env.SIGN_MACOS == 'true'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          # tauri-action imports the .p12 into a throwaway keychain itself when these are set.
+          {
+            echo "APPLE_CERTIFICATE=${APPLE_CERTIFICATE}"
+            echo "APPLE_CERTIFICATE_PASSWORD=${APPLE_CERTIFICATE_PASSWORD}"
+            echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
+          } >> "$GITHUB_ENV"
+          echo "macOS signing enabled"
+
+      - name: Prepare macOS notarization
+        if: matrix.os == 'macos-latest' && env.SIGN_MACOS == 'true' && env.NOTARIZE_MACOS == 'true'
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          # APPLE_PASSWORD is an app-specific password, not the Apple ID account password.
+          {
+            echo "APPLE_ID=${APPLE_ID}"
+            echo "APPLE_PASSWORD=${APPLE_PASSWORD}"
+            echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}"
+          } >> "$GITHUB_ENV"
+          echo "macOS notarization enabled"
+
+      # Install instructions differ for signed and unsigned builds, so this part of the release
+      # body is composed here rather than hardcoded as "unsigned". Both matrix jobs publish to the
+      # same release and derive this from the same repository secrets, so they produce identical
+      # text and whichever job creates the release first writes the same body.
+      - name: Compose install notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "RELEASE_INSTALL_NOTES<<__NOTES_EOF__"
+            if [ "$SIGN_WINDOWS" != "true" ] || [ "$SIGN_MACOS" != "true" ]; then
+              echo "Test build - **unsigned**, not for distribution."
+              echo
+            fi
+            if [ "$SIGN_WINDOWS" = "true" ]; then
+              echo "Windows: signed, so SmartScreen should stay quiet."
+            else
+              echo 'Windows: SmartScreen shows "Windows protected your PC" -> *More info* -> *Run anyway*.'
+            fi
+            if [ "$SIGN_MACOS" = "true" ] && [ "$NOTARIZE_MACOS" = "true" ]; then
+              echo "macOS: signed and notarized, so Gatekeeper opens it normally."
+            elif [ "$SIGN_MACOS" = "true" ]; then
+              echo "macOS: signed but **not notarized**; Gatekeeper still warns on first open."
+            else
+              echo "macOS: Gatekeeper blocks the unsigned app - after dragging it to Applications run"
+              echo '`xattr -dr com.apple.quarantine "/Applications/SeedRouter Onboarding.app"`.'
+            fi
+            echo "__NOTES_EOF__"
+          } >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,20 +186,20 @@ jobs:
             No admin rights required, every command is shown before it runs, and your
             API key is never written to disk, logs or the diagnostic report.
 
-            Test build — **unsigned**, not for distribution.
-
             | platform | file |
             | --- | --- |
             | Windows 10/11 (x64) | `*-setup.exe` (per-user install, no admin) |
             | macOS 12+ (Intel + Apple silicon) | `*.dmg` (universal) |
 
-            Windows: SmartScreen shows "Windows protected your PC" → *More info* → *Run anyway*.
-            macOS: Gatekeeper blocks the unsigned app → after dragging it to Applications run
-            `xattr -dr com.apple.quarantine "/Applications/SeedRouter Onboarding.app"`.
+            ${{ env.RELEASE_INSTALL_NOTES }}
           releaseDraft: false
-          prerelease: ${{ github.event.inputs.prerelease != 'false' }}
+          # An unsigned build is never a stable release, whatever the dispatch input asked for.
+          prerelease:
+            ${{ github.event.inputs.prerelease != 'false' || env.SIGN_WINDOWS != 'true' || env.SIGN_MACOS
+            != 'true' }}
           includeUpdaterJson: false
-          args: ${{ matrix.args }}
+          # SIGNING_CONFIG_ARG is set only by the Windows signing step; empty everywhere else.
+          args: ${{ matrix.args }} ${{ env.SIGNING_CONFIG_ARG }}
 
       - uses: actions/upload-artifact@v4
         with:

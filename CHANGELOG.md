@@ -85,6 +85,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   moves the per-user config and log directories (`%APPDATA%/com.seedrouter.onboarding/`,
   `~/Library/Application Support/com.seedrouter.onboarding/`); an installation made before this
   change keeps using the old directory and should be uninstalled rather than upgraded in place.
+- Release workflow: code signing and macOS notarization are wired but dormant, each step guarded
+  by the presence of its repository secret. Adding the secrets is the only step needed to turn
+  signing on. Release notes now describe the actual signed/unsigned state instead of hardcoding
+  "unsigned", and an unsigned build is always published as a pre-release. See `docs/RELEASE.md`.
 - Terminology: "company gateway" → "service gateway" (zh-CN 公司网关 → 服务网关) across the UI,
   bundled help docs, preset provider name and living docs. Internal codes (e.g.
   `differs_from_company_gateway`) are unchanged.
