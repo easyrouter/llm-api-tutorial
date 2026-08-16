@@ -28,6 +28,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "SeedRouter",
     "targets": ["nsis", "dmg", "app"],
     "createUpdaterArtifacts": false,
     "resources": ["resources/app-config.json", "resources/docs/**/*"],

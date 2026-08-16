@@ -78,6 +78,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ### Changed
 
+- Branding: `bundle.publisher` is set to `SeedRouter`, so the installer, the executable's
+  version info (CompanyName) and the Windows "Apps & features" entry all show `SeedRouter`
+  instead of `company` (which Tauri derived from the identifier's second segment).
 - Terminology: "company gateway" → "service gateway" (zh-CN 公司网关 → 服务网关) across the UI,
   bundled help docs, preset provider name and living docs. Internal codes (e.g.
   `differs_from_company_gateway`) are unchanged.
