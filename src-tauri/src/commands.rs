@@ -23,9 +23,9 @@ use crate::models::{
     AppConfig, AppInfo, CcSwitchImportPreview, CcSwitchImportRequest, CcSwitchRelease, CheckId,
     CheckResult, CodexConfigRequest, ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis,
     DiagnosticReport, DocPage, DocsIndex, DownloadRequest, DownloadResult, EnvSnapshot,
-    FastUiAction, FastUiJob, FastUiPlan, FastUiStatus, GatewayProbeRequest, InstallJob, InstallPlan,
-    InstallTarget, KeyValidation, MirrorChoice, ModelList, TelemetryEvent, TelemetryStatus,
-    TerminalProcess, ToolId, UrlPreview, UrlRule, VerifyRequest, VerifyResult,
+    FastUiAction, FastUiJob, FastUiPlan, FastUiStatus, GatewayProbeRequest, InstallJob,
+    InstallPlan, InstallTarget, KeyValidation, MirrorChoice, ModelList, TelemetryEvent,
+    TelemetryStatus, TerminalProcess, ToolId, UrlPreview, UrlRule, VerifyRequest, VerifyResult,
 };
 use crate::platform::expand_tilde;
 use crate::state::AppState;

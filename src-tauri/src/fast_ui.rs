@@ -90,7 +90,9 @@ const BLOCKED_NOT_INSTALLED: &str = "guide:fastui.blocked.not_installed";
 pub fn install_root() -> AppResult<PathBuf> {
     let base = dirs::data_local_dir()
         .ok_or_else(|| AppError::Other("local app-data directory unavailable".to_owned()))?;
-    Ok(INSTALL_SUBDIR.iter().fold(base, |path, part| path.join(part)))
+    Ok(INSTALL_SUBDIR
+        .iter()
+        .fold(base, |path, part| path.join(part)))
 }
 
 /// The extracted toolkit directory under the app cache dir.
@@ -131,7 +133,10 @@ fn archive_verified(path: &Path) -> bool {
             false
         }
         Err(e) => {
-            log::warn!("codex fast-ui toolkit unreadable at {}: {e}", path.display());
+            log::warn!(
+                "codex fast-ui toolkit unreadable at {}: {e}",
+                path.display()
+            );
             false
         }
     }
@@ -173,7 +178,11 @@ pub fn blocked_code(action: FastUiAction, state: &FastUiStatus) -> Option<&'stat
 pub async fn status(app: &AppHandle) -> AppResult<FastUiStatus> {
     let supported = platform::platform() == Platform::Windows;
     let root = install_root().unwrap_or_default();
-    let codex_app = if supported { codex_app_path().await } else { None };
+    let codex_app = if supported {
+        codex_app_path().await
+    } else {
+        None
+    };
 
     let mut state = FastUiStatus {
         supported,
@@ -542,7 +551,10 @@ mod tests {
             display.contains(r"AppData\Local\SeedRouter\CodexFastUI"),
             "the copy never lands in the official install location: {display}"
         );
-        assert!(!display.contains("-Force"), "a first install must not force");
+        assert!(
+            !display.contains("-Force"),
+            "a first install must not force"
+        );
     }
 
     #[test]
@@ -562,7 +574,10 @@ mod tests {
         let (toolkit, root) = paths();
         // The path separator differs per host, so match on the parts, not on the joined string.
         let verify = command_for(FastUiAction::Verify, &toolkit, &root, false).display();
-        assert!(verify.contains("CodexFastUI") && verify.ends_with("verify.ps1"), "{verify}");
+        assert!(
+            verify.contains("CodexFastUI") && verify.ends_with("verify.ps1"),
+            "{verify}"
+        );
         assert!(!verify.contains("install.ps1"), "{verify}");
         let restore = command_for(FastUiAction::Restore, &toolkit, &root, false).display();
         assert!(restore.ends_with("restore.ps1"), "{restore}");

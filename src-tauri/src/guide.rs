@@ -538,7 +538,10 @@ pub fn codex_config_template(req: &CodexConfigRequest, config: &AppConfig) -> St
         toml_quote(CODEX_PROVIDER_ID)
     ));
     if !effort.is_empty() {
-        out.push_str(&format!("model_reasoning_effort = {}\n", toml_quote(effort)));
+        out.push_str(&format!(
+            "model_reasoning_effort = {}\n",
+            toml_quote(effort)
+        ));
     }
     out.push_str(&format!(
         "sandbox_mode = {}\n",
@@ -1157,7 +1160,10 @@ experimental_bearer_token = \"<API-KEY>\"
         assert!(!rendered.starts_with("model = "), "{rendered}");
         assert!(!rendered.contains("model_reasoning_effort"), "{rendered}");
         // empty provider name falls back to the company preset
-        assert!(rendered.contains("name = \"Service Gateway\""), "{rendered}");
+        assert!(
+            rendered.contains("name = \"Service Gateway\""),
+            "{rendered}"
+        );
         // the effective URL is used (trailing slash normalised, /v1 appended)
         assert!(
             rendered.contains("base_url = \"https://seedrouter.net/v1\""),

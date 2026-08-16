@@ -68,7 +68,9 @@ async fn find_windows_terminal() -> Option<PathBuf> {
         .map(|local| PathBuf::from(local).join("Microsoft").join("WindowsApps"))
         .into_iter()
         .collect();
-    super::locate_binary("wt", &extra).await.map(|(path, _)| path)
+    super::locate_binary("wt", &extra)
+        .await
+        .map(|(path, _)| path)
 }
 
 #[cfg(test)]
