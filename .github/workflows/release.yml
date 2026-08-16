@@ -70,6 +70,14 @@ jobs:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: "SeedRouter Onboarding ${{ github.event.inputs.tag || github.ref_name }}"
           releaseBody: |
+            **SeedRouter Onboarding** walks you from a bare machine to a working
+            Codex CLI / Claude Code against the SeedRouter service gateway
+            (`https://seedrouter.net/v1`): environment check → install → CC Switch
+            configuration → verify → auto-diagnose. Windows + macOS, 简体中文 + English.
+
+            No admin rights required, every command is shown before it runs, and your
+            API key is never written to disk, logs or the diagnostic report.
+
             Test build — **unsigned**, not for distribution.
 
             | platform | file |
