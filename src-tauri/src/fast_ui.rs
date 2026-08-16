@@ -151,23 +151,19 @@ fn script_path(action: FastUiAction, toolkit: &Path, root: &Path) -> PathBuf {
 // Status
 // ---------------------------------------------------------------------------
 
-/// Decides whether `action` can run, purely from the collected facts. `None` = it can.
-pub fn blocked_code(
-    action: FastUiAction,
-    supported: bool,
-    toolkit_available: bool,
-    codex_app_found: bool,
-    installed: bool,
-) -> Option<&'static str> {
-    if !supported {
+/// Decides whether `action` can run, purely from already-collected facts. `None` = it can.
+pub fn blocked_code(action: FastUiAction, state: &FastUiStatus) -> Option<&'static str> {
+    if !state.supported {
         return Some(BLOCKED_NOT_WINDOWS);
     }
-    if !toolkit_available {
+    if !state.toolkit_available {
         return Some(BLOCKED_TOOLKIT_MISSING);
     }
     match action {
-        FastUiAction::Install if !codex_app_found => Some(BLOCKED_CODEX_APP_MISSING),
-        FastUiAction::Verify | FastUiAction::Restore if !installed => Some(BLOCKED_NOT_INSTALLED),
+        FastUiAction::Install if !state.codex_app_found => Some(BLOCKED_CODEX_APP_MISSING),
+        FastUiAction::Verify | FastUiAction::Restore if !state.installed => {
+            Some(BLOCKED_NOT_INSTALLED)
+        }
         _ => None,
     }
 }
@@ -176,31 +172,23 @@ pub fn blocked_code(
 /// runs on Windows.
 pub async fn status(app: &AppHandle) -> AppResult<FastUiStatus> {
     let supported = platform::platform() == Platform::Windows;
-    let toolkit_available = supported && archive_path(app).is_ok_and(|p| archive_verified(&p));
     let root = install_root().unwrap_or_default();
-    let installed = supported && root.join(INSTALL_MARKER).is_file();
     let codex_app = if supported { codex_app_path().await } else { None };
-    let codex_app_found = codex_app.is_some();
 
-    Ok(FastUiStatus {
+    let mut state = FastUiStatus {
         supported,
         toolkit_version: TOOLKIT_VERSION.to_owned(),
         tested_codex_build: TESTED_CODEX_BUILD.to_owned(),
-        toolkit_available,
-        codex_app_found,
+        toolkit_available: supported && archive_path(app).is_ok_and(|p| archive_verified(&p)),
+        codex_app_found: codex_app.is_some(),
         codex_app_path: codex_app.unwrap_or_default(),
-        installed,
+        installed: supported && root.join(INSTALL_MARKER).is_file(),
         install_root: root.to_string_lossy().into_owned(),
         shortcut_path: root.join(SHORTCUT_NAME).to_string_lossy().into_owned(),
-        blocked_code: blocked_code(
-            FastUiAction::Install,
-            supported,
-            toolkit_available,
-            codex_app_found,
-            installed,
-        )
-        .map(str::to_owned),
-    })
+        blocked_code: None,
+    };
+    state.blocked_code = blocked_code(FastUiAction::Install, &state).map(str::to_owned);
+    Ok(state)
 }
 
 /// Install location of the official Codex client via `Get-AppxPackage` (Windows only). The
@@ -270,13 +258,7 @@ pub fn command_for(
 /// Builds the plan the UI must show before [`start`] may run `action`.
 pub async fn plan(app: &AppHandle, action: FastUiAction) -> AppResult<FastUiPlan> {
     let state = status(app).await?;
-    if let Some(code) = blocked_code(
-        action,
-        state.supported,
-        state.toolkit_available,
-        state.codex_app_found,
-        state.installed,
-    ) {
+    if let Some(code) = blocked_code(action, &state) {
         return Err(AppError::Unsupported(code.to_owned()));
     }
     let reinstall = state.installed && action == FastUiAction::Install;
@@ -466,6 +448,22 @@ mod tests {
         )
     }
 
+    /// A machine on which installing would work; individual facts are flipped per test.
+    fn ready() -> FastUiStatus {
+        FastUiStatus {
+            supported: true,
+            toolkit_version: TOOLKIT_VERSION.to_owned(),
+            tested_codex_build: TESTED_CODEX_BUILD.to_owned(),
+            toolkit_available: true,
+            codex_app_found: true,
+            codex_app_path: r"C:\Program Files\WindowsApps\OpenAI.Codex".to_owned(),
+            installed: false,
+            install_root: String::new(),
+            shortcut_path: String::new(),
+            blocked_code: None,
+        }
+    }
+
     #[test]
     fn install_root_ends_in_the_documented_sub_directory() {
         let root = install_root().expect("local app data");
@@ -476,26 +474,41 @@ mod tests {
     #[test]
     fn blocked_code_reports_the_first_blocking_reason() {
         // Not Windows outranks everything else.
+        let elsewhere = FastUiStatus {
+            supported: false,
+            toolkit_available: false,
+            codex_app_found: false,
+            ..ready()
+        };
         assert_eq!(
-            blocked_code(FastUiAction::Install, false, false, false, false),
+            blocked_code(FastUiAction::Install, &elsewhere),
             Some(BLOCKED_NOT_WINDOWS)
         );
         // A missing or tampered archive blocks every action.
+        let no_toolkit = FastUiStatus {
+            toolkit_available: false,
+            installed: true,
+            ..ready()
+        };
         for action in ALL_ACTIONS {
             assert_eq!(
-                blocked_code(action, true, false, true, true),
+                blocked_code(action, &no_toolkit),
                 Some(BLOCKED_TOOLKIT_MISSING),
                 "{action:?}"
             );
         }
         // Install needs the official client; verify and restore need a previous install.
+        let no_client = FastUiStatus {
+            codex_app_found: false,
+            ..ready()
+        };
         assert_eq!(
-            blocked_code(FastUiAction::Install, true, true, false, false),
+            blocked_code(FastUiAction::Install, &no_client),
             Some(BLOCKED_CODEX_APP_MISSING)
         );
         for action in [FastUiAction::Verify, FastUiAction::Restore] {
             assert_eq!(
-                blocked_code(action, true, true, true, false),
+                blocked_code(action, &ready()),
                 Some(BLOCKED_NOT_INSTALLED),
                 "{action:?}"
             );
@@ -504,12 +517,14 @@ mod tests {
 
     #[test]
     fn blocked_code_allows_a_ready_machine() {
-        assert_eq!(
-            blocked_code(FastUiAction::Install, true, true, true, false),
-            None
-        );
+        assert_eq!(blocked_code(FastUiAction::Install, &ready()), None);
+        let installed = FastUiStatus {
+            codex_app_found: false,
+            installed: true,
+            ..ready()
+        };
         for action in [FastUiAction::Verify, FastUiAction::Restore] {
-            assert_eq!(blocked_code(action, true, true, false, true), None);
+            assert_eq!(blocked_code(action, &installed), None, "{action:?}");
         }
     }
 
