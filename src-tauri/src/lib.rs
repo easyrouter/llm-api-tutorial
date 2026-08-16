@@ -1,4 +1,4 @@
-//! Codex Onboarding — Rust core.
+//! SeedRouter Onboarding — Rust core.
 //!
 //! Module map (mirrors PRD §四 M1–M6; see docs/ARCHITECTURE.md):
 //!
@@ -61,7 +61,10 @@ pub fn run() {
             let state = state::AppState::init(app.handle())?;
             app.manage(state);
             start_telemetry_flush(app.handle());
-            log::info!("codex-onboarding {} started", env!("CARGO_PKG_VERSION"));
+            log::info!(
+                "seedrouter-onboarding {} started",
+                env!("CARGO_PKG_VERSION")
+            );
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

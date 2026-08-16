@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    codex_onboarding_lib::run();
+    seedrouter_onboarding_lib::run();
 }

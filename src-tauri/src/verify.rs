@@ -1517,7 +1517,7 @@ mod tests {
             entry(31, Some(30), "Code.exe"), // renderer → folded into the main window
             entry(32, Some(31), "Code.exe"), // extension host (grandchild) → folded
             entry(35, Some(1), "Code.exe"),  // second VS Code window → listed
-            entry(own, Some(21), "codex-onboarding.exe"),
+            entry(own, Some(21), "seedrouter-onboarding.exe"),
             entry(101, Some(own), "cmd.exe"), // our npm shim host
             entry(102, Some(101), "node.exe"),
             entry(103, Some(102), "cmd.exe"), // grandchild

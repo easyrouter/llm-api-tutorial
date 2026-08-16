@@ -40,7 +40,7 @@ export const NAMESPACES = [
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
-const STORAGE_KEY = "codex-onboarding.lang";
+const STORAGE_KEY = "seedrouter-onboarding.lang";
 
 export const resources = {
   "zh-CN": {

@@ -13,7 +13,7 @@ import { buildDiagnosticReport, saveDiagnosticReport } from "@/lib/tauri";
 import type { Diagnosis, EnvSnapshot, VerifyResult } from "@/lib/types";
 
 /** Suggested file name shown in the save dialog. */
-export const REPORT_DEFAULT_FILE_NAME = "codex-onboarding-report.md";
+export const REPORT_DEFAULT_FILE_NAME = "seedrouter-onboarding-report.md";
 
 export type ExportOutcome = { kind: "saved"; path: string } | { kind: "cancelled" };
 
@@ -33,7 +33,7 @@ export async function fetchReportMarkdown(
 
 /**
  * Opens the native "Save as…" dialog (Markdown filter, default name
- * `codex-onboarding-report.md`) and writes the report to the chosen path.
+ * `seedrouter-onboarding-report.md`) and writes the report to the chosen path.
  * Resolves `{ kind: "cancelled" }` when the user dismisses the dialog.
  */
 export async function exportDiagnosticReport(

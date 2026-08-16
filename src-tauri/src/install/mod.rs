@@ -216,7 +216,10 @@ pub fn writable_probe_dir(prefix: &Path, platform: Platform) -> PathBuf {
 
 /// Creates and immediately deletes an empty probe file in `dir`.
 pub fn dir_writable(dir: &Path) -> bool {
-    let probe = dir.join(format!(".codex-onboarding-{}.tmp", uuid::Uuid::new_v4()));
+    let probe = dir.join(format!(
+        ".seedrouter-onboarding-{}.tmp",
+        uuid::Uuid::new_v4()
+    ));
     let created = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -536,7 +539,7 @@ mod tests {
             "command_not_found"
         );
         assert_eq!(
-            ensure_program_exists("codex-onboarding-no-such-program-xyz")
+            ensure_program_exists("seedrouter-onboarding-no-such-program-xyz")
                 .expect_err("name")
                 .code(),
             "command_not_found"

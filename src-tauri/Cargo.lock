@@ -538,39 +538,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-onboarding"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dirs",
- "futures-util",
- "hex",
- "log",
- "os_info",
- "regex",
- "reqwest 0.12.28",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "toml 1.1.4+spec-1.1.0",
- "url",
- "uuid",
- "which",
- "winreg 0.56.0",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3452,6 +3419,39 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "seedrouter-onboarding"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dirs",
+ "futures-util",
+ "hex",
+ "log",
+ "os_info",
+ "regex",
+ "reqwest 0.12.28",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "toml 1.1.4+spec-1.1.0",
+ "url",
+ "uuid",
+ "which",
+ "winreg 0.56.0",
+]
 
 [[package]]
 name = "selectors"

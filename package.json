@@ -1,5 +1,5 @@
 {
-  "name": "codex-onboarding",
+  "name": "seedrouter-onboarding",
   "private": true,
   "version": "0.1.0",
   "description": "Codex / Claude Code onboarding assistant (Tauri 2 + React) — guided environment check, install, CC Switch configuration walkthrough, verification and auto-diagnosis.",

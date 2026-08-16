@@ -235,7 +235,7 @@ mod tests {
         let broken = Some(Err(AppError::Serde("bad json".into())));
         let (cfg, source) = resolve(None, EMBEDDED_CONFIG, broken).expect("resolve");
         assert_eq!(source, ConfigSource::Fallback);
-        assert_eq!(cfg.gateway.base_url, "https://gateway.example.com/v1");
+        assert_eq!(cfg.gateway.base_url, "https://seedrouter.net/v1");
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
         let over = json!({"gateway": {"baseUrl": 42}});
         let (cfg, source) = resolve(None, EMBEDDED_CONFIG, Some(Ok(over))).expect("resolve");
         assert_eq!(source, ConfigSource::Fallback);
-        assert_eq!(cfg.gateway.base_url, "https://gateway.example.com/v1");
+        assert_eq!(cfg.gateway.base_url, "https://seedrouter.net/v1");
     }
 
     #[test]

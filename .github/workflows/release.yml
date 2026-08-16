@@ -68,7 +68,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "Codex Onboarding ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseName: "SeedRouter Onboarding ${{ github.event.inputs.tag || github.ref_name }}"
           releaseBody: |
             Test build — **unsigned**, not for distribution.
 
@@ -79,7 +79,7 @@ jobs:
 
             Windows: SmartScreen shows "Windows protected your PC" → *More info* → *Run anyway*.
             macOS: Gatekeeper blocks the unsigned app → after dragging it to Applications run
-            `xattr -dr com.apple.quarantine "/Applications/Codex Onboarding.app"`.
+            `xattr -dr com.apple.quarantine "/Applications/SeedRouter Onboarding.app"`.
           releaseDraft: false
           prerelease: ${{ github.event.inputs.prerelease != 'false' }}
           includeUpdaterJson: false

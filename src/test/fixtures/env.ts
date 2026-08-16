@@ -112,7 +112,7 @@ export function ccSwitchRelease(overrides: Partial<CcSwitchRelease> = {}): CcSwi
 
 export function downloadResult(overrides: Partial<DownloadResult> = {}): DownloadResult {
   return {
-    path: "C:\\Users\\alice\\AppData\\Local\\codex-onboarding\\cache\\CC.Switch_3.2.0_x64-setup.exe",
+    path: "C:\\Users\\alice\\AppData\\Local\\seedrouter-onboarding\\cache\\CC.Switch_3.2.0_x64-setup.exe",
     bytes: 12_345_678,
     sha256: "ab".repeat(32),
     verified: true,

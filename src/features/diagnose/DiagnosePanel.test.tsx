@@ -19,7 +19,7 @@ const { mockSave } = vi.hoisted(() => ({
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: mockSave }));
 
-const REPORT_MD = "# Codex Onboarding diagnostic report\n\n- app: 0.1.0\n";
+const REPORT_MD = "# SeedRouter Onboarding diagnostic report\n\n- app: 0.1.0\n";
 
 const auth: Diagnosis = {
   ruleId: "A",
@@ -135,7 +135,7 @@ describe("DiagnosePanel", () => {
   });
 
   it("exports the report through the save dialog", async () => {
-    mockSave.mockResolvedValue("C:\\Users\\me\\Desktop\\codex-onboarding-report.md");
+    mockSave.mockResolvedValue("C:\\Users\\me\\Desktop\\seedrouter-onboarding-report.md");
     render(<DiagnosePanel diagnoses={[auth]} snapshot={snapshot} />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Export report…" }));
@@ -144,11 +144,11 @@ describe("DiagnosePanel", () => {
       await Promise.resolve();
     });
     expect(mockSave).toHaveBeenCalledWith({
-      defaultPath: "codex-onboarding-report.md",
+      defaultPath: "seedrouter-onboarding-report.md",
       filters: [{ name: "Markdown", extensions: ["md"] }],
     });
     expect(mockInvoke).toHaveBeenCalledWith("save_diagnostic_report", {
-      path: "C:\\Users\\me\\Desktop\\codex-onboarding-report.md",
+      path: "C:\\Users\\me\\Desktop\\seedrouter-onboarding-report.md",
       markdown: REPORT_MD,
     });
     expect(await screen.findByText(/Report saved to:/)).toBeInTheDocument();

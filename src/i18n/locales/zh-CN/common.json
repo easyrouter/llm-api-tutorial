@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Codex 接入引导工具",
+    "name": "SeedRouter 接入引导工具",
     "tagline": "从环境检查到成功验证，一条路径完成 Codex 与 Claude Code 的接入",
     "version": "版本 {{version}}",
     "language": "语言"
@@ -58,7 +58,7 @@
     "npm": "npm"
   },
   "welcome": {
-    "title": "欢迎使用 Codex 接入引导工具",
+    "title": "欢迎使用 SeedRouter 接入引导工具",
     "intro": "本工具会依次帮你完成：检查电脑环境 → 安装缺失组件 → 在 CC Switch 中配置服务网关 → 验证是否可用。全程无需查阅文档，出错时会自动给出原因和修复方法。",
     "whatWeDo": "工具会做什么",
     "whatWeDoItems": {

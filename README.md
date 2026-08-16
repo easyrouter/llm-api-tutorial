@@ -1,4 +1,4 @@
-# Codex Onboarding · Codex 接入引导工具
+# SeedRouter Onboarding · SeedRouter 接入引导工具
 
 Guided desktop assistant (Windows / macOS) that takes a non-developer from a clean machine to a
 working **Codex CLI** and **Claude Code** setup through the service gateway configured in

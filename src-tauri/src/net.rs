@@ -30,7 +30,7 @@ use crate::models::{
 };
 use crate::redact::redact_secrets;
 
-pub const USER_AGENT: &str = concat!("codex-onboarding/", env!("CARGO_PKG_VERSION"));
+pub const USER_AGENT: &str = concat!("seedrouter-onboarding/", env!("CARGO_PKG_VERSION"));
 
 /// Default overall request timeout of the shared client (downloads use streaming and are
 /// bounded per chunk by the read timeout instead).

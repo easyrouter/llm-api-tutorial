@@ -595,7 +595,7 @@ mod tests {
 
     #[tokio::test]
     async fn locate_binary_prefers_path_then_extra_dirs() {
-        let name = "codex-onboarding-locate-me-42";
+        let name = "seedrouter-onboarding-locate-me-42";
         assert!(locate_binary(name, &[]).await.is_none());
         let dir = tempfile::tempdir().expect("tempdir");
         let file_name = crate::platform::candidate_names_for(crate::platform::platform(), name)

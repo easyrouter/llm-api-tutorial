@@ -1,4 +1,4 @@
-# Welcome to Codex Onboarding
+# Welcome to SeedRouter Onboarding
 
 This small tool has exactly one job: take you from "nothing installed" to "Codex CLI or Claude Code works through the service gateway" — without looking things up, guessing commands, or needing administrator rights.
 

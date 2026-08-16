@@ -6,8 +6,8 @@
     "supportContact": "it-support@example.com"
   },
   "gateway": {
-    "$comment": "TODO(IT #1): baseUrl is the only company-wide constant; model / reasoning effort vary per user and stay user-editable.",
-    "baseUrl": "https://gateway.example.com/v1",
+    "$comment": "baseUrl is the only company-wide constant; model / reasoning effort vary per user and stay user-editable.",
+    "baseUrl": "https://seedrouter.net/v1",
     "protocol": "responses",
     "presetProviderName": "Service Gateway",
     "defaultModel": "",
@@ -80,7 +80,7 @@
   ],
   "docs": {
     "$comment": "TODO(IT #18): the designated documentation site. index.json lists sections {id,title,path,wizardStep}.",
-    "baseUrl": "https://docs.example.com/codex-onboarding",
+    "baseUrl": "https://docs.example.com/seedrouter-onboarding",
     "indexPath": "index.json",
     "cacheTtlSeconds": 3600
   },

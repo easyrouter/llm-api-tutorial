@@ -339,7 +339,7 @@ mod tests {
 
     #[tokio::test]
     async fn detect_unknown_binary_is_not_installed() {
-        let s = spec(ToolId::Codex, "codex-onboarding-no-such-tool-42");
+        let s = spec(ToolId::Codex, "seedrouter-onboarding-no-such-tool-42");
         let d = detect(&s, Some(PathBuf::from("/nonexistent/dir"))).await;
         assert!(!d.info.installed);
         assert!(!d.info.on_path);
@@ -353,7 +353,7 @@ mod tests {
     #[tokio::test]
     async fn detect_binary_only_in_extra_dir_reports_not_on_path() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let name = "codex-onboarding-fake-tool";
+        let name = "seedrouter-onboarding-fake-tool";
         let file_name = platform::candidate_names_for(platform::platform(), name)
             .into_iter()
             .next()
@@ -374,7 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn detect_tool_public_api_runs() {
-        let s = spec(ToolId::Codex, "codex-onboarding-no-such-tool-42");
+        let s = spec(ToolId::Codex, "seedrouter-onboarding-no-such-tool-42");
         let info = detect_tool(&s).await;
         assert!(!info.installed);
         assert_eq!(info.id, ToolId::Codex);

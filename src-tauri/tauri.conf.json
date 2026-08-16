@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Codex Onboarding",
+  "productName": "SeedRouter Onboarding",
   "version": "0.1.0",
-  "identifier": "com.company.codex-onboarding",
+  "identifier": "com.company.seedrouter-onboarding",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Codex Onboarding",
+        "title": "SeedRouter Onboarding",
         "label": "main",
         "width": 1080,
         "height": 720,

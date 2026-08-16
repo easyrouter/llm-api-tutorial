@@ -1,5 +1,5 @@
 [package]
-name = "codex-onboarding"
+name = "seedrouter-onboarding"
 version = "0.1.0"
 description = "Codex / Claude Code onboarding assistant — guided environment check, install, CC Switch configuration walkthrough, verification and auto-diagnosis."
 authors = ["IT Tooling Team"]
@@ -9,7 +9,7 @@ publish = false
 
 [lib]
 # The `_lib` suffix is required so the lib name does not clash with the bin name on Windows.
-name = "codex_onboarding_lib"
+name = "seedrouter_onboarding_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -379,7 +379,7 @@ mod tests {
     #[test]
     fn find_binary_falls_back_to_extra_dirs() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let name = "codex-onboarding-fake-binary";
+        let name = "seedrouter-onboarding-fake-binary";
         assert!(find_binary(name, &[]).is_none());
         let file_name = candidate_names_for(platform(), name)
             .into_iter()

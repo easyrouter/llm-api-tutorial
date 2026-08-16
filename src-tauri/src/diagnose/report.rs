@@ -75,7 +75,7 @@ pub fn build(input: &ReportInput<'_>) -> DiagnosticReport {
 // ---------------------------------------------------------------------------
 
 fn header(md: &mut String, input: &ReportInput<'_>, generated_at: &str) {
-    md.push_str("# Codex Onboarding diagnostic report\n\n");
+    md.push_str("# SeedRouter Onboarding diagnostic report\n\n");
     push_kv(md, "generated", generated_at);
     push_kv(
         md,
@@ -267,7 +267,7 @@ fn config_presence_section(md: &mut String, config: &AppConfig) {
 
 fn notes_section(md: &mut String) {
     md.push_str("## Notes\n\n");
-    md.push_str("- Generated locally by Codex Onboarding; nothing was sent anywhere.\n");
+    md.push_str("- Generated locally by SeedRouter Onboarding; nothing was sent anywhere.\n");
     md.push_str("- API keys and other secrets are never included; values are masked or omitted.\n");
     md.push_str("- Config files were only read; the app never writes to ~/.codex, ~/.claude or ~/.cc-switch.\n");
 }
@@ -493,7 +493,7 @@ mod tests {
 
     fn app() -> AppInfo {
         AppInfo {
-            name: "codex-onboarding".into(),
+            name: "seedrouter-onboarding".into(),
             version: "0.1.0".into(),
             platform: Platform::Windows,
             arch: "x86_64".into(),
@@ -574,7 +574,7 @@ mod tests {
         });
         let md = &report.markdown;
         for section in [
-            "# Codex Onboarding diagnostic report",
+            "# SeedRouter Onboarding diagnostic report",
             "## Checks",
             "## Tools",
             "## Environment variables",
@@ -790,7 +790,7 @@ name = "Other"
 
     #[test]
     fn inspect_absent_and_unparsable_files() {
-        let missing = Path::new("definitely/not/a/real/dir/for/codex-onboarding");
+        let missing = Path::new("definitely/not/a/real/dir/for/seedrouter-onboarding");
         assert_eq!(
             inspect_tool_dir(ToolId::Codex, "~/.codex", missing),
             vec!["- ~/.codex: absent".to_owned()]

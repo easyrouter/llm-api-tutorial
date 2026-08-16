@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Codex Onboarding",
+    "name": "SeedRouter Onboarding",
     "tagline": "One guided path from environment check to a verified Codex / Claude Code setup",
     "version": "Version {{version}}",
     "language": "Language"
@@ -58,7 +58,7 @@
     "npm": "npm"
   },
   "welcome": {
-    "title": "Welcome to Codex Onboarding",
+    "title": "Welcome to SeedRouter Onboarding",
     "intro": "This tool walks you through: checking your machine → installing what is missing → configuring the service gateway in CC Switch → verifying that everything works. No documentation required; when something fails you get the cause and the fix.",
     "whatWeDo": "What this tool does",
     "whatWeDoItems": {
