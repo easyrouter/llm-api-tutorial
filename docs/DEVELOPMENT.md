@@ -50,8 +50,8 @@ Rust changes trigger a rebuild.
 - Rust: `RUST_LOG=debug npm run tauri dev` (log plugin level is Info by default; adjust in
   `lib.rs` for local debugging only).
 - Config override for local testing without touching the bundled preset:
-  put an `app-config.json` in the app config dir (`%APPDATA%/com.company.seedrouter-onboarding/` on
-  Windows, `~/Library/Application Support/com.company.seedrouter-onboarding/` on macOS).
+  put an `app-config.json` in the app config dir (`%APPDATA%/com.seedrouter.onboarding/` on
+  Windows, `~/Library/Application Support/com.seedrouter.onboarding/` on macOS).
 
 ## Testing strategy
 

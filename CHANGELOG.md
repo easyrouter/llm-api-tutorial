@@ -81,6 +81,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - Branding: `bundle.publisher` is set to `SeedRouter`, so the installer, the executable's
   version info (CompanyName) and the Windows "Apps & features" entry all show `SeedRouter`
   instead of `company` (which Tauri derived from the identifier's second segment).
+- Bundle identifier: `com.company.seedrouter-onboarding` -> `com.seedrouter.onboarding`. This
+  moves the per-user config and log directories (`%APPDATA%/com.seedrouter.onboarding/`,
+  `~/Library/Application Support/com.seedrouter.onboarding/`); an installation made before this
+  change keeps using the old directory and should be uninstalled rather than upgraded in place.
 - Terminology: "company gateway" → "service gateway" (zh-CN 公司网关 → 服务网关) across the UI,
   bundled help docs, preset provider name and living docs. Internal codes (e.g.
   `differs_from_company_gateway`) are unchanged.
