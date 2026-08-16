@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { AppConfig, ToolId, VerifyResult } from "@/lib/types";
 
-import { allVerified, commandForTool, outcomeOf, summarizeTools } from "./done-summary";
+import {
+  allVerified,
+  commandForTool,
+  launchOptions,
+  outcomeOf,
+  summarizeTools,
+} from "./done-summary";
 
 const verifyResult = (tool: ToolId, ok: boolean, version: string | null): VerifyResult => ({
   tool,
@@ -39,6 +45,19 @@ describe("commandForTool", () => {
     expect(commandForTool("claude-code", config)).toBe("claude");
     expect(commandForTool("codex", null)).toBe("codex");
     expect(commandForTool("claude-code", null)).toBe("claude");
+  });
+});
+
+describe("launchOptions", () => {
+  it("expands the codex selection into client + CLI and keeps claude code single", () => {
+    expect(launchOptions(["codex", "claude-code"])).toEqual([
+      "codex-client",
+      "codex-cli",
+      "claude-code",
+    ]);
+    expect(launchOptions(["codex"])).toEqual(["codex-client", "codex-cli"]);
+    expect(launchOptions(["claude-code"])).toEqual(["claude-code"]);
+    expect(launchOptions([])).toEqual([]);
   });
 });
 

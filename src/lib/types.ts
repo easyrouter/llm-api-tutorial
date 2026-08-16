@@ -104,6 +104,7 @@ export interface TelemetryConfig {
 
 export type CheckId =
   | "os"
+  | "windows_terminal"
   | "node"
   | "npm"
   | "codex"
@@ -116,6 +117,7 @@ export type CheckId =
 
 export const CHECK_IDS: readonly CheckId[] = [
   "os",
+  "windows_terminal",
   "node",
   "npm",
   "codex",
@@ -343,6 +345,52 @@ export interface UrlPreview {
   effectiveUrl: string;
   rule: UrlRule;
   warnings: UrlWarning[];
+}
+
+/**
+ * Combined result of the in-place connectivity test (configure screen): URL rules and key
+ * format always run; `gateway` is `null` when nothing was sent (invalid URL / blocked key).
+ */
+export interface ConnectivityReport {
+  url: UrlPreview;
+  key: KeyValidation;
+  gateway: GatewayCheck | null;
+}
+
+/** Model ids offered by the gateway (`GET {base}/models`), plus the probe outcome. */
+export interface ModelList {
+  gateway: GatewayCheck;
+  models: string[];
+}
+
+/** One-click provider hand-off to CC Switch via its `ccswitch://v1/import` deep link. */
+export interface CcSwitchImportRequest {
+  tool: ToolId;
+  providerName: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+/** Shown before the deep link is opened; `displayUrl` has the API key masked. */
+export interface CcSwitchImportPreview {
+  displayUrl: string;
+  app: string;
+}
+
+/** Scope of Codex's `model_auto_compact_token_limit` (what the threshold counts). */
+export type AutoCompactScope = "body_after_prefix" | "total";
+
+/**
+ * Inputs of the Codex `config.toml` template. Deliberately carries no API key: the rendered
+ * template contains a placeholder the UI substitutes at copy time.
+ */
+export interface CodexConfigRequest {
+  providerName: string;
+  baseUrl: string;
+  model: string;
+  reasoningEffort: string;
+  autoCompactScope: AutoCompactScope;
 }
 
 // ---------------------------------------------------------------------------

@@ -19,10 +19,12 @@ use crate::error::{AppError, AppResult};
 use crate::guide;
 use crate::install;
 use crate::models::{
-    AppConfig, AppInfo, CcSwitchRelease, CheckId, CheckResult, ConfigGuide, DiagnoseRequest,
-    Diagnosis, DiagnosticReport, DocPage, DocsIndex, DownloadRequest, DownloadResult, EnvSnapshot,
-    InstallJob, InstallPlan, InstallTarget, KeyValidation, MirrorChoice, TelemetryEvent,
-    TelemetryStatus, TerminalProcess, ToolId, UrlPreview, VerifyRequest, VerifyResult,
+    AppConfig, AppInfo, CcSwitchImportPreview, CcSwitchImportRequest, CcSwitchRelease, CheckId,
+    CheckResult, CodexConfigRequest, ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis,
+    DiagnosticReport, DocPage, DocsIndex, DownloadRequest, DownloadResult, EnvSnapshot,
+    GatewayProbeRequest, InstallJob, InstallPlan, InstallTarget, KeyValidation, MirrorChoice,
+    ModelList, TelemetryEvent, TelemetryStatus, TerminalProcess, ToolId, UrlPreview, UrlRule,
+    VerifyRequest, VerifyResult,
 };
 use crate::platform::expand_tilde;
 use crate::state::AppState;
@@ -247,6 +249,83 @@ pub fn validate_api_key(key: String) -> AppResult<KeyValidation> {
 #[tauri::command]
 pub fn preview_effective_url(url: String, state: State<'_, AppState>) -> AppResult<UrlPreview> {
     Ok(guide::preview_url(&url, &state.config_snapshot().config))
+}
+
+/// In-place connectivity test on the configure screen: URL rules + key format always run; the
+/// live gateway probe only when the URL is valid and the key has no blocking format issues.
+/// The key lives in memory for this one request and is never logged or stored (hard rule 3).
+#[tauri::command]
+pub async fn test_connectivity(
+    request: GatewayProbeRequest,
+    state: State<'_, AppState>,
+) -> AppResult<ConnectivityReport> {
+    let cfg = state.config_snapshot().config;
+    let url = guide::preview_url(&request.base_url, &cfg);
+    let key = guide::validate_api_key(&request.api_key);
+    let gateway = if url.rule != UrlRule::Invalid && key.valid {
+        Some(verify::probe_gateway(&state.http, &request).await)
+    } else {
+        None
+    };
+    Ok(ConnectivityReport { url, key, gateway })
+}
+
+/// Fetches the gateway's model list (`GET {base}/models`); `request.model` is ignored.
+#[tauri::command]
+pub async fn list_gateway_models(
+    request: GatewayProbeRequest,
+    state: State<'_, AppState>,
+) -> AppResult<ModelList> {
+    Ok(verify::list_models(&state.http, &request).await)
+}
+
+/// Renders the recommended Codex `config.toml` template (editable in the UI before the user
+/// pastes it into CC Switch). Carries no key: the template contains a placeholder the UI
+/// substitutes at copy time.
+#[tauri::command]
+pub fn get_codex_config_template(
+    request: CodexConfigRequest,
+    state: State<'_, AppState>,
+) -> AppResult<String> {
+    Ok(guide::codex_config_template(
+        &request,
+        &state.config_snapshot().config,
+    ))
+}
+
+/// The masked CC Switch import deep link for the confirmation dialog ("show before run").
+#[tauri::command]
+pub fn preview_cc_switch_import(
+    request: CcSwitchImportRequest,
+    state: State<'_, AppState>,
+) -> AppResult<CcSwitchImportPreview> {
+    let cfg = state.config_snapshot().config;
+    Ok(CcSwitchImportPreview {
+        display_url: guide::masked_import_url(&request, &cfg)?,
+        app: guide::cc_switch_app(request.tool).to_owned(),
+    })
+}
+
+/// Opens the `ccswitch://` provider-import deep link after the user confirmed the masked
+/// preview. CC Switch shows its own confirmation dialog and writes its own data — this app
+/// never touches `~/.cc-switch` (ADR-0003/0006). The URL (which contains the key) is never
+/// logged; opener errors are scrubbed before they leave this function.
+#[tauri::command]
+pub fn open_cc_switch_import(
+    app: AppHandle,
+    request: CcSwitchImportRequest,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    let cfg = state.config_snapshot().config;
+    let url = guide::build_import_url(&request, &cfg)?;
+    tauri_plugin_opener::OpenerExt::opener(&app)
+        .open_url(url, None::<&str>)
+        .map_err(|e| {
+            AppError::Other(crate::redact::redact_secrets(&verify::scrub_known_secret(
+                &e.to_string(),
+                &request.api_key,
+            )))
+        })
 }
 
 // ---------------------------------------------------------------------------

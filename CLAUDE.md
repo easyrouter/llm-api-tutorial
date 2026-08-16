@@ -42,9 +42,14 @@ src-tauri/resources/app-config.json     company preset (gateway URL, mirrors, do
 
 1. **Never write** to `~/.codex/`, `~/.claude/` or `~/.cc-switch/` (PRD #4, ADR-0003). Reading for
    diagnostics is fine. Configuration is done by the user inside CC Switch; we guide and verify.
+   The one-click import (ADR-0006) is a _hand-off_: it opens CC Switch's own
+   `ccswitch://v1/import` deep link after user confirmation — CC Switch confirms again and does
+   its own writing.
 2. **Never modify environment variables** (PRD #17). Report conflicts + give instructions.
 3. **API keys**: never persisted, logged, put in telemetry or diagnostic reports. They may be held
-   in memory for one gateway probe. Every string shown/logged/reported goes through
+   in memory for gateway probes (connectivity test, model list, verify) and — only after the user
+   confirms the masked preview — embedded in the `ccswitch://` import link handed to CC Switch
+   (ADR-0006). Every string shown/logged/reported goes through
    `redact::redact_secrets`; known secrets are masked with `redact::mask_value`.
 4. **Show before run**: any command executed on the user's machine is displayed
    (`InstallPlan.display_command`) and confirmed by the user first. No silent elevation (PRD #7).

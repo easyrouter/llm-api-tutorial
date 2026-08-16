@@ -1,17 +1,21 @@
 {
   "title": "在 CC Switch 中配置服务网关",
-  "intro": "配置在 CC Switch 的界面里完成，本工具不会替你写任何配置文件。下面的值可以直接复制粘贴，只有 API Key 需要你自己填写；填完后回到这里，工具会帮你检查并验证。",
+  "intro": "配置写入由 CC Switch 完成，本工具不会替你改任何配置文件。你可以在下面直接核对并编辑要填的值、先测一下连通性，然后一键导入 CC Switch，或按手动步骤自己填写。",
+  "codexClientNote": "这份配置对 Codex CLI 和 Codex 客户端 / IDE 扩展同时生效——它们共用 ~/.codex 下的同一份配置，配置一次即可。",
   "tabs": {
     "label": "选择要配置的工具"
   },
   "loading": "正在准备 {{tool}} 的配置指引…",
   "values": {
     "title": "要填写的值",
-    "description": "在 CC Switch 的「添加供应商」表单里，按下面的值填写。",
+    "description": "这些就是要填进 CC Switch「添加供应商」表单的值。可以直接复制，也可以点「编辑」修改；填好 API Key 后先「测试连通性」确认一遍。",
+    "edit": "编辑",
+    "doneEditing": "完成",
+    "resetToPreset": "恢复默认值",
     "providerName": "供应商名称",
     "providerNameHint": "名称可以随意起，建议用这个，方便以后辨认。",
     "baseUrl": "API 地址（Base URL）",
-    "baseUrlHint": "请原样粘贴，不要自己增删结尾的斜杠或 /v1。",
+    "baseUrlHint": "请原样使用，不要自己增删结尾的斜杠或 /v1。",
     "protocol": "协议 / 请求格式",
     "protocolValue": {
       "responses": "Responses",
@@ -21,10 +25,60 @@
     "protocolHint": "服务网关支持并推荐 Responses。如果表单里没有这个选项，说明当前版本默认就是它。",
     "protocolNoteClaude": "Claude Code 不需要选择协议，只填地址、Key 和模型即可。",
     "modelHint": "模型（建议值）",
-    "modelHintEmpty": "本次没有统一的模型名，请填写你被分配的模型名称。",
+    "modelHintEmpty": "本次没有统一的模型名，请填写你被分配的模型名称（也可以在下方步骤里从网关获取列表）。",
     "reasoningEffortHint": "Reasoning Effort（建议值）",
-    "apiKeyRow": "API Key",
-    "apiKeyRowValue": "你申请到的 Key（本工具不会替你保存或填写）"
+    "apiKeyRow": "API Key"
+  },
+  "test": {
+    "button": "测试连通性",
+    "testing": "测试中…",
+    "description": "用上面的地址、模型和 Key 向网关发送一条最小测试请求。",
+    "needs": "填写 API 地址和 API Key 后即可测试（模型可留空）。",
+    "notSent": "本次没有发送网关请求：请先修正上面标出的问题，再测一次。"
+  },
+  "import": {
+    "title": "一键导入 CC Switch",
+    "description": "把上面的值直接发给本机的 CC Switch（需要较新版本）。CC Switch 会弹出自己的确认窗口并写入自己的配置——本工具依旧不碰任何配置文件。",
+    "button": "一键导入 CC Switch",
+    "needsValues": "需要先填写供应商名称、API 地址和 API Key（模型可选）。",
+    "editNote": "重复导入会新建一个供应商，不会覆盖旧的；要修改已有供应商，请直接在 CC Switch 里编辑。下面的手动步骤仍然可用。",
+    "confirmTitle": "发送到 CC Switch？",
+    "confirmBody": "将打开下面的链接，把供应商信息交给 CC Switch 预填（预览中已隐藏 Key，实际发送的是完整 Key）。CC Switch 会再次弹出确认窗口，确认后由它写入。",
+    "confirmAction": "打开 CC Switch",
+    "linkLabel": "导入链接（预览，Key 已隐藏）",
+    "sent": "已发送。请切换到 CC Switch 窗口确认导入，并把新供应商「使用 / 切换」为当前供应商，然后回到这里继续后面的步骤。",
+    "failed": "无法打开 CC Switch。请确认已安装较新版本的 CC Switch；也可以按下面的手动步骤完成配置。"
+  },
+  "config": {
+    "title": "Codex config.toml 模板（推荐）",
+    "description": "把这份配置粘贴到 CC Switch 里 Codex 供应商的「config.toml / 配置内容」一栏（用过上面的一键导入后，也可以在 CC Switch 中编辑该供应商，把配置替换成这份）。它在走服务网关的同时保留大部分官方功能，并为 gpt-5.6-sol 启用 priority 档、大上下文与自动压缩。内容可以直接修改——例如把 model_auto_compact_token_limit 调得更激进，或增删其他默认项。",
+    "scopeLabel": "自动压缩统计口径（model_auto_compact_token_limit_scope）",
+    "scopeHint": "选择 300000 的自动压缩阈值按什么口径统计；不确定就用推荐值。",
+    "scope": {
+      "body_after_prefix": {
+        "label": "body_after_prefix（推荐）",
+        "explanation": "只统计缓存前缀之后的会话正文。配合提示词缓存更准确，能更充分地利用 372k 上下文——大多数情况选它。"
+      },
+      "total": {
+        "label": "total",
+        "explanation": "统计整个请求（前缀 + 正文），自动压缩会更早触发。经常遇到超出上下文的报错、或网关按总 token 数限流时，选它更稳。"
+      }
+    },
+    "templateLabel": "config.toml 内容（可编辑）",
+    "keySubstitution": "复制时会把 <API-KEY> 自动替换为上面填写的真实 Key；界面上不会显示真实 Key。",
+    "keyMissing": "上面还没有填写 API Key：复制出的内容会保留 <API-KEY> 占位符，粘贴后请自行替换。",
+    "edited": "已手动编辑：更改上方取值或统计口径不会覆盖你的修改；需要时可点「恢复为生成的模板」。",
+    "regenerate": "恢复为生成的模板",
+    "loading": "正在生成模板…"
+  },
+  "models": {
+    "fetch": "从网关获取模型列表",
+    "fetching": "获取中…",
+    "hint": "使用「要填写的值」里的地址和 Key。",
+    "needsKey": "先在上方「要填写的值」里填好 API 地址和 API Key，才能获取模型列表。",
+    "empty": "网关没有返回可用模型，请按你被分配的模型名称填写。",
+    "listLabel": "网关返回的模型（点击选用）",
+    "picked": "已填入模型：{{model}}"
   },
   "steps": {
     "title": "操作步骤",
@@ -37,6 +91,10 @@
     "title": "打开 CC Switch",
     "body": "在开始菜单 / 启动台里找到 CC Switch 并打开。如果还没安装，先回到「安装」步骤。"
   },
+  "login_chatgpt": {
+    "title": "登录 ChatGPT 账号（可选）",
+    "body": "装好 CC Switch 后，建议先在 Codex 里用你的 ChatGPT 账号登录一次：打开终端运行 codex，按提示选择「Sign in with ChatGPT」完成登录。登录后可以保留官方的联动功能（例如速度 / 档位选项），配合下面的 config.toml 模板体验最佳。这一步不是必须的，跳过也不影响后续配置。"
+  },
   "select_tool_tab": {
     "title": "切换到 {{tool}} 标签页",
     "body": "CC Switch 顶部（或左侧）有 Claude / Codex 两个标签，请选择「{{tool}}」。如果两个工具都要用，需要各配置一次。"
@@ -47,7 +105,7 @@
   },
   "paste_base_url": {
     "title": "粘贴 API 地址",
-    "body": "把下面的地址原样粘贴到「API 地址 / Base URL」一栏。不要自己加或去掉结尾的斜杠、/v1；下方的「地址处理规则预览」会显示最终生效的地址。"
+    "body": "把下面的地址原样粘贴到「API 地址 / Base URL」一栏。不要自己加或去掉结尾的斜杠、/v1；上方「要填写的值」里的连通性测试会显示最终生效的地址。"
   },
   "choose_protocol": {
     "title": "选择协议：{{protocol}}",
@@ -55,11 +113,11 @@
   },
   "paste_api_key": {
     "title": "粘贴你的 API Key",
-    "body": "把你申请到的 Key 粘贴到「API Key」一栏。粘贴前请确认开头和结尾没有空格或换行——这是认证失败（401）最常见的原因。可以先用下方的「API Key 格式检查」看一眼。"
+    "body": "把你申请到的 Key 粘贴到「API Key」一栏。粘贴前请确认开头和结尾没有空格或换行——这是认证失败（401）最常见的原因。建议先在上方「要填写的值」里测一次连通性，格式问题会一并检查出来。"
   },
   "set_model": {
     "title": "填写模型",
-    "body": "在「模型」一栏填写：{{model_hint}}。这个值每个人可能不同，以你被分配的为准。"
+    "body": "在「模型」一栏填写：{{model_hint}}。这个值每个人可能不同，以你被分配的为准；也可以点下面的按钮从网关获取列表后直接选用。"
   },
   "save_and_activate": {
     "title": "保存并切换到这个供应商",
@@ -74,21 +132,16 @@
     "body": "点击下方「下一步」，工具会以全新终端会话检查 {{tool}} 是否可用，并可选地向网关发送一条测试请求。"
   },
   "key": {
-    "title": "API Key 格式检查",
-    "description": "把 Key 粘贴到这里，工具会检查常见的格式问题（多余空格、换行、占位符等）。",
-    "label": "在此粘贴 API Key",
     "placeholder": "sk-…",
     "show": "显示",
     "hide": "隐藏",
     "clear": "清空",
-    "privacy": "只在本机内存中检查格式，不会保存、记录或上传；离开本页时会自动清空。",
-    "checking": "检查中…",
-    "valid": "格式看起来没问题（共 {{length}} 个字符）。现在可以把它粘贴到 CC Switch 了。",
-    "invalid": "发现需要修正的问题：",
-    "blockingLabel": "必须修正",
+    "privacy": "Key 只保存在本页内存中，用于连通性测试、获取模型列表，以及你确认后的一键导入；不会写入磁盘、日志或上报，离开本页即清空。",
+    "valid": "格式看起来没问题（共 {{length}} 个字符）。",
+    "invalid": "Key 格式有需要修正的问题：",
     "hintLabel": "提示",
     "issue": {
-      "empty": "还没有输入内容。",
+      "empty": "还没有输入 API Key。",
       "leading_or_trailing_whitespace": "开头或结尾有空格 / 制表符。复制时多选了空白，请删掉后重新粘贴。",
       "contains_whitespace": "中间含有空格。Key 里不会有空格，可能是复制时断行或粘进了别的内容。",
       "contains_newline": "含有换行。请粘贴为一整行（可以先粘到记事本里检查一下）。",
@@ -99,13 +152,8 @@
     }
   },
   "url": {
-    "title": "地址处理规则预览",
-    "description": "工具会按 CC Switch / Codex 的规则处理你填写的地址，这里显示最终生效的地址。默认已填入服务网关地址，一般不需要修改。",
-    "label": "API 地址",
     "effective": "最终生效地址",
-    "checking": "计算中…",
-    "resetToPreset": "恢复为服务网关地址",
-    "ruleLabel": "处理规则",
+    "warningsLabel": "注意",
     "rule": {
       "already_versioned": "地址已经带 /v1，原样使用。",
       "appended_v1": "只填了域名，会自动补上 /v1。",
@@ -113,7 +161,6 @@
       "custom_path": "自定义路径会原样保留。如果不是网关要求的路径，建议改回服务网关地址。",
       "invalid": "这不是一个有效的地址，请检查后重新填写。"
     },
-    "warningsLabel": "注意",
     "warning": {
       "not_https": "地址不是 https，数据会明文传输。请确认这是网关要求的写法。",
       "trailing_slash_removed": "结尾的斜杠会被自动去掉。",
@@ -129,7 +176,7 @@
       "body": "已经打开的终端不会看到新配置——包括 VS Code、Cursor 等编辑器里的内置终端。全部关掉再进入下一步验证。",
       "help": "为什么要这样做？"
     },
-    "noWrite": "本工具不会修改 ~/.codex、~/.claude 或 CC Switch 的配置文件；所有配置由你在 CC Switch 中完成。"
+    "noWrite": "本工具不会修改 ~/.codex、~/.claude 或 CC Switch 的配置文件；「一键导入」也只是把值交给 CC Switch，由它在你确认后写入自己的配置。"
   },
   "footer": {
     "next": "去验证"

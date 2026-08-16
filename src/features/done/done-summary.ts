@@ -54,3 +54,21 @@ export function summarizeTools(
 export function allVerified(summaries: readonly ToolSummary[]): boolean {
   return summaries.length > 0 && summaries.every((s) => s.outcome === "ok");
 }
+
+/** Official page of the Codex IDE extension (the Codex client shares `~/.codex` with the CLI). */
+export const CODEX_IDE_EXTENSION_URL = "https://developers.openai.com/codex/ide";
+
+/**
+ * Where the Done screen sends the user next. The Codex provider configured in CC Switch covers
+ * both the Codex client (IDE extension / desktop) and Codex CLI — they read the same
+ * `~/.codex` configuration — so selecting `codex` yields both launch options.
+ */
+export type LaunchOptionId = "codex-client" | "codex-cli" | "claude-code";
+
+/** Launch options for the selected tools, in display order. */
+export function launchOptions(selected: readonly ToolId[]): LaunchOptionId[] {
+  const out: LaunchOptionId[] = [];
+  if (selected.includes("codex")) out.push("codex-client", "codex-cli");
+  if (selected.includes("claude-code")) out.push("claude-code");
+  return out;
+}

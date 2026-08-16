@@ -6,12 +6,12 @@
     "supportContact": "it-support@example.com"
   },
   "gateway": {
-    "$comment": "baseUrl is the only company-wide constant; model / reasoning effort vary per user and stay user-editable.",
+    "$comment": "baseUrl is the only company-wide constant; model / reasoning effort are the PM defaults (2026-08-16 Codex template) and stay user-editable.",
     "baseUrl": "https://seedrouter.net/v1",
     "protocol": "responses",
-    "presetProviderName": "Service Gateway",
-    "defaultModel": "",
-    "defaultReasoningEffort": ""
+    "presetProviderName": "SeedRouter",
+    "defaultModel": "gpt-5.6-sol",
+    "defaultReasoningEffort": "medium"
   },
   "tools": [
     {

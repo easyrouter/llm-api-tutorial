@@ -86,7 +86,7 @@ describe("EnvCheckScreen", () => {
     });
 
     expect(useWizardStore.getState().snapshot).toEqual(snapshot);
-    expect(screen.getByTestId("env-summary")).toHaveTextContent("9 passed, 1 warning");
+    expect(screen.getByTestId("env-summary")).toHaveTextContent("10 passed, 1 warning");
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
     // env vars panel shows masked values and sources
     expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("EnvCheckScreen", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
     expect(document.querySelector('[data-check-id="claude_code"]')).toBeNull();
     expect(row("codex")).toHaveAttribute("data-status", "pass");
-    expect(screen.getByTestId("env-summary")).toHaveTextContent("All 9 checks passed");
+    expect(screen.getByTestId("env-summary")).toHaveTextContent("All 10 checks passed");
   });
 
   it("blocks Next on failures unless they are install-fixable and acknowledged", async () => {

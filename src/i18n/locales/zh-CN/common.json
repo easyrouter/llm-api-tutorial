@@ -69,11 +69,12 @@
     },
     "whatWeDont": "工具不会做什么",
     "whatWeDontItems": {
-      "noConfigWrite": "不会直接修改 ~/.codex、~/.claude 或 CC Switch 的配置文件",
+      "noConfigWrite": "不会直接修改 ~/.codex、~/.claude 或 CC Switch 的配置文件（「一键导入」由 CC Switch 自己确认并写入）",
       "noEnvEdit": "不会自动修改你的系统环境变量（发现冲突时只提示，由你手动处理）",
-      "noKeyStorage": "不会保存或上传你的 API Key（连通性测试仅在内存中使用一次）"
+      "noKeyStorage": "不会保存或上传你的 API Key（仅在内存中用于连通性测试，或在你确认后交给 CC Switch 导入）"
     },
     "selectTools": "本次要接入的工具",
+    "codexClientHint": "同时覆盖 Codex 客户端 / IDE 扩展——它们与 Codex CLI 共用同一份配置",
     "telemetryNotice": "为帮助 IT 部门改进流程，工具可上报匿名的步骤成功率与耗时统计（不含任何密钥、地址或个人信息）。",
     "telemetryOptIn": "允许上报匿名统计",
     "start": "开始检查"
@@ -83,7 +84,24 @@
     "summary": "本次接入结果",
     "nextSteps": "接下来",
     "openTerminalHint": "打开一个新的终端窗口，运行 {{command}} 开始使用。",
-    "helpHint": "遇到问题时可以重新运行本工具，在「验证」步骤查看诊断，或联系 {{contact}}。"
+    "helpHint": "遇到问题时可以重新运行本工具，在「验证」步骤查看诊断，或联系 {{contact}}。",
+    "launch": {
+      "title": "接下来用哪个？",
+      "description": "刚配好的供应商已经可以在下面这些工具里使用，任选其一开始。",
+      "codexClient": {
+        "name": "Codex 客户端 / IDE 扩展",
+        "body": "在 VS Code 里打开 Codex 扩展（或 Codex 桌面端）即可使用——它与 Codex CLI 共用刚配置好的 ~/.codex。",
+        "open": "打开 Codex IDE 扩展介绍页"
+      },
+      "codexCli": {
+        "name": "Codex CLI",
+        "body": "打开一个新的终端窗口，运行下面的命令。"
+      },
+      "claudeCode": {
+        "name": "Claude Code",
+        "body": "打开一个新的终端窗口，运行下面的命令。"
+      }
+    }
   },
   "errors": {
     "title": "出错了",
@@ -111,6 +129,7 @@
     "labels": {
       "node_download": "Node.js 下载页",
       "cc_switch_download": "CC Switch 下载页",
+      "windows_terminal_download": "Windows Terminal 下载页",
       "docs": "帮助文档"
     }
   },

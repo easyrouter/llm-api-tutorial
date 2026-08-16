@@ -1,25 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ErrorBanner, Spinner } from "@/components/ui";
+import { Alert, ErrorBanner, Spinner } from "@/components/ui";
+import { probeProtocol } from "@/features/verify/verify-logic";
 import { useAsync } from "@/hooks";
 import { getConfigGuide } from "@/lib/tauri";
-import type { ToolId } from "@/lib/types";
+import type { ConfigGuide, ToolId } from "@/lib/types";
+import { useAppStore } from "@/stores/app";
 
+import { CcSwitchImportCard } from "./CcSwitchImportCard";
+import { CodexConfigCard } from "./CodexConfigCard";
 import { GuideStepList } from "./GuideStepList";
-import { KeyFormatCard } from "./KeyFormatCard";
-import { PresetValuesCard } from "./PresetValuesCard";
-import { UrlPreviewCard } from "./UrlPreviewCard";
+import { ProviderValuesCard } from "./ProviderValuesCard";
 
 export interface ToolGuideProps {
   tool: ToolId;
 }
 
 /**
- * Walkthrough for one tool: loads `get_config_guide(tool)` and renders the values card, the
- * numbered steps, the key format check and the URL rules preview. Mount it with `key={tool}` so
- * switching tabs remounts everything — including the key input, which must not survive a tab
- * change.
+ * Walkthrough for one tool: loads `get_config_guide(tool)` and renders the editable provider
+ * card (with the integrated connectivity test), the one-click CC Switch import and the manual
+ * steps. Mount it with `key={tool}` so switching tabs remounts everything — including the API
+ * key, which lives only in this subtree's state and must not survive a tab change.
  */
 export function ToolGuide({ tool }: ToolGuideProps) {
   const { t } = useTranslation();
@@ -42,12 +44,61 @@ export function ToolGuide({ tool }: ToolGuideProps) {
     );
   }
 
+  return <LoadedGuide guide={guide.data} />;
+}
+
+/** The loaded walkthrough; owns the editable values (and the in-memory API key). */
+function LoadedGuide({ guide }: { guide: ConfigGuide }) {
+  const { t } = useTranslation();
+  const config = useAppStore((s) => s.config);
+  const [providerName, setProviderName] = useState(guide.preset.providerName);
+  const [baseUrl, setBaseUrl] = useState(guide.preset.baseUrl);
+  const [model, setModel] = useState(guide.preset.modelHint);
+  const [apiKey, setApiKey] = useState("");
+  const protocol = probeProtocol(config, guide.tool);
+
   return (
-    <div className="space-y-5" data-testid={`tool-guide-${tool}`}>
-      <PresetValuesCard tool={tool} preset={guide.data.preset} />
-      <GuideStepList guide={guide.data} />
-      <KeyFormatCard />
-      <UrlPreviewCard presetBaseUrl={guide.data.preset.baseUrl} />
+    <div className="space-y-5" data-testid={`tool-guide-${guide.tool}`}>
+      {guide.tool === "codex" && (
+        <Alert variant="info" data-testid="codex-client-note">
+          {t("guide:codexClientNote")}
+        </Alert>
+      )}
+      <ProviderValuesCard
+        tool={guide.tool}
+        preset={guide.preset}
+        probeProtocol={protocol}
+        providerName={providerName}
+        onProviderNameChange={setProviderName}
+        baseUrl={baseUrl}
+        onBaseUrlChange={setBaseUrl}
+        model={model}
+        onModelChange={setModel}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+      />
+      <CcSwitchImportCard
+        tool={guide.tool}
+        providerName={providerName}
+        baseUrl={baseUrl}
+        model={model}
+        apiKey={apiKey}
+      />
+      {guide.tool === "codex" && (
+        <CodexConfigCard
+          preset={guide.preset}
+          providerName={providerName}
+          baseUrl={baseUrl}
+          model={model}
+          apiKey={apiKey}
+        />
+      )}
+      <GuideStepList
+        guide={guide}
+        live={{ providerName, baseUrl, model }}
+        probe={{ baseUrl, apiKey, protocol }}
+        onPickModel={setModel}
+      />
     </div>
   );
 }

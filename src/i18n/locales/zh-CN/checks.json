@@ -38,6 +38,15 @@
     "too_old": "操作系统版本 {{version}} 低于最低要求，部分组件可能无法安装",
     "unknown": "无法识别操作系统版本，将继续检查其他项目"
   },
+  "windows_terminal": {
+    "title": "Windows Terminal（推荐）",
+    "ok": "已安装 Windows Terminal",
+    "missing": "未检测到 Windows Terminal。它不是必需项，但推荐安装：复制粘贴和显示效果都更好，后续步骤的体验会更顺畅",
+    "not_applicable": "当前系统不需要 Windows Terminal，已跳过",
+    "instructions": {
+      "install": "两种安装方式，任选其一（都不需要管理员权限）：\n1. Microsoft Store：打开商店，搜索 “Windows Terminal”，点击「获取」安装。\n2. 终端命令：打开 PowerShell，执行 winget install --id Microsoft.WindowsTerminal -s msstore\n安装完成后回到本工具点击「重新检查」。"
+    }
+  },
   "node": {
     "title": "Node.js",
     "ok": "已安装 Node.js {{version}}",

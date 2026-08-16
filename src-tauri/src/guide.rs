@@ -13,6 +13,7 @@
 //! | id / code           | params                                | copy_value          | verify_check |
 //! |---------------------|---------------------------------------|---------------------|--------------|
 //! | `open_cc_switch`    | —                                     | —                   | `cc_switch`  |
+//! | `login_chatgpt`     | — (codex only, optional)              | —                   | —            |
 //! | `select_tool_tab`   | `tool`                                | —                   | —            |
 //! | `add_provider`      | `provider_name`                       | provider name       | —            |
 //! | `paste_base_url`    | `base_url`                            | preset base URL     | —            |
@@ -54,14 +55,25 @@
 //! `trailing_slash_removed`, `contains_whitespace`, `contains_credentials`,
 //! `looks_like_chat_completions_endpoint` (path ends with `/chat/completions`),
 //! `differs_from_company_gateway` (host[:port] + path differ from `gateway.base_url`).
+//!
+//! # `build_import_url` / `masked_import_url` (ADR-0006)
+//!
+//! Render CC Switch's provider-import deep link (`ccswitch://v1/import?resource=provider&…`)
+//! for the one-click hand-off. The endpoint is the *effective* URL from `preview_url`, the
+//! `app` parameter is `codex` / `claude`, and the model is skipped when empty. The masked
+//! variant is what the UI shows before the user confirms; the real link is opened by the
+//! `open_cc_switch_import` command and never logged. CC Switch confirms and writes its own
+//! data — this module never touches `~/.cc-switch`.
 
-use url::{Position, Url};
+use url::{form_urlencoded, Position, Url};
 
+use crate::error::{AppError, AppResult};
 use crate::models::{
-    AppConfig, CheckId, ConfigGuide, GuideStep, KeyIssue, KeyValidation, Params, Protocol,
-    ProviderPreset, ToolId, UrlPreview, UrlRule, UrlWarning,
+    AppConfig, AutoCompactScope, CcSwitchImportRequest, CheckId, CodexConfigRequest, ConfigGuide,
+    GuideStep, KeyIssue, KeyValidation, Params, Protocol, ProviderPreset, ToolId, UrlPreview,
+    UrlRule, UrlWarning,
 };
-use crate::redact::redact_secrets;
+use crate::redact::{mask_value, redact_secrets};
 
 /// Placeholder fragments (lower-case) that indicate the user pasted a template, not a key.
 const PLACEHOLDER_PATTERNS: [&str; 7] = ["<", ">", "your", "xxx", "\u{2026}", "sk-xxxx", "example"];
@@ -115,13 +127,18 @@ pub fn build_guide(tool: ToolId, config: &AppConfig) -> ConfigGuide {
 /// Ordered steps for `tool` (see module docs for the table).
 fn build_steps(tool: ToolId, preset: &ProviderPreset) -> Vec<GuideStep> {
     let tool_params = params([("tool", tool_key(tool))]);
-    let mut steps = vec![
-        step(
-            "open_cc_switch",
-            Params::new(),
-            None,
-            Some(CheckId::CcSwitch),
-        ),
+    let mut steps = vec![step(
+        "open_cc_switch",
+        Params::new(),
+        None,
+        Some(CheckId::CcSwitch),
+    )];
+    if tool == ToolId::Codex {
+        // Optional: a ChatGPT login right after installing CC Switch keeps the official
+        // login-gated features (e.g. the speed/tier option) available alongside the gateway.
+        steps.push(step("login_chatgpt", Params::new(), None, None));
+    }
+    steps.extend([
         step("select_tool_tab", tool_params.clone(), None, None),
         step(
             "add_provider",
@@ -135,7 +152,7 @@ fn build_steps(tool: ToolId, preset: &ProviderPreset) -> Vec<GuideStep> {
             non_empty(&preset.base_url),
             None,
         ),
-    ];
+    ]);
     if tool == ToolId::Codex {
         steps.push(step(
             "choose_protocol",
@@ -382,6 +399,181 @@ fn differs_from_gateway(url: &Url, gateway_base_url: &str) -> bool {
     comparable(url) != comparable(&gateway)
 }
 
+// ---------------------------------------------------------------------------
+// CC Switch deep-link import (ADR-0006)
+// ---------------------------------------------------------------------------
+
+/// Base of CC Switch's provider-import deep link (`ccswitch://v1/import?resource=provider&…`).
+/// Opening it hands the values to CC Switch, which shows its own confirmation dialog and does
+/// its own writing — this app still never writes `~/.cc-switch` (ADR-0003).
+pub const CC_SWITCH_IMPORT_BASE: &str = "ccswitch://v1/import";
+
+/// CC Switch `app` parameter for a tool (`codex` / `claude`).
+pub fn cc_switch_app(tool: ToolId) -> &'static str {
+    match tool {
+        ToolId::Codex => "codex",
+        ToolId::ClaudeCode => "claude",
+    }
+}
+
+/// The real import deep link (contains the trimmed API key — never log or display it).
+/// Fails with `InvalidInput` when the provider name is empty, the key has blocking format
+/// issues, or the base URL does not survive [`preview_url`]; the endpoint sent to CC Switch is
+/// the *effective* URL so both flows configure the same address.
+pub fn build_import_url(req: &CcSwitchImportRequest, config: &AppConfig) -> AppResult<String> {
+    import_url(req, config, req.api_key.trim())
+}
+
+/// The same deep link with the key masked (`sk-****abcd`) — the "show before run" preview.
+pub fn masked_import_url(req: &CcSwitchImportRequest, config: &AppConfig) -> AppResult<String> {
+    import_url(req, config, &mask_value(&req.api_key))
+}
+
+fn import_url(req: &CcSwitchImportRequest, config: &AppConfig, key: &str) -> AppResult<String> {
+    let name = req.provider_name.trim();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput(
+            "the provider name must not be empty".into(),
+        ));
+    }
+    if !validate_api_key(&req.api_key).valid {
+        return Err(AppError::InvalidInput(
+            "the API key has blocking format issues".into(),
+        ));
+    }
+    let preview = preview_url(&req.base_url, config);
+    if preview.rule == UrlRule::Invalid || preview.effective_url.is_empty() {
+        return Err(AppError::InvalidInput("the base URL is not valid".into()));
+    }
+    let mut query = form_urlencoded::Serializer::new(String::new());
+    query
+        .append_pair("resource", "provider")
+        .append_pair("app", cc_switch_app(req.tool))
+        .append_pair("name", name)
+        .append_pair("endpoint", &preview.effective_url)
+        .append_pair("apiKey", key);
+    let model = req.model.trim();
+    if !model.is_empty() {
+        query.append_pair("model", model);
+    }
+    Ok(format!("{CC_SWITCH_IMPORT_BASE}?{}", query.finish()))
+}
+
+// ---------------------------------------------------------------------------
+// Codex config.toml template (keeps the official features alongside the gateway)
+// ---------------------------------------------------------------------------
+
+/// Literal the template carries instead of the API key. The UI substitutes the real key at
+/// copy time (`CodexConfigCard`), so the key is never displayed and never sent over IPC for
+/// template generation. Keep in sync with `CODEX_CONFIG_KEY_PLACEHOLDER` in the frontend.
+pub const CODEX_CONFIG_KEY_PLACEHOLDER: &str = "<API-KEY>";
+
+/// Provider table key in the template (`[model_providers.cliproxyapi]`).
+const CODEX_PROVIDER_ID: &str = "cliproxyapi";
+const CODEX_SANDBOX_MODE: &str = "workspace-write";
+const CODEX_MODEL_CONTEXT_WINDOW: u64 = 372_000;
+const CODEX_AUTO_COMPACT_TOKEN_LIMIT: u64 = 300_000;
+const CODEX_SERVICE_TIER: &str = "priority";
+
+/// Wire form of an [`AutoCompactScope`] (`body_after_prefix` / `total`).
+pub(crate) fn auto_compact_scope_key(scope: AutoCompactScope) -> &'static str {
+    match scope {
+        AutoCompactScope::BodyAfterPrefix => "body_after_prefix",
+        AutoCompactScope::Total => "total",
+    }
+}
+
+/// TOML basic string with the required escapes. Pure.
+fn toml_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                out.push_str(&format!("\\u{:04X}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// Renders the recommended Codex `config.toml` (per the IT/dev-team spec): the gateway as a
+/// `cliproxyapi` provider with `experimental_bearer_token`, while keeping the official
+/// features (priority service tier, large context window, auto-compact). The base URL is the
+/// *effective* URL from [`preview_url`] (raw input when unparsable); `model` /
+/// `model_reasoning_effort` lines are omitted when empty; the bearer token is always the
+/// [`CODEX_CONFIG_KEY_PLACEHOLDER`] literal. The output is meant for an editable text box —
+/// users may tune any value (e.g. a stricter auto-compact limit) before pasting it into the
+/// CC Switch provider's config editor. Pure.
+pub fn codex_config_template(req: &CodexConfigRequest, config: &AppConfig) -> String {
+    let preview = preview_url(&req.base_url, config);
+    let base_url = if preview.rule == UrlRule::Invalid || preview.effective_url.is_empty() {
+        req.base_url.trim().to_owned()
+    } else {
+        preview.effective_url
+    };
+    let name = req.provider_name.trim();
+    let name = if name.is_empty() {
+        config.gateway.preset_provider_name.trim()
+    } else {
+        name
+    };
+    let model = req.model.trim();
+    let effort = req.reasoning_effort.trim();
+    let scope = auto_compact_scope_key(req.auto_compact_scope);
+
+    let mut out = String::new();
+    if !model.is_empty() {
+        out.push_str(&format!("model = {}\n", toml_quote(model)));
+    }
+    out.push_str(&format!(
+        "model_provider = {}\n",
+        toml_quote(CODEX_PROVIDER_ID)
+    ));
+    if !effort.is_empty() {
+        out.push_str(&format!("model_reasoning_effort = {}\n", toml_quote(effort)));
+    }
+    out.push_str(&format!(
+        "sandbox_mode = {}\n",
+        toml_quote(CODEX_SANDBOX_MODE)
+    ));
+    out.push_str(&format!(
+        "model_context_window = {CODEX_MODEL_CONTEXT_WINDOW}\n"
+    ));
+    out.push_str(&format!(
+        "model_auto_compact_token_limit = {CODEX_AUTO_COMPACT_TOKEN_LIMIT}\n"
+    ));
+    out.push_str(&format!(
+        "model_auto_compact_token_limit_scope = {}\n",
+        toml_quote(scope)
+    ));
+    out.push('\n');
+    out.push_str(&format!(
+        "service_tier = {}\n",
+        toml_quote(CODEX_SERVICE_TIER)
+    ));
+    out.push('\n');
+    out.push_str(&format!("[model_providers.{CODEX_PROVIDER_ID}]\n"));
+    if !name.is_empty() {
+        out.push_str(&format!("name = {}\n", toml_quote(name)));
+    }
+    out.push_str(&format!("base_url = {}\n", toml_quote(&base_url)));
+    out.push_str("wire_api = \"responses\"\n");
+    out.push_str("requires_openai_auth = true\n");
+    out.push_str(&format!(
+        "experimental_bearer_token = {}\n",
+        toml_quote(CODEX_CONFIG_KEY_PLACEHOLDER)
+    ));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,6 +597,7 @@ mod tests {
             ids,
             [
                 "open_cc_switch",
+                "login_chatgpt",
                 "select_tool_tab",
                 "add_provider",
                 "paste_base_url",
@@ -422,9 +615,10 @@ mod tests {
     }
 
     #[test]
-    fn claude_code_guide_skips_protocol_step() {
+    fn claude_code_guide_skips_codex_only_steps() {
         let guide = build_guide(ToolId::ClaudeCode, &cfg());
         assert!(guide.steps.iter().all(|s| s.id != "choose_protocol"));
+        assert!(guide.steps.iter().all(|s| s.id != "login_chatgpt"));
         assert_eq!(guide.steps.len(), 9);
         let tab = guide
             .steps
@@ -818,6 +1012,189 @@ mod tests {
         c.gateway.base_url = "HTTPS://Gateway.Example.com/v1/".into();
         let preview = preview_url("http://gateway.example.com/v1", &c);
         assert_eq!(preview.warnings, vec![UrlWarning::NotHttps]);
+    }
+
+    // ---- CC Switch import deep link ---------------------------------------------------
+
+    const IMPORT_KEY: &str = "sk-abcdefghijklmnopqrstuvwxyz0123";
+
+    fn import_request() -> CcSwitchImportRequest {
+        CcSwitchImportRequest {
+            tool: ToolId::Codex,
+            provider_name: "Service Gateway".into(),
+            base_url: "https://gateway.example.com/v1".into(),
+            api_key: IMPORT_KEY.into(),
+            model: "gpt-5".into(),
+        }
+    }
+
+    #[test]
+    fn import_url_encodes_all_provider_fields() {
+        let url = build_import_url(&import_request(), &cfg()).expect("url");
+        assert!(url.starts_with("ccswitch://v1/import?"), "{url}");
+        assert!(url.contains("resource=provider"), "{url}");
+        assert!(url.contains("app=codex"), "{url}");
+        assert!(url.contains("name=Service+Gateway"), "{url}");
+        assert!(
+            url.contains("endpoint=https%3A%2F%2Fgateway.example.com%2Fv1"),
+            "{url}"
+        );
+        assert!(url.contains(&format!("apiKey={IMPORT_KEY}")), "{url}");
+        assert!(url.contains("model=gpt-5"), "{url}");
+    }
+
+    #[test]
+    fn import_url_maps_claude_code_and_skips_empty_model() {
+        let mut req = import_request();
+        req.tool = ToolId::ClaudeCode;
+        req.model = "   ".into();
+        let url = build_import_url(&req, &cfg()).expect("url");
+        assert!(url.contains("app=claude"), "{url}");
+        assert!(!url.contains("model="), "{url}");
+    }
+
+    #[test]
+    fn import_url_uses_the_effective_url() {
+        let mut req = import_request();
+        req.base_url = "https://gateway.example.com/".into();
+        let url = build_import_url(&req, &cfg()).expect("url");
+        assert!(
+            url.contains("endpoint=https%3A%2F%2Fgateway.example.com%2Fv1"),
+            "trailing slash normalised and /v1 appended: {url}"
+        );
+    }
+
+    #[test]
+    fn masked_import_url_never_contains_the_key() {
+        let masked = masked_import_url(&import_request(), &cfg()).expect("url");
+        assert!(!masked.contains(IMPORT_KEY), "{masked}");
+        // `form_urlencoded` leaves `*` unescaped, so the mask survives verbatim.
+        assert!(masked.contains("apiKey=sk-****0123"), "{masked}");
+        // apart from the key, both links are identical
+        let real = build_import_url(&import_request(), &cfg()).expect("url");
+        assert_eq!(real.replace(IMPORT_KEY, "sk-****0123"), masked);
+    }
+
+    #[test]
+    fn import_url_rejects_invalid_input() {
+        let c = cfg();
+        let mut empty_name = import_request();
+        empty_name.provider_name = "  ".into();
+        let mut bad_key = import_request();
+        bad_key.api_key = "sk-xxxx placeholder".into();
+        let mut empty_key = import_request();
+        empty_key.api_key = String::new();
+        let mut bad_url = import_request();
+        bad_url.base_url = "not a url".into();
+        for req in [empty_name, bad_key, empty_key, bad_url] {
+            let err = build_import_url(&req, &c).expect_err("must fail");
+            assert_eq!(err.code(), "invalid_input");
+            let masked = masked_import_url(&req, &c).expect_err("must fail");
+            assert_eq!(masked.code(), "invalid_input");
+        }
+    }
+
+    // ---- Codex config.toml template ---------------------------------------------------
+
+    fn codex_config_request() -> CodexConfigRequest {
+        CodexConfigRequest {
+            provider_name: "SeedRouter".into(),
+            base_url: "https://seedrouter.net/v1".into(),
+            model: "gpt-5.6-sol".into(),
+            reasoning_effort: "medium".into(),
+            auto_compact_scope: AutoCompactScope::BodyAfterPrefix,
+        }
+    }
+
+    #[test]
+    fn codex_config_template_matches_the_spec() {
+        let rendered = codex_config_template(&codex_config_request(), &cfg());
+        let expected = "\
+model = \"gpt-5.6-sol\"
+model_provider = \"cliproxyapi\"
+model_reasoning_effort = \"medium\"
+sandbox_mode = \"workspace-write\"
+model_context_window = 372000
+model_auto_compact_token_limit = 300000
+model_auto_compact_token_limit_scope = \"body_after_prefix\"
+
+service_tier = \"priority\"
+
+[model_providers.cliproxyapi]
+name = \"SeedRouter\"
+base_url = \"https://seedrouter.net/v1\"
+wire_api = \"responses\"
+requires_openai_auth = true
+experimental_bearer_token = \"<API-KEY>\"
+";
+        assert_eq!(rendered, expected);
+        // the template is valid TOML as-is
+        let parsed: toml::Value = toml::from_str(&rendered).expect("valid TOML");
+        assert_eq!(
+            parsed
+                .get("model_providers")
+                .and_then(|p| p.get("cliproxyapi"))
+                .and_then(|p| p.get("experimental_bearer_token"))
+                .and_then(toml::Value::as_str),
+            Some(CODEX_CONFIG_KEY_PLACEHOLDER)
+        );
+    }
+
+    #[test]
+    fn codex_config_template_scope_and_optional_fields() {
+        let mut req = codex_config_request();
+        req.auto_compact_scope = AutoCompactScope::Total;
+        req.model = "  ".into();
+        req.reasoning_effort = String::new();
+        req.provider_name = String::new();
+        req.base_url = "https://seedrouter.net/".into();
+        let rendered = codex_config_template(&req, &cfg());
+        assert!(
+            rendered.contains("model_auto_compact_token_limit_scope = \"total\""),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("\nmodel = "), "{rendered}");
+        assert!(!rendered.starts_with("model = "), "{rendered}");
+        assert!(!rendered.contains("model_reasoning_effort"), "{rendered}");
+        // empty provider name falls back to the company preset
+        assert!(rendered.contains("name = \"Service Gateway\""), "{rendered}");
+        // the effective URL is used (trailing slash normalised, /v1 appended)
+        assert!(
+            rendered.contains("base_url = \"https://seedrouter.net/v1\""),
+            "{rendered}"
+        );
+        toml::from_str::<toml::Value>(&rendered).expect("valid TOML");
+    }
+
+    #[test]
+    fn codex_config_template_escapes_and_survives_broken_urls() {
+        let mut req = codex_config_request();
+        req.provider_name = "My \"Router\"\\x".into();
+        req.base_url = "not a url".into();
+        let rendered = codex_config_template(&req, &cfg());
+        assert!(
+            rendered.contains(r#"name = "My \"Router\"\\x""#),
+            "{rendered}"
+        );
+        assert!(rendered.contains("base_url = \"not a url\""), "{rendered}");
+        toml::from_str::<toml::Value>(&rendered).expect("valid TOML");
+    }
+
+    #[test]
+    fn toml_quote_escapes_control_characters() {
+        assert_eq!(toml_quote("plain"), "\"plain\"");
+        assert_eq!(toml_quote("a\"b\\c"), r#""a\"b\\c""#);
+        assert_eq!(toml_quote("a\nb\tc"), r#""a\nb\tc""#);
+        assert_eq!(toml_quote("\u{1}"), "\"\\u0001\"");
+    }
+
+    #[test]
+    fn import_url_accepts_hint_only_key_issues() {
+        // UnexpectedPrefix / TooShort are hints, not blockers — gateways vary.
+        let mut req = import_request();
+        req.api_key = "gw-shortkey".into();
+        let url = build_import_url(&req, &cfg()).expect("hints do not block");
+        assert!(url.contains("apiKey=gw-shortkey"), "{url}");
     }
 
     #[test]

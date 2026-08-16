@@ -87,6 +87,11 @@ pub fn run() {
             commands::get_config_guide,
             commands::validate_api_key,
             commands::preview_effective_url,
+            commands::test_connectivity,
+            commands::list_gateway_models,
+            commands::get_codex_config_template,
+            commands::preview_cc_switch_import,
+            commands::open_cc_switch_import,
             // M4
             commands::verify_setup,
             commands::list_running_terminals,

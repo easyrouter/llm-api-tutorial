@@ -36,12 +36,25 @@ function displayValue(t: Translate, key: string, value: string): string {
   return value;
 }
 
+/** Values the user may have edited in the provider card; they override the preset in steps. */
+export interface LiveProviderValues {
+  providerName: string;
+  baseUrl: string;
+  model: string;
+}
+
 /**
  * Params for `t("guide:<code>.title|body", params)`: UI defaults derived from the guide (tool
  * display name, protocol label, model hint) overridden by the step's own params, with known
- * enum values translated to display names.
+ * enum values translated to display names. `live` values (edited in the provider card) win
+ * over both so the steps always mirror what the user is actually going to paste.
  */
-export function guideStepParams(t: Translate, guide: ConfigGuide, step: GuideStep): Params {
+export function guideStepParams(
+  t: Translate,
+  guide: ConfigGuide,
+  step: GuideStep,
+  live?: LiveProviderValues,
+): Params {
   const params: Params = {
     tool: toolLabel(t, guide.tool),
     protocol: protocolLabel(t, guide.preset.protocol),
@@ -50,5 +63,27 @@ export function guideStepParams(t: Translate, guide: ConfigGuide, step: GuideSte
   for (const [key, value] of Object.entries(step.params)) {
     params[key] = displayValue(t, key, value);
   }
+  if (live) {
+    const name = live.providerName.trim();
+    if (name) params.provider_name = name;
+    const url = live.baseUrl.trim();
+    if (url) params.base_url = url;
+    params.model_hint = modelHintText(t, live.model);
+  }
   return params;
+}
+
+/** The step's copyable value with live edits applied (`null` hides the copy field). */
+export function liveCopyValue(step: GuideStep, live?: LiveProviderValues): string | null {
+  if (!live) return step.copyValue;
+  switch (step.code) {
+    case "add_provider":
+      return live.providerName.trim() || step.copyValue;
+    case "paste_base_url":
+      return live.baseUrl.trim() || step.copyValue;
+    case "set_model":
+      return live.model.trim() || null;
+    default:
+      return step.copyValue;
+  }
 }

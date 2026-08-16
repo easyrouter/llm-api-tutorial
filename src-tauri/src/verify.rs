@@ -63,8 +63,8 @@ use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use crate::diagnose;
 use crate::error::AppError;
 use crate::models::{
-    AppConfig, CliCheck, DiagnoseRequest, ErrorClass, GatewayCheck, GatewayProbeRequest, Platform,
-    Protocol, Symptom, TerminalProcess, ToolId, ToolSpec, VerifyRequest, VerifyResult,
+    AppConfig, CliCheck, DiagnoseRequest, ErrorClass, GatewayCheck, GatewayProbeRequest, ModelList,
+    Platform, Protocol, Symptom, TerminalProcess, ToolId, ToolSpec, VerifyRequest, VerifyResult,
 };
 use crate::net;
 use crate::platform;
@@ -81,6 +81,10 @@ pub const MAX_TERMINALS: usize = 50;
 pub const MAX_MESSAGE_CHARS: usize = 300;
 /// Maximum bytes read from a gateway response body (error pages can be large).
 const MAX_BODY_BYTES: usize = 16 * 1024;
+/// Maximum bytes read from a `GET /models` body (lists with metadata are much larger).
+const MAX_MODELS_BODY_BYTES: usize = 512 * 1024;
+/// Upper bound on model ids returned by [`list_models`].
+pub const MAX_MODELS: usize = 200;
 /// Lines of CLI output kept (redacted) when the CLI check fails.
 const OUTPUT_TAIL_LINES: usize = 5;
 /// Smallest `max_output_tokens` accepted by OpenAI-compatible Responses endpoints.
@@ -527,13 +531,18 @@ fn classify_transport_error(e: &reqwest::Error) -> GatewayCheck {
 
 /// Reads at most [`MAX_BODY_BYTES`] of the body (lossy UTF-8); read errors end the body early.
 async fn read_body_prefix(resp: reqwest::Response) -> String {
+    read_body_limited(resp, MAX_BODY_BYTES).await
+}
+
+/// Reads at most `limit` bytes of the body (lossy UTF-8); read errors end the body early.
+async fn read_body_limited(resp: reqwest::Response, limit: usize) -> String {
     let mut stream = resp.bytes_stream();
     let mut buf: Vec<u8> = Vec::with_capacity(1024);
     while let Some(chunk) = stream.next().await {
         let Ok(chunk) = chunk else { break };
         buf.extend_from_slice(&chunk);
-        if buf.len() >= MAX_BODY_BYTES {
-            buf.truncate(MAX_BODY_BYTES);
+        if buf.len() >= limit {
+            buf.truncate(limit);
             break;
         }
     }
@@ -591,6 +600,119 @@ pub async fn probe_gateway(client: &reqwest::Client, req: &GatewayProbeRequest) 
         check.latency_ms
     );
     check
+}
+
+// ---------------------------------------------------------------------------
+// Model list (GET {base}/models)
+// ---------------------------------------------------------------------------
+
+/// Endpoint of the model list: same base normalisation as [`probe_url`]. The OpenAI shapes use
+/// `/models`; the Anthropic shape mirrors its SDK (`/v1/models` appended, `/v1` never
+/// deduplicated). Pure.
+pub fn models_url(base_url: &str, protocol: Protocol) -> String {
+    let base = base_url.trim().trim_end_matches('#').trim_end_matches('/');
+    let path = match protocol {
+        Protocol::Responses | Protocol::ChatCompletions => "/models",
+        Protocol::AnthropicMessages => "/v1/models",
+    };
+    if base.ends_with(path) {
+        base.to_owned()
+    } else {
+        format!("{base}{path}")
+    }
+}
+
+/// Model ids from a list body: `data[].id` (OpenAI and Anthropic both use it) or a `models`
+/// array of strings / `{id}` objects. Ids are trimmed, redacted, deduplicated in order and
+/// capped at [`MAX_MODELS`]. Pure.
+pub fn extract_model_ids(body: &str) -> Vec<String> {
+    let Ok(value) = serde_json::from_str::<Value>(body) else {
+        return Vec::new();
+    };
+    let items = value
+        .get("data")
+        .and_then(Value::as_array)
+        .or_else(|| value.get("models").and_then(Value::as_array));
+    let Some(items) = items else {
+        return Vec::new();
+    };
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut out = Vec::new();
+    for item in items {
+        let id = item
+            .get("id")
+            .and_then(Value::as_str)
+            .or_else(|| item.as_str());
+        let Some(id) = id.map(str::trim).filter(|s| !s.is_empty()) else {
+            continue;
+        };
+        let id = redact_secrets(id);
+        if seen.insert(id.clone()) {
+            out.push(id);
+            if out.len() >= MAX_MODELS {
+                break;
+            }
+        }
+    }
+    out
+}
+
+/// One `GET {base}/models` request with the user's key (in memory only, headers only — exactly
+/// like [`probe_gateway`]; `req.model` is ignored). Non-2xx never counts as ok here:
+/// [`classify_response`]'s unknown-model leniency is meant for POST probes.
+pub async fn list_models(client: &reqwest::Client, req: &GatewayProbeRequest) -> ModelList {
+    let url = models_url(&req.base_url, req.protocol);
+    if key_would_leak_to(&url) {
+        log::info!("model list refused: base URL is not https");
+        return ModelList {
+            gateway: not_https_check(),
+            models: Vec::new(),
+        };
+    }
+    let started = Instant::now();
+    let sent = with_auth_headers(client.get(&url), req.protocol, req.api_key.trim())
+        .timeout(GATEWAY_TIMEOUT)
+        .send()
+        .await;
+    let (mut gateway, models) = match sent {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let text = scrub_known_secret(
+                &read_body_limited(resp, MAX_MODELS_BODY_BYTES).await,
+                &req.api_key,
+            );
+            if (200..=299).contains(&status) {
+                let check = GatewayCheck {
+                    ok: true,
+                    http_status: Some(status),
+                    latency_ms: None,
+                    error_class: None,
+                    message: None,
+                };
+                (check, extract_model_ids(&text))
+            } else {
+                let mut check = classify_response(status, &text);
+                check.ok = false;
+                if check.error_class.is_none() {
+                    check.error_class = Some(ErrorClass::Unknown);
+                }
+                if check.message.is_none() {
+                    check.message = server_message(&text);
+                }
+                (check, Vec::new())
+            }
+        }
+        Err(e) => (classify_transport_error(&e), Vec::new()),
+    };
+    gateway.latency_ms = Some(elapsed_ms(started));
+    log::debug!(
+        "model list: status={:?} class={:?} models={} latency={:?}ms",
+        gateway.http_status,
+        gateway.error_class,
+        models.len(),
+        gateway.latency_ms
+    );
+    ModelList { gateway, models }
 }
 
 // ---------------------------------------------------------------------------
@@ -1351,6 +1473,140 @@ mod tests {
         assert!(!check.ok);
         assert_eq!(check.http_status, None);
         assert_eq!(check.error_class, Some(ErrorClass::Unknown));
+    }
+
+    // ----- model list ------------------------------------------------------------------
+
+    #[test]
+    fn models_url_rules() {
+        let r = Protocol::Responses;
+        let a = Protocol::AnthropicMessages;
+        assert_eq!(
+            models_url("https://g.example.com/v1", r),
+            "https://g.example.com/v1/models"
+        );
+        assert_eq!(
+            models_url(" https://g.example.com/v1/# ", Protocol::ChatCompletions),
+            "https://g.example.com/v1/models"
+        );
+        assert_eq!(
+            models_url("https://g.example.com/v1/models", r),
+            "https://g.example.com/v1/models"
+        );
+        // Anthropic mirrors its SDK: `/v1/models` appended, `/v1` not deduplicated
+        assert_eq!(
+            models_url("https://g.example.com", a),
+            "https://g.example.com/v1/models"
+        );
+        assert_eq!(
+            models_url("https://g.example.com/v1", a),
+            "https://g.example.com/v1/v1/models"
+        );
+    }
+
+    #[test]
+    fn extract_model_ids_table() {
+        // OpenAI / Anthropic list shape
+        let body = r#"{"object":"list","data":[
+            {"id":"gpt-5","object":"model"},
+            {"id":" gpt-5-codex "},
+            {"id":"gpt-5"},
+            {"id":""},
+            {"object":"model"},
+            {"id":"claude-sonnet-4-5"}
+        ]}"#;
+        assert_eq!(
+            extract_model_ids(body),
+            vec!["gpt-5", "gpt-5-codex", "claude-sonnet-4-5"]
+        );
+        // models array of strings
+        assert_eq!(
+            extract_model_ids(r#"{"models":["a","b","a"]}"#),
+            vec!["a", "b"]
+        );
+        // models array of objects
+        assert_eq!(
+            extract_model_ids(r#"{"models":[{"id":"m1"},{"id":"m2"}]}"#),
+            vec!["m1", "m2"]
+        );
+        assert!(extract_model_ids("").is_empty());
+        assert!(extract_model_ids("not json").is_empty());
+        assert!(extract_model_ids(r#"{"data":"nope"}"#).is_empty());
+        assert!(extract_model_ids(r#"{"data":[]}"#).is_empty());
+    }
+
+    #[test]
+    fn extract_model_ids_caps_and_redacts() {
+        let ids: Vec<String> = (0..(MAX_MODELS + 20)).map(|i| format!("m-{i}")).collect();
+        let body = serde_json::json!({
+            "data": ids.iter().map(|id| serde_json::json!({"id": id})).collect::<Vec<_>>()
+        })
+        .to_string();
+        assert_eq!(extract_model_ids(&body).len(), MAX_MODELS);
+        // a hostile body cannot smuggle a key into the UI
+        let sneaky = r#"{"data":[{"id":"sk-abcdefghijklmnop1234"}]}"#;
+        assert_eq!(extract_model_ids(sneaky), vec!["[REDACTED]"]);
+    }
+
+    #[tokio::test]
+    async fn list_models_sends_get_and_parses_ids() {
+        let (base, server) = serve_once(
+            "200 OK",
+            r#"{"object":"list","data":[{"id":"gpt-5"},{"id":"gpt-5-codex"}]}"#,
+        );
+        let req = GatewayProbeRequest {
+            base_url: base,
+            api_key: KEY.into(),
+            model: String::new(),
+            protocol: Protocol::Responses,
+        };
+        let list = list_models(&test_client(), &req).await;
+        let request = server.join().expect("server thread");
+        assert!(request.starts_with("GET /v1/models HTTP/1.1"), "{request}");
+        assert!(
+            request
+                .to_ascii_lowercase()
+                .contains(&format!("authorization: bearer {KEY}")),
+            "{request}"
+        );
+        assert!(list.gateway.ok);
+        assert_eq!(list.gateway.http_status, Some(200));
+        assert!(list.gateway.latency_ms.is_some());
+        assert_eq!(list.models, vec!["gpt-5", "gpt-5-codex"]);
+    }
+
+    #[tokio::test]
+    async fn list_models_classifies_auth_failure_without_leaking_the_key() {
+        let body: &'static str = Box::leak(
+            format!(r#"{{"error":{{"message":"Incorrect API key provided: {KEY}"}}}}"#)
+                .into_boxed_str(),
+        );
+        let (base, server) = serve_once("401 Unauthorized", body);
+        let req = GatewayProbeRequest {
+            base_url: base,
+            api_key: KEY.into(),
+            model: String::new(),
+            protocol: Protocol::Responses,
+        };
+        let list = list_models(&test_client(), &req).await;
+        server.join().expect("server thread");
+        assert!(!list.gateway.ok);
+        assert_eq!(list.gateway.error_class, Some(ErrorClass::Auth));
+        assert!(list.models.is_empty());
+        assert!(!list.gateway.message.unwrap_or_default().contains(KEY));
+    }
+
+    #[tokio::test]
+    async fn list_models_refuses_plain_http() {
+        let req = GatewayProbeRequest {
+            base_url: "http://gateway.example.invalid/v1".into(),
+            api_key: KEY.into(),
+            model: String::new(),
+            protocol: Protocol::Responses,
+        };
+        let list = list_models(&test_client(), &req).await;
+        assert_eq!(list.gateway.error_class, Some(ErrorClass::NotHttps));
+        assert!(list.models.is_empty());
     }
 
     // ----- terminals -------------------------------------------------------------------

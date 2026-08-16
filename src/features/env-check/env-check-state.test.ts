@@ -37,6 +37,14 @@ describe("visibleCheckIds", () => {
       CHECK_IDS.filter((id) => id !== "codex" && id !== "claude_code"),
     );
   });
+
+  it("hides the Windows Terminal row on non-Windows platforms only", () => {
+    expect(visibleCheckIds(["codex"], "windows")).toContain("windows_terminal");
+    expect(visibleCheckIds(["codex"], "macos")).not.toContain("windows_terminal");
+    expect(visibleCheckIds(["codex"], "linux")).not.toContain("windows_terminal");
+    // platform unknown (app info still loading): keep the row; Rust reports it as skipped
+    expect(visibleCheckIds(["codex"], null)).toContain("windows_terminal");
+  });
 });
 
 describe("overallOf", () => {
@@ -119,17 +127,17 @@ describe("summarize", () => {
       checkResult("node", "warn"),
     ]);
     const all = summarize(s, CHECK_IDS);
-    expect(all).toMatchObject({ total: 10, done: 10, fail: 2, warn: 1, pass: 7, overall: "fail" });
+    expect(all).toMatchObject({ total: 11, done: 11, fail: 2, warn: 1, pass: 8, overall: "fail" });
     const codexOnly = summarize(s, visibleCheckIds(["codex"]));
-    expect(codexOnly).toMatchObject({ total: 9, fail: 1, overall: "fail" });
+    expect(codexOnly).toMatchObject({ total: 10, fail: 1, overall: "fail" });
     const none = summarize(s, visibleCheckIds([]));
-    expect(none).toMatchObject({ total: 8, fail: 0, warn: 1, overall: "warn" });
+    expect(none).toMatchObject({ total: 9, fail: 0, warn: 1, overall: "warn" });
   });
 
   it("reports progress while running", () => {
     let s = envCheckReducer(initialEnvCheckState, { type: "start_all" });
     s = envCheckReducer(s, { type: "result", result: checkResult("os") });
-    expect(summarize(s, CHECK_IDS)).toMatchObject({ total: 10, done: 1, pass: 1 });
+    expect(summarize(s, CHECK_IDS)).toMatchObject({ total: 11, done: 1, pass: 1 });
   });
 });
 

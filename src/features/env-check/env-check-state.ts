@@ -13,6 +13,7 @@ import type {
   CheckResult,
   CheckStatus,
   EnvSnapshot,
+  Platform,
   ToolId,
   WireError,
 } from "@/lib/types";
@@ -24,12 +25,21 @@ export const TOOL_CHECK_IDS: Readonly<Record<ToolId, CheckId>> = {
   "claude-code": "claude_code",
 };
 
-/** All check ids, minus the rows of tools the user did not select on the Welcome screen. */
-export function visibleCheckIds(selectedTools: readonly ToolId[]): CheckId[] {
+/**
+ * All check ids, minus the rows of tools the user did not select on the Welcome screen and
+ * minus platform-specific rows that do not apply (`windows_terminal` off Windows). A `null`
+ * platform (app info not loaded yet) keeps platform rows visible — Rust reports them as
+ * `Skipped`, which the summary ignores.
+ */
+export function visibleCheckIds(
+  selectedTools: readonly ToolId[],
+  platform: Platform | null = null,
+): CheckId[] {
   const hidden = new Set<CheckId>();
   for (const [tool, id] of Object.entries(TOOL_CHECK_IDS) as [ToolId, CheckId][]) {
     if (!selectedTools.includes(tool)) hidden.add(id);
   }
+  if (platform !== null && platform !== "windows") hidden.add("windows_terminal");
   return CHECK_IDS.filter((id) => !hidden.has(id));
 }
 

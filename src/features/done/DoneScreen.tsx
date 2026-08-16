@@ -4,17 +4,26 @@
  * open the FAQ in the help drawer. Sends one best-effort `wizard_done` telemetry event when an
  * endpoint is configured (opt-in is enforced on the Rust side).
  */
-import { BookOpen, PartyPopper, RotateCcw } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { AppWindow, BookOpen, ExternalLink, PartyPopper, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button, Card, CopyField, StatusBadge } from "@/components/ui";
-import { trackEvent } from "@/lib/tauri";
+import { openExternal, trackEvent } from "@/lib/tauri";
 import { useAppStore } from "@/stores/app";
 import { startOver } from "@/stores/start-over";
 import { useWizardStore } from "@/stores/wizard";
 
-import { allVerified, DONE_HELP_SECTION, summarizeTools, type ToolSummary } from "./done-summary";
+import {
+  allVerified,
+  CODEX_IDE_EXTENSION_URL,
+  commandForTool,
+  DONE_HELP_SECTION,
+  launchOptions,
+  summarizeTools,
+  type LaunchOptionId,
+  type ToolSummary,
+} from "./done-summary";
 
 interface ToolRowProps {
   summary: ToolSummary;
@@ -51,6 +60,74 @@ function ToolRow({ summary, onBackToVerify }: ToolRowProps) {
       </div>
     </li>
   );
+}
+
+/**
+ * One "use it next" option (PRD revision R4): the Codex client opens the IDE-extension page
+ * (it shares the freshly configured `~/.codex` with the CLI); the CLI options show the command
+ * to run in a new terminal.
+ */
+function LaunchOption({ option }: { option: LaunchOptionId }) {
+  const { t } = useTranslation();
+  const config = useAppStore((s) => s.config);
+
+  let action: ReactNode;
+  switch (option) {
+    case "codex-client":
+      action = (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void openExternal(CODEX_IDE_EXTENSION_URL)}
+          leftIcon={<ExternalLink className="size-4" aria-hidden />}
+        >
+          {t("done.launch.codexClient.open")}
+        </Button>
+      );
+      break;
+    case "codex-cli":
+      action = (
+        <CopyField
+          label={t("help:done.commandLabel", { tool: t("tools.codex") })}
+          value={commandForTool("codex", config)}
+        />
+      );
+      break;
+    case "claude-code":
+      action = (
+        <CopyField
+          label={t("help:done.commandLabel", { tool: t("tools.claude-code") })}
+          value={commandForTool("claude-code", config)}
+        />
+      );
+      break;
+  }
+
+  return (
+    <div
+      className="space-y-1.5 rounded-md border border-neutral-200 p-3 dark:border-neutral-800"
+      data-testid={`launch-${option}`}
+    >
+      <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
+        <AppWindow className="size-4 text-neutral-500" aria-hidden />
+        {t(`done.launch.${optionKey(option)}.name`)}
+      </h3>
+      <p>{t(`done.launch.${optionKey(option)}.body`)}</p>
+      {action}
+    </div>
+  );
+}
+
+/** i18n key segment of a launch option (`codex-client` → `codexClient`). */
+function optionKey(option: LaunchOptionId): "codexClient" | "codexCli" | "claudeCode" {
+  switch (option) {
+    case "codex-client":
+      return "codexClient";
+    case "codex-cli":
+      return "codexCli";
+    case "claude-code":
+      return "claudeCode";
+  }
 }
 
 export function DoneScreen() {
@@ -105,16 +182,10 @@ export function DoneScreen() {
         )}
       </Card>
 
-      <Card title={t("done.nextSteps")}>
+      <Card title={t("done.launch.title")} description={t("done.launch.description")}>
         <div className="space-y-4 text-sm leading-6 text-neutral-700 dark:text-neutral-200">
-          {summaries.map(({ tool, command }) => (
-            <div key={tool} className="space-y-1.5">
-              <p>{t("done.openTerminalHint", { command })}</p>
-              <CopyField
-                label={t("help:done.commandLabel", { tool: t(`tools.${tool}`) })}
-                value={command}
-              />
-            </div>
+          {launchOptions(selectedTools).map((option) => (
+            <LaunchOption key={option} option={option} />
           ))}
           <p>{t("done.helpHint", { contact })}</p>
           <p className="text-neutral-500 dark:text-neutral-400">{t("help:done.wrapUp")}</p>

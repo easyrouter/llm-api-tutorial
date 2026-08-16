@@ -197,6 +197,8 @@ pub struct TelemetryConfig {
 #[serde(rename_all = "snake_case")]
 pub enum CheckId {
     Os,
+    /// Recommendation only (Windows: is Windows Terminal installed?); `Skipped` elsewhere.
+    WindowsTerminal,
     Node,
     Npm,
     Codex,
@@ -209,8 +211,9 @@ pub enum CheckId {
 }
 
 impl CheckId {
-    pub const ALL: [CheckId; 10] = [
+    pub const ALL: [CheckId; 11] = [
         CheckId::Os,
+        CheckId::WindowsTerminal,
         CheckId::Node,
         CheckId::Npm,
         CheckId::Codex,
@@ -559,6 +562,74 @@ pub enum UrlWarning {
     ContainsCredentials,
     LooksLikeChatCompletionsEndpoint,
     DiffersFromCompanyGateway,
+}
+
+/// Combined result of the in-place connectivity test on the configure screen: URL rules and
+/// key format always run; the live gateway probe only when both allow sending the key.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectivityReport {
+    pub url: UrlPreview,
+    pub key: KeyValidation,
+    /// `None` when nothing was sent (invalid URL or a key with blocking format issues).
+    pub gateway: Option<GatewayCheck>,
+}
+
+/// Model ids offered by the gateway (`GET {base}/models`), plus the probe outcome.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelList {
+    pub gateway: GatewayCheck,
+    pub models: Vec<String>,
+}
+
+/// One-click provider hand-off to CC Switch via its `ccswitch://v1/import` deep link
+/// (ADR-0006). CC Switch shows its own confirmation dialog and writes its own data — this app
+/// still never touches `~/.cc-switch` (ADR-0003).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CcSwitchImportRequest {
+    pub tool: ToolId,
+    pub provider_name: String,
+    pub base_url: String,
+    /// Required by CC Switch for a provider import. In memory only; embedded in the deep link
+    /// only after the user confirmed the (masked) preview.
+    pub api_key: String,
+    #[serde(default)]
+    pub model: String,
+}
+
+/// What the UI shows before the deep link is opened ("show before run", hard rule 4).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CcSwitchImportPreview {
+    /// The deep link with the API key masked — safe to display.
+    pub display_url: String,
+    /// CC Switch app type the provider lands in (`codex` / `claude`).
+    pub app: String,
+}
+
+/// Scope of Codex's `model_auto_compact_token_limit`: what the auto-compact threshold counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoCompactScope {
+    /// Only the conversation body after the cached prefix (recommended default).
+    BodyAfterPrefix,
+    /// The whole request, prefix included — compaction triggers earlier.
+    Total,
+}
+
+/// Inputs of the Codex `config.toml` template (`guide::codex_config_template`). Deliberately
+/// carries **no API key**: the rendered template contains a placeholder the UI substitutes at
+/// copy time, so the key never crosses IPC for template generation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfigRequest {
+    pub provider_name: String,
+    pub base_url: String,
+    pub model: String,
+    pub reasoning_effort: String,
+    pub auto_compact_scope: AutoCompactScope,
 }
 
 // ---------------------------------------------------------------------------

@@ -1,17 +1,21 @@
 {
   "title": "Configure the service gateway in CC Switch",
-  "intro": "Configuration happens inside CC Switch; this tool never writes a config file for you. Copy the values below into CC Switch — only the API key is something you type yourself. When you are done, come back here and the tool checks and verifies your work.",
+  "intro": "The configuration itself is written by CC Switch; this tool never edits a config file for you. Review and edit the values below, test connectivity first, then either import them into CC Switch with one click or follow the manual steps.",
+  "codexClientNote": "This configuration covers both Codex CLI and the Codex client / IDE extension — they share the same configuration under ~/.codex, so one setup serves both.",
   "tabs": {
     "label": "Choose the tool to configure"
   },
   "loading": "Preparing the {{tool}} walkthrough…",
   "values": {
     "title": "Values to enter",
-    "description": "Fill in the “Add provider” form in CC Switch with these values.",
+    "description": "These are the values for CC Switch's “Add provider” form. Copy them as they are or press “Edit” to change them; after entering your API key, run “Test connectivity” once.",
+    "edit": "Edit",
+    "doneEditing": "Done",
+    "resetToPreset": "Reset to default",
     "providerName": "Provider name",
     "providerNameHint": "Any name works; this one keeps things recognisable later.",
     "baseUrl": "API address (Base URL)",
-    "baseUrlHint": "Paste it exactly as shown — do not add or remove a trailing slash or /v1.",
+    "baseUrlHint": "Use it exactly as shown — do not add or remove a trailing slash or /v1.",
     "protocol": "Protocol / request format",
     "protocolValue": {
       "responses": "Responses",
@@ -21,10 +25,60 @@
     "protocolHint": "The service gateway supports and recommends Responses. If the form has no such option, the current version already uses it by default.",
     "protocolNoteClaude": "Claude Code has no protocol setting — only the address, key and model are needed.",
     "modelHint": "Model (suggested)",
-    "modelHintEmpty": "There is no company-wide model name; enter the model you were assigned.",
+    "modelHintEmpty": "There is no company-wide model name; enter the model you were assigned (or fetch the list from the gateway in the steps below).",
     "reasoningEffortHint": "Reasoning effort (suggested)",
-    "apiKeyRow": "API key",
-    "apiKeyRowValue": "The key you were issued (this tool never stores or fills it in for you)"
+    "apiKeyRow": "API key"
+  },
+  "test": {
+    "button": "Test connectivity",
+    "testing": "Testing…",
+    "description": "Sends one minimal test request to the gateway using the address, model and key above.",
+    "needs": "Enter the API address and API key to test (the model may stay empty).",
+    "notSent": "No gateway request was sent this time: fix the problems flagged above and try again."
+  },
+  "import": {
+    "title": "One-click import into CC Switch",
+    "description": "Hands the values above straight to your local CC Switch (a recent version is required). CC Switch opens its own confirmation dialog and writes its own configuration — this tool still never touches any config file.",
+    "button": "Import into CC Switch",
+    "needsValues": "Enter the provider name, API address and API key first (the model is optional).",
+    "editNote": "Importing again creates a new provider instead of overwriting the old one; to change an existing provider, edit it inside CC Switch. The manual steps below remain available.",
+    "confirmTitle": "Send to CC Switch?",
+    "confirmBody": "The link below will be opened so CC Switch can pre-fill the provider (the key is masked in this preview; the full key is sent). CC Switch will show its own confirmation dialog and only writes after you confirm there.",
+    "confirmAction": "Open CC Switch",
+    "linkLabel": "Import link (preview, key masked)",
+    "sent": "Sent. Switch to the CC Switch window, confirm the import and “Use / Switch” the new provider so it becomes the current one, then come back here and continue.",
+    "failed": "CC Switch could not be opened. Make sure a recent version of CC Switch is installed — or follow the manual steps below."
+  },
+  "config": {
+    "title": "Codex config.toml template (recommended)",
+    "description": "Paste this configuration into the “config.toml / configuration” field of the Codex provider in CC Switch (after the one-click import above, you can also edit that provider in CC Switch and replace its configuration with this). It routes through the service gateway while keeping most official features, and enables the priority tier, the large context window and auto-compaction for gpt-5.6-sol. The content is editable — for example, set a more radical model_auto_compact_token_limit or change any other default.",
+    "scopeLabel": "Auto-compaction accounting (model_auto_compact_token_limit_scope)",
+    "scopeHint": "Choose what the 300000 auto-compaction threshold counts; when unsure, keep the recommended value.",
+    "scope": {
+      "body_after_prefix": {
+        "label": "body_after_prefix (recommended)",
+        "explanation": "Counts only the conversation body after the cached prefix. More accurate with prompt caching and makes the most of the 372k context — the right choice in most cases."
+      },
+      "total": {
+        "label": "total",
+        "explanation": "Counts the whole request (prefix + body), so compaction triggers earlier. Pick this if you often hit context-exceeded errors or the gateway limits by total tokens."
+      }
+    },
+    "templateLabel": "config.toml content (editable)",
+    "keySubstitution": "Copying replaces <API-KEY> with the real key entered above; the real key is never shown on screen.",
+    "keyMissing": "No API key entered above yet: the copied content keeps the <API-KEY> placeholder — replace it yourself after pasting.",
+    "edited": "Edited by hand: changing the values above or the accounting scope will not overwrite your changes; use “Restore generated template” when needed.",
+    "regenerate": "Restore generated template",
+    "loading": "Generating the template…"
+  },
+  "models": {
+    "fetch": "Fetch model list from the gateway",
+    "fetching": "Fetching…",
+    "hint": "Uses the address and key from “Values to enter”.",
+    "needsKey": "Enter the API address and API key under “Values to enter” first to fetch the model list.",
+    "empty": "The gateway returned no models; enter the model name you were assigned.",
+    "listLabel": "Models reported by the gateway (click to use)",
+    "picked": "Model filled in: {{model}}"
   },
   "steps": {
     "title": "Steps",
@@ -37,6 +91,10 @@
     "title": "Open CC Switch",
     "body": "Find CC Switch in the Start menu / Launchpad and open it. If it is not installed yet, go back to the “Install” step first."
   },
+  "login_chatgpt": {
+    "title": "Sign in with your ChatGPT account (optional)",
+    "body": "Once CC Switch is installed, it is worth signing in to Codex with your ChatGPT account first: open a terminal, run codex and pick “Sign in with ChatGPT”. Being signed in keeps the official login-gated features (such as the speed / tier option) available, which works best together with the config.toml template below. This step is optional — skipping it does not affect the rest of the setup."
+  },
   "select_tool_tab": {
     "title": "Switch to the {{tool}} tab",
     "body": "CC Switch has Claude / Codex tabs at the top (or on the left). Pick “{{tool}}”. If you use both tools, configure each one separately."
@@ -47,7 +105,7 @@
   },
   "paste_base_url": {
     "title": "Paste the API address",
-    "body": "Paste the address below into “API address / Base URL” exactly as shown. Do not add or remove a trailing slash or /v1; the “URL rules preview” below shows the address that will actually be used."
+    "body": "Paste the address below into “API address / Base URL” exactly as shown. Do not add or remove a trailing slash or /v1; the connectivity test under “Values to enter” shows the address that will actually be used."
   },
   "choose_protocol": {
     "title": "Choose the protocol: {{protocol}}",
@@ -55,11 +113,11 @@
   },
   "paste_api_key": {
     "title": "Paste your API key",
-    "body": "Paste the key you were issued into “API key”. Make sure there is no space or line break at the beginning or end — that is the most common cause of authentication failures (401). You can run it through the “Key format check” below first."
+    "body": "Paste the key you were issued into “API key”. Make sure there is no space or line break at the beginning or end — that is the most common cause of authentication failures (401). Best run the connectivity test under “Values to enter” first; it checks the format along the way."
   },
   "set_model": {
     "title": "Enter the model",
-    "body": "In “Model” enter: {{model_hint}}. This value can differ per person — use the one you were assigned."
+    "body": "In “Model” enter: {{model_hint}}. This value can differ per person — use the one you were assigned, or fetch the list from the gateway below and pick one."
   },
   "save_and_activate": {
     "title": "Save and switch to this provider",
@@ -74,21 +132,16 @@
     "body": "Click “Next” below. The tool checks {{tool}} in a fresh terminal session and can optionally send one test request to the gateway."
   },
   "key": {
-    "title": "Key format check",
-    "description": "Paste your key here and the tool checks for common formatting problems (stray spaces, line breaks, placeholder text, …).",
-    "label": "Paste your API key here",
     "placeholder": "sk-…",
     "show": "Show",
     "hide": "Hide",
     "clear": "Clear",
-    "privacy": "Checked in memory on this machine only — never stored, logged or uploaded; cleared automatically when you leave this page.",
-    "checking": "Checking…",
-    "valid": "The format looks fine ({{length}} characters). You can paste it into CC Switch now.",
-    "invalid": "Problems that need fixing:",
-    "blockingLabel": "Must fix",
+    "privacy": "The key stays in this page's memory only — used for the connectivity test, the model list and, after you confirm, the one-click import. It is never written to disk, logged or uploaded, and is cleared when you leave this page.",
+    "valid": "The format looks fine ({{length}} characters).",
+    "invalid": "The key format has problems that need fixing:",
     "hintLabel": "Hint",
     "issue": {
-      "empty": "Nothing entered yet.",
+      "empty": "No API key entered yet.",
       "leading_or_trailing_whitespace": "There is a space / tab at the beginning or end. Some whitespace was selected when copying — remove it and paste again.",
       "contains_whitespace": "Contains a space in the middle. Keys have no spaces; the copy may have wrapped or picked up extra text.",
       "contains_newline": "Contains a line break. Paste it as a single line (try pasting into a plain text editor first).",
@@ -99,13 +152,8 @@
     }
   },
   "url": {
-    "title": "URL rules preview",
-    "description": "The tool applies the same address rules as CC Switch / Codex and shows the address that will actually be used. The service gateway address is pre-filled; normally there is nothing to change.",
-    "label": "API address",
     "effective": "Effective address",
-    "checking": "Working…",
-    "resetToPreset": "Reset to service gateway address",
-    "ruleLabel": "Rule applied",
+    "warningsLabel": "Note",
     "rule": {
       "already_versioned": "The address already ends in /v1 and is used as-is.",
       "appended_v1": "Only a host was given, so /v1 is appended automatically.",
@@ -113,7 +161,6 @@
       "custom_path": "A custom path is kept as-is. Unless the gateway requires it, switch back to the service gateway address.",
       "invalid": "This is not a valid address. Please check it and try again."
     },
-    "warningsLabel": "Note",
     "warning": {
       "not_https": "The address is not https, so traffic would be unencrypted. Make sure this is what the gateway requires.",
       "trailing_slash_removed": "The trailing slash is removed automatically.",
@@ -129,7 +176,7 @@
       "body": "Terminals that are already open will not see the new configuration — including the built-in terminals of VS Code, Cursor and similar editors. Close them all before moving on to verification.",
       "help": "Why is this needed?"
     },
-    "noWrite": "This tool never edits ~/.codex, ~/.claude or CC Switch configuration files; all configuration is done by you inside CC Switch."
+    "noWrite": "This tool never edits ~/.codex, ~/.claude or CC Switch configuration files; the one-click import merely hands the values to CC Switch, which writes its own configuration after you confirm."
   },
   "footer": {
     "next": "Go to verification"

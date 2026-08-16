@@ -38,6 +38,15 @@
     "too_old": "Operating system version {{version}} is below the minimum; some components may not install",
     "unknown": "Could not identify the operating system version; the other checks continue"
   },
+  "windows_terminal": {
+    "title": "Windows Terminal (recommended)",
+    "ok": "Windows Terminal is installed",
+    "missing": "Windows Terminal was not found. It is not required, but recommended: copy/paste and rendering are much better, which makes the next steps smoother",
+    "not_applicable": "Windows Terminal is not needed on this system; skipped",
+    "instructions": {
+      "install": "Two ways to install it (neither needs administrator rights):\n1. Microsoft Store: open the Store, search for “Windows Terminal” and click “Get”.\n2. Terminal command: open PowerShell and run winget install --id Microsoft.WindowsTerminal -s msstore\nWhen it is installed, come back here and click “Re-check”."
+    }
+  },
   "node": {
     "title": "Node.js",
     "ok": "Node.js {{version}} is installed",

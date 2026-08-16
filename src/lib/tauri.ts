@@ -8,10 +8,14 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AppConfig,
   AppInfo,
+  CcSwitchImportPreview,
+  CcSwitchImportRequest,
   CcSwitchRelease,
   CheckId,
   CheckResult,
+  CodexConfigRequest,
   ConfigGuide,
+  ConnectivityReport,
   DiagnoseRequest,
   Diagnosis,
   DiagnosticReport,
@@ -20,11 +24,13 @@ import type {
   DownloadRequest,
   DownloadResult,
   EnvSnapshot,
+  GatewayProbeRequest,
   InstallJob,
   InstallPlan,
   InstallTarget,
   KeyValidation,
   MirrorChoice,
+  ModelList,
   TelemetryEvent,
   TelemetryStatus,
   TerminalProcess,
@@ -60,6 +66,21 @@ export const getConfigGuide = (tool: ToolId) => invoke<ConfigGuide>("get_config_
 export const validateApiKey = (key: string) => invoke<KeyValidation>("validate_api_key", { key });
 export const previewEffectiveUrl = (url: string) =>
   invoke<UrlPreview>("preview_effective_url", { url });
+/** URL rules + key format + (when both allow it) one live gateway probe. */
+export const testConnectivity = (request: GatewayProbeRequest) =>
+  invoke<ConnectivityReport>("test_connectivity", { request });
+/** `GET {base}/models` with the user's key; `request.model` is ignored. */
+export const listGatewayModels = (request: GatewayProbeRequest) =>
+  invoke<ModelList>("list_gateway_models", { request });
+/** Recommended Codex config.toml (editable template; key placeholder substituted on copy). */
+export const getCodexConfigTemplate = (request: CodexConfigRequest) =>
+  invoke<string>("get_codex_config_template", { request });
+/** Masked `ccswitch://` import link for the confirmation dialog. */
+export const previewCcSwitchImport = (request: CcSwitchImportRequest) =>
+  invoke<CcSwitchImportPreview>("preview_cc_switch_import", { request });
+/** Opens the real `ccswitch://` import link (call only after the user confirmed the preview). */
+export const openCcSwitchImport = (request: CcSwitchImportRequest) =>
+  invoke<void>("open_cc_switch_import", { request });
 
 // M4
 export const verifySetup = (request: VerifyRequest) =>

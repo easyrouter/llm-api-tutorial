@@ -5,6 +5,7 @@
 //!
 //! Sub-modules (one file each):
 //! - `os`        : platform + minimum version (Requirements.os) — Fail below minimum
+//! - `windows_terminal`: recommendation only (Windows) — Warn when missing, Skipped elsewhere
 //! - `node`      : `node --version` >= node_min_version, `npm --version`; distinguishes
 //!                 "not installed" from "installed but not on PATH" (common install dirs)
 //! - `tools`     : per `ToolSpec` (codex, claude-code): binary on PATH → version; else look in
@@ -28,6 +29,8 @@
 //!   tool.ok, tool.missing, tool.not_on_path, tool.broken, tool.not_configured
 //!                                                       (params: tool, toolId, version, path,
 //!                                                        dir, exitCode)
+//!   windows_terminal.ok, windows_terminal.missing, windows_terminal.not_applicable
+//!                                                       (params: path)
 //!   cc_switch.ok, cc_switch.missing, cc_switch.data_only (params: version, path, dataDir)
 //!   env_vars.clean, env_vars.conflicts                  (params: names)
 //!   network.ok, network.mirror_only, network.unreachable (params: target)
@@ -38,7 +41,8 @@
 //!   checks:tool.instructions.not_on_path                (params: tool, dir)
 //!   checks:env_vars.instructions.windows                (params: names)
 //!   checks:env_vars.instructions.macos                  (params: names)
-//! `FixAction::OpenUrl` label codes: node_download, cc_switch_download.
+//! `FixAction::OpenUrl` label codes: node_download, cc_switch_download,
+//! windows_terminal_download.
 
 pub mod cc_switch;
 pub mod env_vars;
@@ -46,6 +50,7 @@ pub mod network;
 pub mod node;
 pub mod os;
 pub mod tools;
+pub mod windows_terminal;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -170,6 +175,7 @@ async fn run_inner(id: CheckId, ctx: &CheckContext) -> (Verdict, Extra) {
     let cfg = &ctx.config;
     match id {
         CheckId::Os => (os::check(&cfg.requirements.os), Extra::None),
+        CheckId::WindowsTerminal => (windows_terminal::check().await, Extra::None),
         CheckId::Node => (
             node::check_node(&cfg.requirements, &cfg.mirrors).await,
             Extra::None,

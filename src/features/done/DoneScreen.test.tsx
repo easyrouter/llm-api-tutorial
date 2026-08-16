@@ -62,7 +62,7 @@ const verifyResult = (tool: ToolId, ok: boolean, version: string | null): Verify
   diagnoses: [],
 });
 
-const row = (name: string) => screen.getByText(name).closest("li") as HTMLElement;
+const row = (tool: ToolId) => document.querySelector(`li[data-tool="${tool}"]`) as HTMLElement;
 
 describe("DoneScreen", () => {
   beforeAll(async () => {
@@ -87,12 +87,12 @@ describe("DoneScreen", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Setup complete" })).toBeInTheDocument();
 
-    const codex = row("Codex CLI");
+    const codex = row("codex");
     expect(within(codex).getByText("Verified · version 0.42.0")).toBeInTheDocument();
     expect(codex).toHaveAttribute("data-outcome", "ok");
     expect(within(codex).queryByRole("button", { name: "Back to Verify" })).toBeNull();
 
-    const claude = row("Claude Code");
+    const claude = row("claude-code");
     expect(within(claude).getByText("Verification did not pass")).toBeInTheDocument();
     expect(claude).toHaveAttribute("data-outcome", "failed");
     fireEvent.click(within(claude).getByRole("button", { name: "Back to Verify" }));
@@ -102,22 +102,38 @@ describe("DoneScreen", () => {
   it("marks tools that were never verified and links back to Verify", () => {
     useWizardStore.setState({ step: "done", selectedTools: ["codex"], verifyResults: {} });
     render(<DoneScreen />);
-    const codex = row("Codex CLI");
+    const codex = row("codex");
     expect(within(codex).getByText("Not verified yet")).toBeInTheDocument();
     expect(within(codex).getByRole("button", { name: "Back to Verify" })).toBeInTheDocument();
   });
 
-  it("shows next steps with the command per tool and the support contact", () => {
+  it("shows the Claude Code launch option with the command and the support contact", () => {
     useWizardStore.setState({ step: "done", selectedTools: ["claude-code"], verifyResults: {} });
     render(<DoneScreen />);
 
-    expect(
-      screen.getByText("Open a new terminal window and run claude to get started."),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("copy-field-value")).toHaveTextContent("claude");
-    fireEvent.click(screen.getByRole("button", { name: /Copy/ }));
+    const claude = screen.getByTestId("launch-claude-code");
+    expect(within(claude).getByTestId("copy-field-value")).toHaveTextContent("claude");
+    fireEvent.click(within(claude).getByRole("button", { name: /Copy/ }));
     expect(mockWriteText).toHaveBeenCalledWith("claude");
+    expect(screen.queryByTestId("launch-codex-cli")).toBeNull();
+    expect(screen.queryByTestId("launch-codex-client")).toBeNull();
     expect(screen.getByText(/contact it-support@acme\.example/)).toBeInTheDocument();
+  });
+
+  it("offers Codex client and Codex CLI when codex was selected", () => {
+    useWizardStore.setState({ step: "done", selectedTools: ["codex"], verifyResults: {} });
+    render(<DoneScreen />);
+
+    const cli = screen.getByTestId("launch-codex-cli");
+    expect(within(cli).getByTestId("copy-field-value")).toHaveTextContent("codex");
+
+    const client = screen.getByTestId("launch-codex-client");
+    fireEvent.click(
+      within(client).getByRole("button", { name: "Open the Codex IDE extension page" }),
+    );
+    expect(mockInvoke).toHaveBeenCalledWith("open_external", {
+      url: "https://developers.openai.com/codex/ide",
+    });
   });
 
   it("start over resets the wizard and the install store; open help opens the FAQ", () => {

@@ -3,7 +3,13 @@ import { beforeAll, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import type { ConfigGuide, GuideStep } from "@/lib/types";
 
-import { guideStepParams, modelHintText, protocolLabel, toolLabel } from "./guide-display";
+import {
+  guideStepParams,
+  liveCopyValue,
+  modelHintText,
+  protocolLabel,
+  toolLabel,
+} from "./guide-display";
 
 const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
 
@@ -72,5 +78,55 @@ describe("guide-display", () => {
     expect(guideStepParams(t, guide(), step({ tool: "something-else" })).tool).toBe(
       "something-else",
     );
+  });
+
+  it("live values win over the step params and the preset", () => {
+    const live = { providerName: " My Gateway ", baseUrl: "https://x.example/v1", model: "gpt-5" };
+    const params = guideStepParams(
+      t,
+      guide(),
+      step({ provider_name: "Service Gateway", base_url: "https://preset.example/v1" }),
+      live,
+    );
+    expect(params.provider_name).toBe("My Gateway");
+    expect(params.base_url).toBe("https://x.example/v1");
+    expect(params.model_hint).toBe("gpt-5");
+    // an emptied live model falls back to the "use your assigned model" text
+    const cleared = guideStepParams(t, guide({ modelHint: "gpt-5" }), step(), {
+      providerName: "",
+      baseUrl: "",
+      model: "  ",
+    });
+    expect(cleared.model_hint).toMatch(/assigned/);
+  });
+
+  it("liveCopyValue overrides the copyable value per step code", () => {
+    const at = (code: string, copyValue: string | null): GuideStep => ({
+      id: code,
+      code,
+      params: {},
+      copyValue,
+      verifyCheck: null,
+    });
+    const live = { providerName: "My Gateway", baseUrl: "https://x.example/v1", model: "gpt-5" };
+    expect(liveCopyValue(at("add_provider", "Service Gateway"), live)).toBe("My Gateway");
+    expect(liveCopyValue(at("paste_base_url", "https://preset.example/v1"), live)).toBe(
+      "https://x.example/v1",
+    );
+    expect(liveCopyValue(at("set_model", null), live)).toBe("gpt-5");
+    expect(
+      liveCopyValue(at("set_model", null), { providerName: "", baseUrl: "", model: " " }),
+    ).toBeNull();
+    // untouched steps and the no-live case keep the Rust value
+    expect(liveCopyValue(at("open_cc_switch", null), live)).toBeNull();
+    expect(liveCopyValue(at("paste_base_url", "keep"), undefined)).toBe("keep");
+    // an emptied live field falls back to the preset copy value
+    expect(
+      liveCopyValue(at("add_provider", "Service Gateway"), {
+        providerName: " ",
+        baseUrl: "",
+        model: "",
+      }),
+    ).toBe("Service Gateway");
   });
 });

@@ -19,6 +19,7 @@ import { onCheckProgress } from "@/lib/events";
 import { toWireError } from "@/lib/errors";
 import { diagnose, runEnvCheck, runEnvChecks, trackEvent } from "@/lib/tauri";
 import type { CheckId, CheckStatus, EnvSnapshot, InstallTarget } from "@/lib/types";
+import { useAppStore } from "@/stores/app";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
 
@@ -113,8 +114,9 @@ export function EnvCheckScreen() {
   const back = useWizardStore((s) => s.back);
   const requestInstall = useInstallStore((s) => s.request);
 
+  const platform = useAppStore((s) => s.info?.platform ?? null);
   const [state, dispatch] = useReducer(envCheckReducer, initialEnvCheckState);
-  const ids = useMemo(() => visibleCheckIds(selectedTools), [selectedTools]);
+  const ids = useMemo(() => visibleCheckIds(selectedTools, platform), [selectedTools, platform]);
   const summary = summarize(state, ids);
   const gate = nextGate(state, ids);
   const running = state.phase === "running";

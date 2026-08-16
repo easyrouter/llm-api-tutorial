@@ -82,17 +82,22 @@ export function WelcomeScreen() {
       </div>
 
       <Card title={t("welcome.selectTools")}>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-x-8 gap-y-4">
           {ALL_TOOLS.map((id) => (
-            <label key={id} className="inline-flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="accent-brand-600 size-4"
-                checked={selected.includes(id)}
-                onChange={() => toggleTool(id)}
-              />
-              {t(`tools.${id}`)}
-            </label>
+            <div key={id} className="space-y-1">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-brand-600 size-4"
+                  checked={selected.includes(id)}
+                  onChange={() => toggleTool(id)}
+                />
+                {t(`tools.${id}`)}
+              </label>
+              {id === "codex" && (
+                <p className="pl-6 text-xs text-neutral-500">{t("welcome.codexClientHint")}</p>
+              )}
+            </div>
           ))}
         </div>
       </Card>

@@ -69,11 +69,12 @@
     },
     "whatWeDont": "What this tool never does",
     "whatWeDontItems": {
-      "noConfigWrite": "It never edits ~/.codex, ~/.claude or CC Switch configuration files",
+      "noConfigWrite": "It never edits ~/.codex, ~/.claude or CC Switch configuration files (the one-click import is confirmed and written by CC Switch itself)",
       "noEnvEdit": "It never changes your system environment variables (conflicts are reported for you to fix)",
-      "noKeyStorage": "It never stores or uploads your API key (the connectivity test uses it once, in memory)"
+      "noKeyStorage": "It never stores or uploads your API key (used in memory for connectivity tests, or handed to CC Switch after you confirm the import)"
     },
     "selectTools": "Tools to set up",
+    "codexClientHint": "Also covers the Codex client / IDE extension — it shares the same configuration as Codex CLI",
     "telemetryNotice": "To help IT improve the process, the tool can report anonymous step success rates and durations (no keys, URLs or personal data).",
     "telemetryOptIn": "Allow anonymous usage statistics",
     "start": "Start checks"
@@ -83,7 +84,24 @@
     "summary": "Setup summary",
     "nextSteps": "Next steps",
     "openTerminalHint": "Open a new terminal window and run {{command}} to get started.",
-    "helpHint": "If anything goes wrong later, run this tool again and use the diagnosis in the “Verify” step, or contact {{contact}}."
+    "helpHint": "If anything goes wrong later, run this tool again and use the diagnosis in the “Verify” step, or contact {{contact}}.",
+    "launch": {
+      "title": "What to use next?",
+      "description": "The provider you just configured works in all of these — pick one to get started.",
+      "codexClient": {
+        "name": "Codex client / IDE extension",
+        "body": "Open the Codex extension in VS Code (or the Codex desktop app) — it shares the freshly configured ~/.codex with Codex CLI.",
+        "open": "Open the Codex IDE extension page"
+      },
+      "codexCli": {
+        "name": "Codex CLI",
+        "body": "Open a new terminal window and run the command below."
+      },
+      "claudeCode": {
+        "name": "Claude Code",
+        "body": "Open a new terminal window and run the command below."
+      }
+    }
   },
   "errors": {
     "title": "Something went wrong",
@@ -111,6 +129,7 @@
     "labels": {
       "node_download": "Node.js download page",
       "cc_switch_download": "CC Switch download page",
+      "windows_terminal_download": "Windows Terminal download page",
       "docs": "Help documentation"
     }
   },
