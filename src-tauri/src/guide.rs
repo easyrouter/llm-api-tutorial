@@ -483,6 +483,11 @@ pub(crate) fn auto_compact_scope_key(scope: AutoCompactScope) -> &'static str {
     }
 }
 
+/// Upper-case hex digits for the `\uXXXX` escape below.
+const HEX_DIGITS: [char; 16] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+];
+
 /// TOML basic string with the required escapes. Pure.
 fn toml_quote(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
@@ -495,7 +500,11 @@ fn toml_quote(s: &str) -> String {
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
             c if (c as u32) < 0x20 => {
-                out.push_str(&format!("\\u{:04X}", c as u32));
+                // Only C0 controls reach this arm, so the two high nibbles are always zero.
+                let code = c as u32;
+                out.push_str("\\u00");
+                out.push(HEX_DIGITS[((code >> 4) & 0xF) as usize]);
+                out.push(HEX_DIGITS[(code & 0xF) as usize]);
             }
             c => out.push(c),
         }
@@ -529,52 +538,45 @@ pub fn codex_config_template(req: &CodexConfigRequest, config: &AppConfig) -> St
     let effort = req.reasoning_effort.trim();
     let scope = auto_compact_scope_key(req.auto_compact_scope);
 
-    let mut out = String::new();
+    // Collected one entry per line (an empty entry is a blank line) and joined at the end:
+    // pushing `format!` results onto a `String` is denied by clippy::format_push_string.
+    let mut lines: Vec<String> = Vec::new();
     if !model.is_empty() {
-        out.push_str(&format!("model = {}\n", toml_quote(model)));
+        lines.push(format!("model = {}", toml_quote(model)));
     }
-    out.push_str(&format!(
-        "model_provider = {}\n",
+    lines.push(format!(
+        "model_provider = {}",
         toml_quote(CODEX_PROVIDER_ID)
     ));
     if !effort.is_empty() {
-        out.push_str(&format!(
-            "model_reasoning_effort = {}\n",
-            toml_quote(effort)
-        ));
+        lines.push(format!("model_reasoning_effort = {}", toml_quote(effort)));
     }
-    out.push_str(&format!(
-        "sandbox_mode = {}\n",
-        toml_quote(CODEX_SANDBOX_MODE)
+    lines.push(format!("sandbox_mode = {}", toml_quote(CODEX_SANDBOX_MODE)));
+    lines.push(format!(
+        "model_context_window = {CODEX_MODEL_CONTEXT_WINDOW}"
     ));
-    out.push_str(&format!(
-        "model_context_window = {CODEX_MODEL_CONTEXT_WINDOW}\n"
+    lines.push(format!(
+        "model_auto_compact_token_limit = {CODEX_AUTO_COMPACT_TOKEN_LIMIT}"
     ));
-    out.push_str(&format!(
-        "model_auto_compact_token_limit = {CODEX_AUTO_COMPACT_TOKEN_LIMIT}\n"
-    ));
-    out.push_str(&format!(
-        "model_auto_compact_token_limit_scope = {}\n",
+    lines.push(format!(
+        "model_auto_compact_token_limit_scope = {}",
         toml_quote(scope)
     ));
-    out.push('\n');
-    out.push_str(&format!(
-        "service_tier = {}\n",
-        toml_quote(CODEX_SERVICE_TIER)
-    ));
-    out.push('\n');
-    out.push_str(&format!("[model_providers.{CODEX_PROVIDER_ID}]\n"));
+    lines.push(String::new());
+    lines.push(format!("service_tier = {}", toml_quote(CODEX_SERVICE_TIER)));
+    lines.push(String::new());
+    lines.push(format!("[model_providers.{CODEX_PROVIDER_ID}]"));
     if !name.is_empty() {
-        out.push_str(&format!("name = {}\n", toml_quote(name)));
+        lines.push(format!("name = {}", toml_quote(name)));
     }
-    out.push_str(&format!("base_url = {}\n", toml_quote(&base_url)));
-    out.push_str("wire_api = \"responses\"\n");
-    out.push_str("requires_openai_auth = true\n");
-    out.push_str(&format!(
-        "experimental_bearer_token = {}\n",
+    lines.push(format!("base_url = {}", toml_quote(&base_url)));
+    lines.push("wire_api = \"responses\"".to_owned());
+    lines.push("requires_openai_auth = true".to_owned());
+    lines.push(format!(
+        "experimental_bearer_token = {}",
         toml_quote(CODEX_CONFIG_KEY_PLACEHOLDER)
     ));
-    out
+    format!("{}\n", lines.join("\n"))
 }
 
 #[cfg(test)]
