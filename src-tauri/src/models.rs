@@ -633,6 +633,67 @@ pub struct CodexConfigRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Optional Codex Fast UI toolkit — Windows only (ADR-0007)
+// ---------------------------------------------------------------------------
+
+/// What the optional toolkit should do to the independent patched copy of the Codex client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FastUiAction {
+    /// Build (or rebuild) the patched copy from the officially installed Codex client.
+    Install,
+    /// Re-check that an existing copy still carries exactly the expected patch.
+    Verify,
+    /// Put the official `app.asar` back into the copy.
+    Restore,
+}
+
+/// Availability of the optional toolkit on this machine (`fast_ui::status`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FastUiStatus {
+    /// Windows only; `false` everywhere else, and then nothing below matters.
+    pub supported: bool,
+    pub toolkit_version: String,
+    /// Codex build the toolkit was tested against; shown as a caveat.
+    pub tested_codex_build: String,
+    /// The bundled archive is present and matches its pinned SHA-256.
+    pub toolkit_available: bool,
+    pub codex_app_found: bool,
+    /// Install location of the official client (empty when not found).
+    pub codex_app_path: String,
+    pub installed: bool,
+    pub install_root: String,
+    pub shortcut_path: String,
+    /// i18n code explaining why installing cannot run now; `None` when it can.
+    pub blocked_code: Option<String>,
+}
+
+/// Show-before-run plan for one toolkit action (hard rule 4).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FastUiPlan {
+    pub action: FastUiAction,
+    /// The exact command; `fast_ui::start` refuses anything that differs from it.
+    pub display_command: String,
+    pub install_root: String,
+    pub shortcut_path: String,
+    pub toolkit_version: String,
+    pub toolkit_sha256: String,
+    /// `true` when an existing copy is replaced (the toolkit backs the previous one up).
+    pub reinstall: bool,
+}
+
+/// Handle of a running toolkit job; output arrives on `fastui://output`, the outcome on
+/// `fastui://done` (both carry the `InstallOutputEvent` / `InstallDoneEvent` shapes).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FastUiJob {
+    pub job_id: String,
+    pub action: FastUiAction,
+}
+
+// ---------------------------------------------------------------------------
 // M4 — verification
 // ---------------------------------------------------------------------------
 

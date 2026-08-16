@@ -9,3 +9,7 @@ pub const INSTALL_DONE: &str = "install://done";
 pub const DOWNLOAD_PROGRESS: &str = "download://progress";
 /// `CheckResult` — an individual environment check completed (streamed while `run_env_checks` runs).
 pub const CHECK_PROGRESS: &str = "checks://progress";
+/// `InstallOutputEvent` — one line from the optional Codex Fast UI toolkit (ADR-0007).
+pub const FAST_UI_OUTPUT: &str = "fastui://output";
+/// `InstallDoneEvent` — a Codex Fast UI toolkit job finished.
+pub const FAST_UI_DONE: &str = "fastui://done";

@@ -10,6 +10,7 @@ import { useAppStore } from "@/stores/app";
 
 import { CcSwitchImportCard } from "./CcSwitchImportCard";
 import { CodexConfigCard } from "./CodexConfigCard";
+import { CodexFastUiCard } from "./CodexFastUiCard";
 import { GuideStepList } from "./GuideStepList";
 import { ProviderValuesCard } from "./ProviderValuesCard";
 
@@ -99,6 +100,8 @@ function LoadedGuide({ guide }: { guide: ConfigGuide }) {
         probe={{ baseUrl, apiKey, protocol }}
         onPickModel={setModel}
       />
+      {/* Windows-only; the card renders nothing elsewhere (ADR-0007). */}
+      {guide.tool === "codex" && <CodexFastUiCard />}
     </div>
   );
 }

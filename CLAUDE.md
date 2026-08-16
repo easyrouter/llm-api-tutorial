@@ -30,6 +30,7 @@ src-tauri/src/
   platform.rs     OS/PATH introspection                            process.rs    ALL child-process execution
   net.rs          probes, mirror choice, verified downloads       redact.rs     secret redaction (use it everywhere)
   checks/  M1     install/  M2     guide.rs  M3     verify.rs  M4     diagnose/  M5     docs/  M6     telemetry.rs
+  fast_ui.rs      optional Codex Fast UI toolkit (Windows only, opt-in — ADR-0007)
 src/
   lib/types.ts    IPC DTOs  <-- mirror of models.rs               lib/tauri.ts  typed invoke wrappers (only place invoke is called)
   lib/events.ts   event channel names + typed listeners           stores/       zustand (wizard, app)
@@ -52,12 +53,16 @@ src-tauri/resources/app-config.json     company preset (gateway URL, mirrors, do
    (ADR-0006). Every string shown/logged/reported goes through
    `redact::redact_secrets`; known secrets are masked with `redact::mask_value`.
 4. **Show before run**: any command executed on the user's machine is displayed
-   (`InstallPlan.display_command`) and confirmed by the user first. No silent elevation (PRD #7).
+   (`InstallPlan.display_command`, `FastUiPlan.display_command`) and confirmed by the user first.
+   No silent elevation (PRD #7). Both plans are re-derived server-side and compared before the
+   command runs, so a tampered webview cannot substitute a different one.
 5. **Bilingual by construction**: Rust returns _codes_ + params, never prose. Every user-facing
    string lives in both `zh-CN` and `en` locale files (`npm run i18n:check` enforces parity).
 6. **All process execution** goes through `process.rs` (timeouts, no console window on Windows).
    All HTTP goes through the shared `reqwest::Client` in `AppState` (rustls, proxy-aware).
 7. **Downloads** must be https and, when a hash is available, SHA-256 verified before hand-off.
+   Bundled third-party payloads follow the same rule offline: the Codex Fast UI archive is pinned
+   by `fast_ui::TOOLKIT_SHA256` and re-verified before every extraction (ADR-0007).
 8. Rust `[lints]`: `unwrap_used`, `expect_used`, `print_*`, `dbg_macro` are **denied** outside tests.
 
 ## Conventions

@@ -16,15 +16,16 @@ use crate::checks::{self, CheckContext};
 use crate::diagnose::{self, report};
 use crate::docs::{self, DocsContext};
 use crate::error::{AppError, AppResult};
+use crate::fast_ui;
 use crate::guide;
 use crate::install;
 use crate::models::{
     AppConfig, AppInfo, CcSwitchImportPreview, CcSwitchImportRequest, CcSwitchRelease, CheckId,
     CheckResult, CodexConfigRequest, ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis,
     DiagnosticReport, DocPage, DocsIndex, DownloadRequest, DownloadResult, EnvSnapshot,
-    GatewayProbeRequest, InstallJob, InstallPlan, InstallTarget, KeyValidation, MirrorChoice,
-    ModelList, TelemetryEvent, TelemetryStatus, TerminalProcess, ToolId, UrlPreview, UrlRule,
-    VerifyRequest, VerifyResult,
+    FastUiAction, FastUiJob, FastUiPlan, FastUiStatus, GatewayProbeRequest, InstallJob, InstallPlan,
+    InstallTarget, KeyValidation, MirrorChoice, ModelList, TelemetryEvent, TelemetryStatus,
+    TerminalProcess, ToolId, UrlPreview, UrlRule, VerifyRequest, VerifyResult,
 };
 use crate::platform::expand_tilde;
 use crate::state::AppState;
@@ -326,6 +327,34 @@ pub fn open_cc_switch_import(
                 &request.api_key,
             )))
         })
+}
+
+// ---------------------------------------------------------------------------
+// Optional Codex Fast UI toolkit — Windows only (ADR-0007)
+// ---------------------------------------------------------------------------
+
+/// Whether the optional toolkit can run here, and whether it already did.
+#[tauri::command]
+pub async fn codex_fast_ui_status(app: AppHandle) -> AppResult<FastUiStatus> {
+    fast_ui::status(&app).await
+}
+
+/// The exact command the UI must show and the user must confirm before `start_codex_fast_ui`.
+#[tauri::command]
+pub async fn plan_codex_fast_ui(app: AppHandle, action: FastUiAction) -> AppResult<FastUiPlan> {
+    fast_ui::plan(&app, action).await
+}
+
+/// Runs a confirmed toolkit plan; output streams on `fastui://output`. `fast_ui::start`
+/// re-derives the plan and refuses anything that differs from what was shown.
+#[tauri::command]
+pub async fn start_codex_fast_ui(
+    app: AppHandle,
+    plan: FastUiPlan,
+    state: State<'_, AppState>,
+) -> AppResult<FastUiJob> {
+    let jobs = state.jobs.clone();
+    fast_ui::start(app, &jobs, plan).await
 }
 
 // ---------------------------------------------------------------------------

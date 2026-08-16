@@ -16,6 +16,8 @@ export const EVENTS = {
   installDone: "install://done",
   downloadProgress: "download://progress",
   checkProgress: "checks://progress",
+  fastUiOutput: "fastui://output",
+  fastUiDone: "fastui://done",
 } as const;
 
 export const onInstallOutput = (cb: (e: InstallOutputEvent) => void): Promise<UnlistenFn> =>
@@ -29,3 +31,10 @@ export const onDownloadProgress = (cb: (e: DownloadProgressEvent) => void): Prom
 
 export const onCheckProgress = (cb: (e: CheckResult) => void): Promise<UnlistenFn> =>
   listen<CheckResult>(EVENTS.checkProgress, (ev) => cb(ev.payload));
+
+/** Codex Fast UI toolkit output — same payload shape as the install channels (ADR-0007). */
+export const onFastUiOutput = (cb: (e: InstallOutputEvent) => void): Promise<UnlistenFn> =>
+  listen<InstallOutputEvent>(EVENTS.fastUiOutput, (ev) => cb(ev.payload));
+
+export const onFastUiDone = (cb: (e: InstallDoneEvent) => void): Promise<UnlistenFn> =>
+  listen<InstallDoneEvent>(EVENTS.fastUiDone, (ev) => cb(ev.payload));

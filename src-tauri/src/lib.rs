@@ -26,6 +26,7 @@ pub mod diagnose;
 pub mod docs;
 pub mod error;
 pub mod events;
+pub mod fast_ui;
 pub mod guide;
 pub mod install;
 pub mod models;
@@ -92,6 +93,10 @@ pub fn run() {
             commands::get_codex_config_template,
             commands::preview_cc_switch_import,
             commands::open_cc_switch_import,
+            // optional Codex Fast UI toolkit (Windows, ADR-0007)
+            commands::codex_fast_ui_status,
+            commands::plan_codex_fast_ui,
+            commands::start_codex_fast_ui,
             // M4
             commands::verify_setup,
             commands::list_running_terminals,

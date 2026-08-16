@@ -71,6 +71,39 @@
     "regenerate": "Restore generated template",
     "loading": "Generating the template…"
   },
+  "fastui": {
+    "title": "Codex client speed option without signing in (optional, Windows)",
+    "description": "If you cannot sign in with a ChatGPT account, the Codex client hides its speed / tier option, even though the service gateway supports the priority tier. This tool from IT builds a separate copy of your installed Codex client with that one option unlocked. Your official installation is not modified and keeps working next to the copy, which gets its own shortcut and its own data directory.",
+    "caveatTitle": "Please read before using",
+    "caveat": "This is an unofficial modification of the Codex client and is not supported by OpenAI. It is tested against {{build}} (toolkit {{version}}); on a newer Codex version the patcher stops instead of guessing, and you may need an updated toolkit from IT. Prefer the “Sign in with your ChatGPT account” step above whenever that is possible for you.",
+    "action": {
+      "install": "Create the patched copy",
+      "reinstall": "Rebuild the patched copy",
+      "verify": "Check the copy",
+      "restore": "Undo the patch"
+    },
+    "reversible": "Everything happens inside your own user folder. “Undo the patch” restores the copy's original files, and deleting the folder removes it completely.",
+    "installedAt": "Ready. Start it from: {{path}}",
+    "commandLabel": "Command that will run",
+    "integrity": "The bundled toolkit is checked against SHA-256 {{sha256}} before it runs.",
+    "confirmTitle": "Run this command?",
+    "confirm": {
+      "install": "Your official Codex client is copied to your user folder and the copy's interface files are patched. This takes a few minutes and needs a few gigabytes of free disk space. The installed Codex client is not touched.",
+      "verify": "Re-checks the existing copy: that it still carries exactly the expected change, that its files are valid, and that it uses its own data directory.",
+      "restore": "Puts the original files back into the copy, so it behaves like the official client again."
+    },
+    "confirmAction": "Run",
+    "reinstallNote": "A copy already exists. It is backed up and rebuilt from your current Codex client — close the copy first if it is running.",
+    "starting": "Starting…",
+    "succeeded": "Finished. Close and reopen the copy for the change to take effect.",
+    "failed": "Did not finish. The output above shows why; you can retry or ask IT for an updated toolkit.",
+    "blocked": {
+      "not_windows": "This option is only available on Windows.",
+      "toolkit_missing": "The toolkit is not bundled with this build, or its integrity check failed. Please ask IT.",
+      "codex_app_missing": "The official Codex client was not found. Install it first, start it once, then come back.",
+      "not_installed": "There is no patched copy yet — create one first."
+    }
+  },
   "models": {
     "fetch": "Fetch model list from the gateway",
     "fetching": "Fetching…",

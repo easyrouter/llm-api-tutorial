@@ -394,6 +394,49 @@ export interface CodexConfigRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Optional Codex Fast UI toolkit — Windows only (ADR-0007)
+// ---------------------------------------------------------------------------
+
+/** What the optional toolkit does to the independent patched copy of the Codex client. */
+export type FastUiAction = "install" | "verify" | "restore";
+
+/** Availability of the optional toolkit on this machine. */
+export interface FastUiStatus {
+  /** Windows only; when false nothing below matters. */
+  supported: boolean;
+  toolkitVersion: string;
+  /** Codex build the toolkit was tested against; shown as a caveat. */
+  testedCodexBuild: string;
+  /** The bundled archive is present and matches its pinned SHA-256. */
+  toolkitAvailable: boolean;
+  codexAppFound: boolean;
+  codexAppPath: string;
+  installed: boolean;
+  installRoot: string;
+  shortcutPath: string;
+  /** Fully qualified i18n code (`guide:fastui.blocked.*`), null when installing can run. */
+  blockedCode: string | null;
+}
+
+/** Show-before-run plan for one toolkit action. */
+export interface FastUiPlan {
+  action: FastUiAction;
+  displayCommand: string;
+  installRoot: string;
+  shortcutPath: string;
+  toolkitVersion: string;
+  toolkitSha256: string;
+  /** An existing copy will be replaced (the toolkit backs the previous one up). */
+  reinstall: boolean;
+}
+
+/** Handle of a running toolkit job; output arrives on `fastui://output`. */
+export interface FastUiJob {
+  jobId: string;
+  action: FastUiAction;
+}
+
+// ---------------------------------------------------------------------------
 // M4 — verify
 // ---------------------------------------------------------------------------
 

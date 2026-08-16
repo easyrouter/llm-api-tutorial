@@ -24,6 +24,10 @@ import type {
   DownloadRequest,
   DownloadResult,
   EnvSnapshot,
+  FastUiAction,
+  FastUiJob,
+  FastUiPlan,
+  FastUiStatus,
   GatewayProbeRequest,
   InstallJob,
   InstallPlan,
@@ -81,6 +85,14 @@ export const previewCcSwitchImport = (request: CcSwitchImportRequest) =>
 /** Opens the real `ccswitch://` import link (call only after the user confirmed the preview). */
 export const openCcSwitchImport = (request: CcSwitchImportRequest) =>
   invoke<void>("open_cc_switch_import", { request });
+
+// Optional Codex Fast UI toolkit (Windows only — ADR-0007)
+export const codexFastUiStatus = () => invoke<FastUiStatus>("codex_fast_ui_status");
+/** The command to show the user; `startCodexFastUi` refuses anything that differs from it. */
+export const planCodexFastUi = (action: FastUiAction) =>
+  invoke<FastUiPlan>("plan_codex_fast_ui", { action });
+export const startCodexFastUi = (plan: FastUiPlan) =>
+  invoke<FastUiJob>("start_codex_fast_ui", { plan });
 
 // M4
 export const verifySetup = (request: VerifyRequest) =>

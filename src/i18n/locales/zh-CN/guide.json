@@ -71,6 +71,39 @@
     "regenerate": "恢复为生成的模板",
     "loading": "正在生成模板…"
   },
+  "fastui": {
+    "title": "未登录时启用 Codex 客户端的速度选项（可选，仅 Windows）",
+    "description": "如果无法登录 ChatGPT 账号，Codex 客户端不会显示速度 / 档位选项——即使服务网关本身支持 priority 档。IT 提供的这个工具会用你已安装的 Codex 客户端复制出一份独立副本，并在副本上解锁这个选项。官方安装的版本不会被改动，仍可正常使用；副本有自己的快捷方式和独立的数据目录。",
+    "caveatTitle": "使用前请先了解",
+    "caveat": "这是对 Codex 客户端的非官方修改，OpenAI 不提供支持。已测试版本为 {{build}}（工具包 {{version}}）；遇到更新的 Codex 版本时，补丁器会直接停止而不会盲目改动，届时需要 IT 提供新版工具包。如果你能正常登录，请优先使用上面的「登录 ChatGPT 账号」步骤。",
+    "action": {
+      "install": "创建补丁副本",
+      "reinstall": "重新生成补丁副本",
+      "verify": "检查副本",
+      "restore": "撤销补丁"
+    },
+    "reversible": "全部操作都在你自己的用户目录内进行。「撤销补丁」会把副本恢复成原始文件，直接删除该目录即可彻底移除。",
+    "installedAt": "已就绪，可从这里启动：{{path}}",
+    "commandLabel": "将要执行的命令",
+    "integrity": "运行前会校验内置工具包的 SHA-256：{{sha256}}。",
+    "confirmTitle": "执行这条命令？",
+    "confirm": {
+      "install": "会把官方 Codex 客户端复制到你的用户目录，并对副本的界面文件打补丁。需要几分钟时间和数 GB 可用磁盘空间。已安装的 Codex 客户端不会被改动。",
+      "verify": "重新检查现有副本：补丁是否仍是预期的那一处、文件是否有效、是否使用独立数据目录。",
+      "restore": "把原始文件放回副本，使其恢复成与官方客户端一致的行为。"
+    },
+    "confirmAction": "执行",
+    "reinstallNote": "副本已存在。系统会先备份，再用当前的 Codex 客户端重新生成——如果副本正在运行，请先完全退出。",
+    "starting": "正在启动…",
+    "succeeded": "已完成。请关闭并重新打开副本，改动才会生效。",
+    "failed": "未能完成。上面的输出说明了原因，可以重试，或联系 IT 获取新版工具包。",
+    "blocked": {
+      "not_windows": "该功能仅在 Windows 上可用。",
+      "toolkit_missing": "当前版本没有内置该工具包，或完整性校验未通过，请联系 IT。",
+      "codex_app_missing": "没有找到官方 Codex 客户端。请先安装并至少启动一次，然后回到这里。",
+      "not_installed": "还没有补丁副本，请先创建一个。"
+    }
+  },
   "models": {
     "fetch": "从网关获取模型列表",
     "fetching": "获取中…",
