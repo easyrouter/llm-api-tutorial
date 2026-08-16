@@ -58,12 +58,26 @@ these variables up front. A skipped step leaves a variable genuinely **undefined
 declaring it would leave it defined-but-empty — and an empty `APPLE_SIGNING_IDENTITY` makes the
 bundler attempt to sign with an empty identity instead of skipping.
 
-Caveat for procurement: this wiring assumes an exportable `.pfx`/`.p12`. Since June 2023 the
-CA/Browser Forum requires Windows OV/EV code-signing keys to live on FIPS-140-2 hardware
-(hardware token, or a cloud service such as Azure Trusted Signing / DigiCert KeyLocker /
-SSL.com eSigner), and those cannot produce a `.pfx`. If IT procures one of those, the Windows
-step must be swapped for `bundle.windows.signCommand` invoking the vendor's signing tool; the
-macOS side and everything else is unaffected. Settle this in Q-12 **before** buying.
+### TBD before purchase — Windows key form (Q-12a)
+
+The Windows wiring above assumes an **exportable `.pfx`**. That assumption may not survive
+procurement, so settle it before money is spent:
+
+- Since June 2023 the CA/Browser Forum requires Windows OV/EV code-signing private keys to live
+  on FIPS-140-2 hardware — a hardware token, or a cloud signing service (Azure Trusted Signing,
+  DigiCert KeyLocker, SSL.com eSigner). **None of those can hand you a `.pfx`.**
+- If IT procures a hardware/cloud key, the _Prepare Windows code signing_ step must be replaced
+  by `bundle.windows.signCommand` invoking the vendor's signing tool. The guard pattern, the
+  release-note composition and the whole macOS side are unaffected.
+- Also decide **OV vs EV**: an OV certificate still has to accumulate SmartScreen reputation, so
+  early users keep seeing the warning the signing was bought to remove; EV is trusted on first
+  download. For intranet-only distribution OV is usually enough.
+
+Until this is answered, treat the Windows half of the table above as provisional.
+
+A third option worth pricing against the others for an intranet-only tool: skip the public CA,
+issue an internal certificate and deploy its root to domain machines by GPO. Zero recurring cost
+and no SmartScreen reputation problem on managed machines, but useless for anyone off the domain.
 
 Certificates never enter the repository. `ci.yml` bundles stay unsigned on purpose — they are
 smoke tests, and cloud signing services bill per signature.
