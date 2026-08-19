@@ -15,6 +15,7 @@ npm run test                # vitest (jsdom)
 npm run rust:test           # cargo test in src-tauri
 npm run rust:clippy         # clippy with -D warnings (pedantic enabled — see Cargo.toml [lints])
 npm run i18n:check          # locale parity with zh-CN + every Rust code has a translation (scripts/check-codes.mjs)
+npm run nsis:check          # src-tauri/nsis/hooks.nsh registry paths match tauri.conf.json (product name / publisher)
 npm run tauri build         # produce installers (nsis / dmg)
 ```
 
@@ -36,6 +37,7 @@ src/
   features/<step>/ one folder per wizard step + help              components/   layout + ui primitives
   i18n/locales/<lang>/<namespace>.json   namespaces: common checks install guide verify diagnose help
 src-tauri/resources/app-config.json     company preset (gateway URL, mirrors, docs site, telemetry endpoint)
+src-tauri/nsis/hooks.nsh                NSIS installer hooks (legacy-publisher upgrade fix); literal paths checked by nsis:check
 ```
 
 ## Hard rules (from PRD answers; violating these is a bug, not a style issue)
