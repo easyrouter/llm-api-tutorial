@@ -41,20 +41,18 @@ export function CheckRow({ id, status, result, error, onRerun, onInstall }: Chec
     <li
       data-check-id={id}
       data-status={status}
-      className="flex gap-4 border-b border-neutral-200 py-4 last:border-b-0 dark:border-neutral-800"
+      className="border-b border-neutral-200 py-4 last:border-b-0 dark:border-neutral-800"
     >
-      <div className="w-28 shrink-0 pt-0.5">
-        <StatusBadge status={status} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <StatusBadge status={status} className="shrink-0" />
+        <h3 className="min-w-0 flex-1 text-sm font-semibold">{t(`checks:${id}.title`)}</h3>
+        {result && !busy && (
+          <span className="text-xs text-neutral-500">
+            {t("checks:screen.duration", { duration: formatDuration(result.durationMs) })}
+          </span>
+        )}
       </div>
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h3 className="text-sm font-semibold">{t(`checks:${id}.title`)}</h3>
-          {result && !busy && (
-            <span className="text-xs text-neutral-500">
-              {t("checks:screen.duration", { duration: formatDuration(result.durationMs) })}
-            </span>
-          )}
-        </div>
+      <div className="mt-2 min-w-0 space-y-2">
         {result && !busy && (
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             {checkMessage(t, result)}

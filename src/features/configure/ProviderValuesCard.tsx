@@ -233,19 +233,24 @@ function EditableRow({
 
   if (!editing) {
     return (
-      <div className="flex items-end gap-2" data-testid={`row-${testId}`}>
-        <div className="min-w-0 flex-1">
-          <CopyField label={label} value={value} mono={mono} hint={hint} />
-        </div>
-        <Button
-          variant="secondary"
-          onClick={() => setEditing(true)}
-          leftIcon={<Pencil className="size-4" aria-hidden />}
-          data-testid={`edit-${testId}`}
-          className={cn("shrink-0", hint ? "mb-6" : undefined)}
-        >
-          {t("guide:values.edit")}
-        </Button>
+      <div data-testid={`row-${testId}`}>
+        <CopyField
+          label={label}
+          value={value}
+          mono={mono}
+          hint={hint}
+          actions={
+            <Button
+              variant="secondary"
+              onClick={() => setEditing(true)}
+              leftIcon={<Pencil className="size-4" aria-hidden />}
+              data-testid={`edit-${testId}`}
+              className="shrink-0"
+            >
+              {t("guide:values.edit")}
+            </Button>
+          }
+        />
       </div>
     );
   }

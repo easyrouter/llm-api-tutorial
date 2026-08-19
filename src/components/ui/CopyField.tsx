@@ -18,6 +18,8 @@ export interface CopyFieldProps {
   secret?: boolean;
   /** Extra hint rendered under the value (e.g. where to paste it). */
   hint?: ReactNode;
+  /** Extra buttons rendered after Copy, in the same row as the value (so they stay aligned). */
+  actions?: ReactNode;
   className?: string;
 }
 
@@ -31,6 +33,7 @@ export function CopyField({
   mono = true,
   secret = false,
   hint,
+  actions,
   className,
 }: CopyFieldProps) {
   const { t } = useTranslation();
@@ -45,14 +48,14 @@ export function CopyField({
           {label}
         </div>
       )}
-      <div className="flex items-stretch gap-2">
+      <div className="flex items-start gap-2">
         <div
           aria-labelledby={label ? id : undefined}
           aria-describedby={secret ? `${id}-secret` : undefined}
           data-selectable
           data-testid="copy-field-value"
           className={cn(
-            "flex min-w-0 flex-1 items-center rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm break-all text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100",
+            "flex min-h-10 min-w-0 flex-1 items-center rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm break-all text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100",
             mono && "font-mono",
           )}
         >
@@ -72,6 +75,7 @@ export function CopyField({
         >
           {copied ? t("actions.copied") : t("actions.copy")}
         </Button>
+        {actions}
       </div>
       {secret && (
         <p id={`${id}-secret`} className="text-xs text-neutral-500">

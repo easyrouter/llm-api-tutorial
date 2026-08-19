@@ -1,7 +1,7 @@
 {
   "name": "seedrouter-onboarding",
   "private": true,
-  "version": "0.1.0-test.3-patched",
+  "version": "0.1.0-test.4-patched",
   "description": "Codex / Claude Code onboarding assistant (Tauri 2 + React) — guided environment check, install, CC Switch configuration walkthrough, verification and auto-diagnosis.",
   "type": "module",
   "engines": {
@@ -20,11 +20,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "i18n:check": "node scripts/check-i18n.mjs && node scripts/check-codes.mjs",
+    "nsis:check": "node scripts/check-nsis-hooks.mjs",
     "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --all",
     "rust:fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
     "rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run i18n:check && npm run test && npm run rust:fmt:check && npm run rust:clippy && npm run rust:test",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run i18n:check && npm run nsis:check && npm run test && npm run rust:fmt:check && npm run rust:clippy && npm run rust:test",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
