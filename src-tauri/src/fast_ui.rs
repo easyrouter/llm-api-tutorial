@@ -37,19 +37,19 @@ use crate::models::{
 };
 use crate::process::{self, CommandSpec};
 use crate::redact::redact_secrets;
-use crate::{net, platform};
+use crate::{checks, net, platform};
 
 /// Archive shipped as `resources/codex-fast-ui/<name>` (see `tauri.conf.json`).
-pub const TOOLKIT_ARCHIVE: &str = "CodexFastUI-Minimal-2026.07.30.zip";
+pub const TOOLKIT_ARCHIVE: &str = "CodexFastUI-Minimal-2026.08.19.zip";
 /// Top-level directory inside the archive.
-pub const TOOLKIT_DIR_NAME: &str = "CodexFastUI-Minimal-2026.07.30";
+pub const TOOLKIT_DIR_NAME: &str = "CodexFastUI-Minimal-2026.08.19";
 /// Toolkit version as the toolkit itself reports it (`patch-install.json` → `toolkitVersion`).
-pub const TOOLKIT_VERSION: &str = "2026.07.30-minimal";
+pub const TOOLKIT_VERSION: &str = "2026.08.19-minimal";
 /// SHA-256 of [`TOOLKIT_ARCHIVE`]. Replacing the toolkit means replacing this constant.
-pub const TOOLKIT_SHA256: &str = "3f1e6ae7c46ad0dbb1849f4f3ebab6798becb485bb1f10e73085cd702e48dc2a";
+pub const TOOLKIT_SHA256: &str = "edb84954a4502c1e21ee84463757a7db28a2ba70ccf4f3d1b93c6e352e9437fd";
 /// Codex Windows build the toolkit was tested against. Newer builds may not be patchable — the
 /// patcher refuses to guess and stops instead (toolkit README).
-pub const TESTED_CODEX_BUILD: &str = "OpenAI.Codex 26.721.11231.0";
+pub const TESTED_CODEX_BUILD: &str = "OpenAI.Codex 26.814.5167.0";
 
 /// Where the independent patched copy lives, relative to the local app-data directory.
 pub const INSTALL_SUBDIR: [&str; 2] = ["SeedRouter", "CodexFastUI"];
@@ -64,8 +64,6 @@ const SHORTCUT_NAME: &str = "Codex Fast UI.lnk";
 const INSTALL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 /// Verify / restore only touch the already-copied app.
 const MAINTENANCE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
-/// `Get-AppxPackage` is slow on a cold package cache.
-const APPX_TIMEOUT: Duration = Duration::from_secs(30);
 /// Unpacking ~300 small files.
 const EXTRACT_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -200,34 +198,17 @@ pub async fn status(app: &AppHandle) -> AppResult<FastUiStatus> {
     Ok(state)
 }
 
-/// Install location of the official Codex client via `Get-AppxPackage` (Windows only). The
-/// command is a fixed string; no user input is interpolated into it.
+/// Install location of the official Codex client (Windows only). Shares the environment
+/// check's `Get-AppxPackage` probe: a second one here meant a second timeout to keep in sync,
+/// and 30 s was not enough on a package cache still cold from installing the client — which
+/// the caller could only read as "the client is not installed".
 async fn codex_app_path() -> Option<String> {
-    let query = "(Get-AppxPackage -Name OpenAI.Codex | Sort-Object Version -Descending \
-                 | Select-Object -First 1).InstallLocation";
-    let spec = CommandSpec::new(
-        "powershell.exe",
-        [
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            query,
-        ],
-    )
-    .with_timeout(APPX_TIMEOUT);
-    let out = process::run(&spec).await.ok()?;
-    if !out.success() {
-        log::info!("codex appx probe exited with {:?}", out.exit_code);
-        return None;
-    }
-    let path = out.stdout.trim();
+    let app = checks::codex_app::windows_appx().await?;
     // The application itself lives in the package's `app` sub-directory (see install.ps1).
-    if path.is_empty() || !Path::new(path).join("app").is_dir() {
+    if app.path.is_empty() || !Path::new(&app.path).join("app").is_dir() {
         return None;
     }
-    Some(path.to_owned())
+    Some(app.path)
 }
 
 // ---------------------------------------------------------------------------
@@ -452,7 +433,7 @@ mod tests {
 
     fn paths() -> (PathBuf, PathBuf) {
         (
-            PathBuf::from(r"C:\cache\codex-fast-ui\v\CodexFastUI-Minimal-2026.07.30"),
+            PathBuf::from(r"C:\cache\codex-fast-ui\v\CodexFastUI-Minimal-2026.08.19"),
             PathBuf::from(r"C:\Users\me\AppData\Local\SeedRouter\CodexFastUI"),
         )
     }
@@ -611,6 +592,44 @@ mod tests {
         ] {
             assert!(code.starts_with("guide:fastui.blocked."), "{code}");
         }
+    }
+
+    /// The archive only reaches users if `bundle.resources` lists it. A merge once dropped
+    /// that entry; local builds kept working from a stale staged copy, so a clean CI build
+    /// would have shipped the feature with no toolkit at all.
+    #[test]
+    fn the_toolkit_archive_is_declared_as_a_bundle_resource() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json");
+        let resources = conf["bundle"]["resources"]
+            .as_array()
+            .expect("bundle.resources array");
+        let prefix = format!("resources/{EXTRACT_DIR}/");
+        let declared = resources
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .any(|entry| {
+                entry.starts_with(&prefix)
+                    && (entry.ends_with(TOOLKIT_ARCHIVE) || entry.ends_with("*.zip"))
+            });
+        assert!(
+            declared,
+            "bundle.resources must ship {prefix}{TOOLKIT_ARCHIVE}: {resources:?}"
+        );
+    }
+
+    /// Replacing the toolkit means replacing [`TOOLKIT_SHA256`]; a stale hash fails every
+    /// extraction at run time (`toolkit_missing`) instead of here.
+    #[test]
+    fn the_shipped_archive_matches_the_pinned_hash() {
+        let archive = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join(EXTRACT_DIR)
+            .join(TOOLKIT_ARCHIVE);
+        assert_eq!(
+            sha256_file(&archive).expect("hash the archive"),
+            TOOLKIT_SHA256
+        );
     }
 
     #[test]

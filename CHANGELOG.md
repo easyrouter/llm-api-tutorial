@@ -64,6 +64,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   something is unavailable with a fully qualified i18n key, but `params()` dropped it, so all
   of them reached the user as the generic "Not supported on this platform." The key now
   travels as `params.reason` and `describeError` prefers it over `errors.<code>`.
+- **The bundled Fast UI toolkit could not patch the current Codex build.** `patch-fast-ui.mjs`
+  listed `webview/assets` with `spawnSync(rg, ["--files", …])` and no `maxBuffer`, so Node's
+  1 MB default applied. On `OpenAI.Codex 26.814.5167.0` that directory holds 7,598 files and
+  `install.ps1` runs from a long temp path, which puts the listing at ~1.11 MB: `spawnSync`
+  aborted with `ENOBUFS` before the Fast UI gate was ever inspected. Rebuilt as
+  `2026.08.19-minimal` with an explicit `maxBuffer` and an error message that reports
+  `error.code` (the old one printed `status`, which is `null` in exactly this case). The patch
+  logic is unchanged — the gate still occurs exactly once in this build — and
+  `TESTED_CODEX_BUILD` now names the build the toolkit was verified against end to end.
+- **The toolkit archive was no longer declared in `bundle.resources`**, so a clean build would
+  have shipped the feature without it while local builds kept working from a stale staged copy.
+  Restored, and two tests now guard the packaging: the archive must be declared, and the file
+  on disk must match `TOOLKIT_SHA256`.
 
 ### Fixed (VM regression rounds 1-2)
 
