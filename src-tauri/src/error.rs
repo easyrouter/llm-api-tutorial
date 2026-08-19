@@ -82,6 +82,11 @@ impl AppError {
                 p.insert("status".into(), status.to_string());
                 p.insert("url".into(), url.clone());
             }
+            // The payload is a fully qualified i18n key naming *why* it is unsupported;
+            // without it the UI can only show the generic "not supported on this platform".
+            AppError::Unsupported(reason) => {
+                p.insert("reason".into(), reason.clone());
+            }
             _ => {}
         }
         p
@@ -134,3 +139,20 @@ impl Serialize for AppError {
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `Unsupported` names *why* something is unavailable with a fully qualified i18n key.
+    /// If that key stops at the IPC boundary the frontend can only render the generic
+    /// `errors.unsupported` sentence, which is what made a timed-out AppX probe look like
+    /// "not supported on this platform".
+    #[test]
+    fn unsupported_carries_its_reason_to_the_frontend() {
+        let json = serde_json::to_value(AppError::Unsupported("common:errors.network".to_owned()))
+            .expect("serialize");
+        assert_eq!(json["code"], "unsupported");
+        assert_eq!(json["params"]["reason"], "common:errors.network");
+    }
+}

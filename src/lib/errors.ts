@@ -62,5 +62,13 @@ export function describeError(t: Translate, e: unknown): string {
     message: wire.message,
     defaultValue: generic,
   };
-  return t(`errors.${wire.code}`, options);
+  const byCode = t(`errors.${wire.code}`, options);
+  // Rust may name a more specific message than `errors.<code>` in the `reason` param — a fully
+  // qualified key such as `guide:fastui.blocked.codex_app_missing`. Without this the blocking
+  // reasons the core takes care to distinguish all render as one generic sentence.
+  const reason = wire.params?.reason;
+  if (typeof reason === "string" && reason.includes(":")) {
+    return t(reason, { ...options, defaultValue: byCode });
+  }
+  return byCode;
 }

@@ -58,6 +58,27 @@ describe("describeError", () => {
     expect(describeError(t, wire)).toBe("网络请求失败。");
   });
 
+  it("prefers the specific key named by the reason param", async () => {
+    await i18n.changeLanguage("en");
+    const withReason: WireError = {
+      code: "unsupported",
+      message: "raw",
+      params: { reason: "common:errors.network" },
+    };
+    expect(describeError(t, withReason)).toBe(t("common:errors.network"));
+    expect(describeError(t, withReason)).not.toBe(t("errors.unsupported"));
+  });
+
+  it("falls back to errors.<code> when the reason key has no translation", async () => {
+    await i18n.changeLanguage("en");
+    const wire: WireError = {
+      code: "unsupported",
+      message: "raw",
+      params: { reason: "guide:fastui.blocked.no_such_key" },
+    };
+    expect(describeError(t, wire)).toBe(t("errors.unsupported"));
+  });
+
   it("falls back to errors.generic for unknown codes", async () => {
     await i18n.changeLanguage("en");
     const wire: WireError = { code: "not_a_real_code", message: "detail here", params: {} };
