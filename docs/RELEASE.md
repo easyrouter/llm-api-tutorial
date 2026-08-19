@@ -19,8 +19,12 @@ indistinguishable once downloaded.
 
 | branch                      | version                | tag                     | contains the patch |
 | --------------------------- | ---------------------- | ----------------------- | ------------------ |
-| `feat/onboarding-revisions` | `0.1.0-test.3`         | `v0.1.0-test.3`         | no                 |
-| `feat/codex-fast-ui`        | `0.1.0-test.3-patched` | `v0.1.0-test.3-patched` | yes                |
+| `feat/onboarding-revisions` | `0.1.0-test.4`         | `v0.1.0-test.4`         | no                 |
+| `feat/codex-fast-ui`        | `0.1.0-test.4-patched` | `v0.1.0-test.4-patched` | yes                |
+
+Every pilot round ships **both** tags (`vX-test.N` from `feat/onboarding-revisions`,
+`vX-test.N-patched` from `feat/codex-fast-ui`); fixes land on `feat/onboarding-revisions` and
+are merged into `feat/codex-fast-ui`, which then bumps only its own version.
 
 Both are pre-releases and unsigned until Q-12 is answered. Build either with
 _Actions → Release → Run workflow_ on the branch, or by pushing its tag. NSIS accepts the
