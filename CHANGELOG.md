@@ -52,6 +52,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - `login_chatgpt` is no longer "optional" — it is the `chatgpt_login` path; the config.toml
   template is applied by the tool instead of being pasted into CC Switch.
 
+### Fixed (VM regression round 3)
+
+- **A slow `Get-AppxPackage` made the Codex desktop client look uninstalled.** The probe ran
+  with a 30 s timeout; right after the wizard installs the 745 MB Codex MSIX a cold package
+  cache regularly needs longer, and a timed-out probe is indistinguishable from "not
+  installed" — the Fast UI action then refused to run. Raised to 90 s, and the two copies of
+  the probe collapsed into one (`checks::codex_app::windows_appx`) so there is a single
+  timeout to keep in sync.
+- **`Unsupported` errors lost the reason they carried.** `AppError::Unsupported` names *why*
+  something is unavailable with a fully qualified i18n key, but `params()` dropped it, so all
+  of them reached the user as the generic "Not supported on this platform." The key now
+  travels as `params.reason` and `describeError` prefers it over `errors.<code>`.
+
 ### Fixed (VM regression rounds 1-2)
 
 - **Node.js one-click install could never start.** `install::downloaded_file_in` returned the

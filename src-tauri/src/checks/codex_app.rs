@@ -17,8 +17,10 @@ use crate::process::{self, CommandSpec};
 
 use super::Verdict;
 
-/// `Get-AppxPackage` is slow on first use.
-const APPX_TIMEOUT: Duration = Duration::from_secs(30);
+/// `Get-AppxPackage` is slow on first use, and slowest right after a package was installed:
+/// the 745 MB Codex MSIX regularly pushed it past 30 s on a cold package cache, which the
+/// callers can only read as "the client is not installed".
+const APPX_TIMEOUT: Duration = Duration::from_secs(90);
 /// Label code for the download-page fix (`common:fixes.labels.codex_app_download`).
 pub const CODEX_APP_DOWNLOAD_LABEL: &str = "codex_app_download";
 
@@ -88,8 +90,9 @@ pub fn missing_fixes(platform: Platform, spec: &CodexAppSpec) -> Vec<FixAction> 
 }
 
 /// `Get-AppxPackage -Name OpenAI.Codex` (fixed query, no interpolation): `InstallLocation`
-/// and `Version` of the newest package.
-async fn windows_appx() -> Option<InstalledCodexApp> {
+/// and `Version` of the newest package. Public because `fast_ui` needs the same fact and a
+/// second probe would mean a second timeout to keep in sync.
+pub async fn windows_appx() -> Option<InstalledCodexApp> {
     let query = "$p = Get-AppxPackage -Name OpenAI.Codex | Sort-Object Version -Descending \
                  | Select-Object -First 1; if ($p) { Write-Output $p.InstallLocation; Write-Output $p.Version }";
     let spec = CommandSpec::new(
