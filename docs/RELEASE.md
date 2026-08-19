@@ -19,8 +19,8 @@ indistinguishable once downloaded.
 
 | branch                      | version                | tag                     | contains the patch |
 | --------------------------- | ---------------------- | ----------------------- | ------------------ |
-| `feat/onboarding-revisions` | `0.1.0-test.4`         | `v0.1.0-test.4`         | no                 |
-| `feat/codex-fast-ui`        | `0.1.0-test.4-patched` | `v0.1.0-test.4-patched` | yes                |
+| `feat/onboarding-revisions` | `0.1.0-test.5`         | `v0.1.0-test.5`         | no                 |
+| `feat/codex-fast-ui`        | `0.1.0-test.5-patched` | `v0.1.0-test.5-patched` | yes                |
 
 Every pilot round ships **both** tags (`vX-test.N` from `feat/onboarding-revisions`,
 `vX-test.N-patched` from `feat/codex-fast-ui`); fixes land on `feat/onboarding-revisions` and

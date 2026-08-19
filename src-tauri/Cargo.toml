@@ -1,6 +1,6 @@
 [package]
 name = "seedrouter-onboarding"
-version = "0.1.0-test.4-patched"
+version = "0.1.0-test.5-patched"
 description = "Codex / Claude Code onboarding assistant — guided environment check, install, CC Switch configuration walkthrough, verification and auto-diagnosis."
 authors = ["IT Tooling Team"]
 edition = "2021"
