@@ -103,3 +103,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - Install: `InstallDoneEvent.timedOut` (additive; mirrored in `types.ts`) marks a job the
   install timeout killed; the npm item shows a dedicated hint ("stopped after N min … switch
   the registry / check VPN") instead of the generic "did not finish normally".
+- Windows installer: upgrading v0.1.0-test.2 (built before `bundle.publisher` was set) to
+  v0.1.0-test.3 failed with "NSIS Error: Error launching installer". Tauri's reinstall page runs the previous
+  uninstaller with `_?=<dir>` read from `HKCU\Software\<publisher>\<product>`; the old
+  builds wrote that key under the fallback publisher `company`, so `_?=` was empty and the
+  uninstaller aborted. `src-tauri/nsis/hooks.nsh` (wired via `installerHooks`) recovers the
+  directory from the legacy key or the uninstall string before any page runs;
+  `scripts/check-nsis-hooks.mjs` (`npm run nsis:check`) keeps its literal registry paths in
+  sync with `tauri.conf.json`.
+- Environment check: the status badge now sits on the same line as the check title (weight
+  distinguishes them); message, details and fix buttons follow underneath.
+- Configure: the Edit button of each provider value now renders inside `CopyField` (new
+  `actions` slot) next to Copy, and the value box is 40 px like the buttons, so the right-hand
+  buttons line up with the field instead of floating on the hint line.
