@@ -34,7 +34,7 @@ use futures_util::StreamExt;
 use serde::Deserialize;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{AppConfig, CcSwitchRelease, Platform};
+use crate::models::{AppConfig, InstallTarget, InstallerRelease, Platform};
 use crate::redact::redact_secrets;
 
 /// Timeout for metadata requests (release JSON, checksum files).
@@ -110,7 +110,7 @@ pub async fn latest_release(
     config: &AppConfig,
     platform: Platform,
     arch: &str,
-) -> AppResult<CcSwitchRelease> {
+) -> AppResult<InstallerRelease> {
     let spec = &config.cc_switch;
     let mirror = spec.intranet_mirror.trim();
     let listing = if mirror.is_empty() {
@@ -138,12 +138,14 @@ pub async fn latest_release(
         asset.name,
         if sha256.is_some() { "known" } else { "unknown" }
     );
-    Ok(CcSwitchRelease {
+    Ok(InstallerRelease {
+        target: InstallTarget::CcSwitch,
         version: listing.version,
         asset_name: asset.name.clone(),
         download_url: asset.url.clone(),
         sha256,
         source: listing.source.to_owned(),
+        requires_admin: false,
     })
 }
 

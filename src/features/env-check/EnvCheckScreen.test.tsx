@@ -86,7 +86,7 @@ describe("EnvCheckScreen", () => {
     });
 
     expect(useWizardStore.getState().snapshot).toEqual(snapshot);
-    expect(screen.getByTestId("env-summary")).toHaveTextContent("10 passed, 1 warning");
+    expect(screen.getByTestId("env-summary")).toHaveTextContent("11 passed, 1 warning");
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
     // env vars panel shows masked values and sources
     expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
@@ -109,7 +109,48 @@ describe("EnvCheckScreen", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
     expect(document.querySelector('[data-check-id="claude_code"]')).toBeNull();
     expect(row("codex")).toHaveAttribute("data-status", "pass");
-    expect(screen.getByTestId("env-summary")).toHaveTextContent("All 10 checks passed");
+    expect(screen.getByTestId("env-summary")).toHaveTextContent("All 11 checks passed");
+  });
+
+  it("renders the codex_app row with its one-click buttons; a Warn does not block Next", async () => {
+    setInvokeHandlers({
+      run_env_checks: () =>
+        envSnapshot({
+          codex_app: checkResult("codex_app", "warn", {
+            code: "codex_app.missing",
+            fixes: [
+              { kind: "install", tool: "codex-app" },
+              { kind: "open_system_uri", uri: "ms_store_codex_app" },
+              { kind: "open_system_uri", uri: "windows_region_settings" },
+              { kind: "rerun" },
+            ],
+          }),
+          env_vars: checkResult("env_vars", "warn", {
+            code: "env_vars.conflicts",
+            params: { names: "ANTHROPIC_BASE_URL" },
+            fixes: [{ kind: "clean_env_vars", names: ["ANTHROPIC_BASE_URL"] }, { kind: "rerun" }],
+          }),
+        }),
+    });
+    render(<EnvCheckScreen />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
+    const codexApp = row("codex_app");
+    expect(codexApp).toHaveAttribute("data-status", "warn");
+    expect(within(codexApp).getByText("Codex desktop client (recommended)")).toBeInTheDocument();
+    expect(within(codexApp).getByText(/Codex desktop client was not found/)).toBeInTheDocument();
+    expect(
+      within(codexApp).getByRole("button", { name: "Install Codex desktop client" }),
+    ).toBeInTheDocument();
+    expect(
+      within(codexApp).getByRole("button", { name: "Open Microsoft Store" }),
+    ).toBeInTheDocument();
+    expect(
+      within(codexApp).getByRole("button", { name: "Open region settings" }),
+    ).toBeInTheDocument();
+    expect(
+      within(row("env_vars")).getByRole("button", { name: "Clean up environment variables" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("env-summary")).toHaveTextContent("10 passed, 2 warning");
   });
 
   it("blocks Next on failures unless they are install-fixable and acknowledged", async () => {

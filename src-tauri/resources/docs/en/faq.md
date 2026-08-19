@@ -13,7 +13,17 @@ No. The key exists in memory only while the connectivity test in "Verify" is run
 A terminal copies the environment (PATH, variables) when it opens and never refreshes it. If you do not reopen terminals after installing or configuring, you get "command not found" or "configuration has no effect". This is the most frequent problem, which is why the tool keeps reminding you.
 
 **Can I finish without administrator rights?**
-Yes. Node.js has a portable build or a per-user install; global npm installs go into your user profile by default; the CC Switch Windows installer supports a current-user install; this tool itself installs per user. It never silently requests elevated rights.
+Mostly. Global npm installs go into your user profile by default; the CC Switch Windows installer supports a current-user install; the Codex client installs per user (Store / MSIX); PATH repair, user-variable clean-up and writing `config.toml` touch only your profile; this tool itself installs per user. Only two things need administrator rights: "Install Node.js" (the official MSI / pkg installer shows the UAC / password prompt) and deleting a Windows **system-level** environment variable (`reg delete` run as administrator, UAC). Those buttons say "(needs administrator rights)", the prompt comes from the system, and the tool never elevates silently. Without administrator rights, use the portable Node.js build instead.
+
+**What does the tool write or change on my machine?**
+Only after you click a one-click button, and always after showing the plan first:
+
+- your user PATH (Windows `HKCU\Environment\Path`; macOS one line appended to your shell rc file, backup first);
+- removal of conflicting environment variables (user variables; system variables with UAC; the rc-file line commented out with a backup; `launchctl unsetenv`);
+- `~/.codex/config.toml` (backed up as `config.toml.seedrouter-<timestamp>.bak` first; one-click restore);
+- running installers downloaded into the cache folder (Node.js, Codex client).
+
+It **never** writes to `~/.claude/` or `~/.cc-switch/`, never edits the machine-wide PATH and never logs your key. See "One-click actions explained".
 
 **The office network cannot reach the official npm registry.**
 The tool measures latency and switches to a mirror (npmmirror) automatically. The command it shows always states which registry it uses.

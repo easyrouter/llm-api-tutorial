@@ -34,6 +34,7 @@ pub mod net;
 pub mod platform;
 pub mod process;
 pub mod redact;
+pub mod remediate;
 pub mod state;
 pub mod telemetry;
 pub mod verify;
@@ -73,6 +74,7 @@ pub fn run() {
             commands::get_app_info,
             commands::get_app_config,
             commands::open_external,
+            commands::open_system_uri,
             // M1
             commands::run_env_checks,
             commands::run_env_check,
@@ -81,9 +83,18 @@ pub fn run() {
             commands::plan_install,
             commands::start_install,
             commands::cancel_install,
-            commands::fetch_cc_switch_release,
+            commands::fetch_installer_release,
+            commands::plan_installer_run,
             commands::download_file,
             commands::open_downloaded_file,
+            // one-click remediation (ADR-0008)
+            commands::plan_path_repair,
+            commands::apply_path_repair,
+            commands::plan_env_cleanup,
+            commands::apply_env_cleanup,
+            commands::codex_config_status,
+            commands::apply_codex_config,
+            commands::restore_codex_config,
             // M3
             commands::get_config_guide,
             commands::validate_api_key,

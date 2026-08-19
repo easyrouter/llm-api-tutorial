@@ -562,6 +562,7 @@ mod tests {
                 [
                     "overview",
                     "env-check",
+                    "one-click",
                     "install-node",
                     "install-cli",
                     "install-cc-switch",
@@ -667,7 +668,7 @@ mod tests {
         let ctx = ctx(dir.path(), 3600);
         let index = fetch_index(&ctx, "zh-CN").await.expect("index");
         assert_eq!(index.source, DocsSource::Bundled);
-        assert_eq!(index.sections.len(), 9);
+        assert_eq!(index.sections.len(), 10);
 
         let page = fetch_page(&ctx, "verify", "zh").await.expect("page");
         assert_eq!(page.source, DocsSource::Bundled);

@@ -129,17 +129,32 @@ fn not_on_path(spec: &ToolSpec, info: &ToolInfo) -> Verdict {
     let mut params = Params::new();
     params.insert("tool".to_owned(), spec.display_name.clone());
     params.insert("dir".to_owned(), dir.clone());
-    Verdict::fail("tool.not_on_path")
-        .param("dir", dir)
-        .detail(info.path.clone().unwrap_or_default())
-        .fix(FixAction::Instructions {
-            code: TOOL_NOT_ON_PATH_INSTRUCTIONS.to_owned(),
-            params,
-        })
-        .fix(FixAction::Rerun)
+    let mut v = Verdict::fail("tool.not_on_path")
+        .param("dir", dir.clone())
+        .detail(info.path.clone().unwrap_or_default());
+    if !dir.is_empty() {
+        v = v.fix(FixAction::RepairPath { dir });
+    }
+    v.fix(FixAction::Instructions {
+        code: TOOL_NOT_ON_PATH_INSTRUCTIONS.to_owned(),
+        params,
+    })
+    .fix(FixAction::Rerun)
 }
 
 fn broken(spec: &ToolSpec, exit_code: Option<i32>, timed_out: bool, tail: &str) -> Verdict {
+    broken_with_node(spec, exit_code, timed_out, tail, node_dir_for_repair())
+}
+
+/// Like [`broken`], with the Node directory to offer when the failure is "node not found"
+/// (injected so the decision is testable).
+pub fn broken_with_node(
+    spec: &ToolSpec,
+    exit_code: Option<i32>,
+    timed_out: bool,
+    tail: &str,
+    node_dir: Option<String>,
+) -> Verdict {
     let mut v = Verdict::fail("tool.broken");
     if let Some(c) = exit_code {
         v = v.param("exitCode", c.to_string());
@@ -150,7 +165,37 @@ fn broken(spec: &ToolSpec, exit_code: Option<i32>, timed_out: bool, tail: &str) 
     for line in tail.lines().filter(|l| !l.trim().is_empty()) {
         v = v.detail(line.trim());
     }
+    // The npm shim (`codex.cmd` / `codex` shell script) could not find `node`: the tool itself
+    // is fine, Node is installed somewhere that is not on PATH — offer the PATH repair first.
+    if tail_says_node_missing(tail) {
+        v = v.param("nodeMissing", "true");
+        if let Some(dir) = node_dir {
+            v = v
+                .param("nodeDir", dir.clone())
+                .fix(FixAction::RepairPath { dir });
+        }
+    }
     v.fix(install_fix(spec.id)).fix(FixAction::Rerun)
+}
+
+/// `'"node"' is not recognized…` (cmd), `node: command not found` (sh), `node: not found`.
+pub fn tail_says_node_missing(tail: &str) -> bool {
+    let lower = tail.to_ascii_lowercase();
+    (lower.contains("\"node\"") || lower.contains("'node'") || lower.contains("node:"))
+        && (lower.contains("not recognized")
+            || lower.contains("not found")
+            || lower.contains("no such file"))
+}
+
+/// Directory of an installed Node that a fresh terminal cannot see (well-known locations),
+/// `None` when Node is on PATH already or not installed at all.
+fn node_dir_for_repair() -> Option<String> {
+    if crate::platform::find_on_path("node").is_some() {
+        return None;
+    }
+    super::node::existing_node_candidates()
+        .into_iter()
+        .find_map(|p| p.parent().map(|d| d.to_string_lossy().into_owned()))
 }
 
 /// Install fix for a tool id.
@@ -296,14 +341,63 @@ mod tests {
             not_on_path.params.get("dir").map(String::as_str),
             Some("/usr/local/bin")
         );
+        assert_eq!(
+            not_on_path.fixes[0],
+            FixAction::RepairPath {
+                dir: "/usr/local/bin".into()
+            }
+        );
         assert!(matches!(
-            &not_on_path.fixes[0],
+            &not_on_path.fixes[1],
             FixAction::Instructions { code, params }
                 if code == TOOL_NOT_ON_PATH_INSTRUCTIONS
                     && params.get("dir").map(String::as_str) == Some("/usr/local/bin")
                     && params.get("tool").map(String::as_str) == Some("Claude Code")
         ));
-        assert_eq!(not_on_path.fixes[1], FixAction::Rerun);
+        assert_eq!(not_on_path.fixes[2], FixAction::Rerun);
+    }
+
+    #[test]
+    fn broken_shim_missing_node_offers_path_repair_first() {
+        let spec = spec(ToolId::Codex, "codex");
+        let tail = "'\"node\"' is not recognized as an internal or external command,
+operable program or batch file.";
+        let v = broken_with_node(
+            &spec,
+            Some(1),
+            false,
+            tail,
+            Some(
+                r"C:\Program Files
+odejs"
+                    .into(),
+            ),
+        );
+        assert_eq!(v.code, "tool.broken");
+        assert_eq!(
+            v.params.get("nodeMissing").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            v.fixes[0],
+            FixAction::RepairPath {
+                dir: r"C:\Program Files
+odejs"
+                    .into()
+            }
+        );
+        assert!(matches!(v.fixes[1], FixAction::Install { .. }));
+        // Node missing but not installed anywhere: no repair offered, install stays first.
+        let v = broken_with_node(&spec, Some(1), false, tail, None);
+        assert!(matches!(v.fixes[0], FixAction::Install { .. }));
+        // Unrelated failure: no nodeMissing flag.
+        let v = broken_with_node(&spec, Some(2), false, "segfault", Some("/x".into()));
+        assert!(!v.params.contains_key("nodeMissing"));
+        assert!(tail_says_node_missing("sh: node: command not found"));
+        assert!(tail_says_node_missing(
+            "env: node: No such file or directory"
+        ));
+        assert!(!tail_says_node_missing("TypeError: x is not a function"));
     }
 
     #[test]

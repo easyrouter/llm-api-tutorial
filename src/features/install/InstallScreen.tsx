@@ -40,14 +40,16 @@ export function InstallScreen() {
   const { state, actions } = useInstallController(targets, initialSkipped);
 
   // Prepare every pending item once (plan / fetch release) so the user sees what will happen
-  // without an extra click. Guarded so React StrictMode's double-invocation does not double it.
+  // without an extra click. The optional Codex desktop client is left idle: it offers several
+  // entry points (Store / offline package) and the user picks one. Guarded so React
+  // StrictMode's double-invocation does not double it.
   const prepared = useRef(false);
   useEffect(() => {
     if (prepared.current) return;
     prepared.current = true;
     for (const target of targets) {
-      if (initialSkipped.includes(target)) continue;
-      if (installKind(target) === "cc-switch") void actions.fetchRelease(target);
+      if (initialSkipped.includes(target) || target === "codex-app") continue;
+      if (installKind(target) === "installer") void actions.fetchRelease(target);
       else void actions.plan(target);
     }
   }, [actions, initialSkipped, targets]);

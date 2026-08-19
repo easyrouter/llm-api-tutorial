@@ -15,10 +15,17 @@
     "npm_global": "将使用 npm 把 {{tool}} 安装到当前用户的全局目录，安装过程的输出会实时显示在下方。",
     "node": {
       "download_page": "Node.js 需要通过官方安装包安装。点击下方按钮打开下载页，下载并运行「LTS」版本的安装包（Windows 选 .msi，macOS 选 .pkg），一路「下一步」即可。",
-      "homebrew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js（安装完成后请新开一个终端窗口；若仍找不到 node，再执行一次 brew link --overwrite node）；或者直接从下方的下载页安装。"
+      "homebrew": "检测到 Homebrew，也可以在终端里执行下面的命令来安装 Node.js（安装完成后请新开一个终端窗口；若仍找不到 node，再执行一次 brew link --overwrite node）；或者直接从下方的下载页安装。",
+      "msi": "将以管理员身份运行刚下载的 Node.js 安装包（msiexec 静默安装，保持默认选项）。Windows 会弹出「用户账户控制」授权窗口，请点击「是」。安装完成后会自动重新检查。",
+      "pkg": "将运行刚下载的 Node.js 安装包（macOS installer）。系统会弹出密码框请求管理员权限，输入登录密码后开始安装。安装完成后会自动重新检查。"
     },
     "cc_switch": {
       "download": "CC Switch 是桌面应用，将从官方发布渠道下载安装包并校验完整性，之后由你双击运行安装。"
+    },
+    "codex_app": {
+      "msix": "将用 PowerShell 的 Add-AppxPackage 安装刚下载的离线安装包（仅为当前用户安装，不需要管理员权限）。安装完成后会自动重新检查。",
+      "dmg": "将挂载刚下载的镜像，把其中的应用复制到「应用程序」文件夹，然后弹出镜像。不需要管理员权限；安装完成后会自动重新检查。",
+      "download": "Codex 桌面客户端包含在 ChatGPT 桌面应用中。请打开下载页下载并安装，完成后回到这里重新检查。"
     }
   },
   "state": {
@@ -35,7 +42,8 @@
     "release": "可以下载",
     "downloading": "下载中…",
     "downloaded": "已下载",
-    "rechecking": "重新检查中…"
+    "rechecking": "重新检查中…",
+    "run_planning": "准备安装命令…"
   },
   "actions": {
     "prepare": "准备安装",
@@ -52,7 +60,13 @@
     "changeMirror": "更换软件源并重试",
     "installerBlocked": "安装程序被拦截或打不开",
     "showOutput": "查看输出",
-    "hideOutput": "收起输出"
+    "hideOutput": "收起输出",
+    "prepareOneClick": "准备一键安装",
+    "installNow": "一键安装",
+    "installNowAdmin": "一键安装（需要管理员权限）",
+    "installNowAgain": "再次运行安装",
+    "prepareRun": "准备安装命令",
+    "redownload": "重新下载"
   },
   "common": {
     "command": "将要执行的命令",
@@ -68,7 +82,8 @@
       "prefixCommandUnix": "npm config set prefix \"$HOME/.npm-global\"",
       "prefixHint": "改完后需要把该目录（Windows：%USERPROFILE%\\.npm-global；macOS：$HOME/.npm-global/bin）加入 PATH，并重新打开终端。详细步骤见 npm 官方文档：",
       "docsLabel": "npm 文档：解决全局安装的权限问题"
-    }
+    },
+    "commandHintInstaller": "只有在你点击「一键安装」后才会运行；运行时操作系统会按常规方式弹出授权提示，本工具不会静默提权。"
   },
   "npm": {
     "outputTitle": "安装输出",
@@ -91,25 +106,20 @@
     },
     "downloadPage": "下载页：{{url}}",
     "recheckPassed": "Node.js 已就绪：{{message}}",
-    "recheckNotPassed": "重新检查结果：{{message}}。如果刚刚才安装完，请先完全关闭所有终端窗口，或注销后重新登录，再重新检查。"
+    "recheckNotPassed": "重新检查结果：{{message}}。如果刚刚才安装完，请先完全关闭所有终端窗口，或注销后重新登录，再重新检查。",
+    "manual": {
+      "title": "手动安装"
+    },
+    "oneClick": {
+      "intro": "本工具会从下面的来源下载 Node.js LTS 安装包，下载后校验 SHA-256，再由你确认后运行安装程序。",
+      "sourceChosen": "网络探测选择了：{{source}}（按连通性和速度自动选择）",
+      "adminAhead": "运行安装包需要管理员权限：安装时系统会弹出授权提示。",
+      "fetchFailed": "无法获取 Node.js 安装包信息（可能是网络或镜像不可达）。你可以先用下面的手动方式安装。"
+    }
   },
   "ccSwitch": {
     "intro": "CC Switch 是用来配置和切换供应商的桌面应用。本工具会从官方发布渠道获取最新版本，下载后校验文件完整性，再交给你安装。",
-    "release": {
-      "version": "版本",
-      "asset": "安装包",
-      "source": "来源",
-      "hash": "完整性校验",
-      "hashAvailable": "提供 SHA-256，下载后会自动校验",
-      "hashMissing": "本次发布未提供 SHA-256，无法自动校验；请确认下载来源是官方发布页"
-    },
     "fetchFailed": "无法获取 CC Switch 的发布信息。你也可以手动打开发布页下载。",
-    "downloading": "正在下载 {{asset}}",
-    "downloadedTitle": "下载完成",
-    "downloadedPath": "文件位置：{{path}}",
-    "verified": "已通过 SHA-256 校验",
-    "unverified": "未校验（发布方未提供哈希）",
-    "verifiedFalse": "校验未通过，请勿运行此文件",
     "blockedNote": "Windows SmartScreen 或 macOS Gatekeeper 可能会拦截不认识的安装程序。按下面的步骤处理后，再重新运行安装程序。",
     "afterDownload": {
       "title": "接下来",
@@ -134,6 +144,73 @@
   },
   "download": {
     "sizeKnown": "{{downloaded}} / {{total}}",
-    "sizeUnknown": "已下载 {{downloaded}}"
+    "sizeUnknown": "已下载 {{downloaded}}",
+    "downloading": "正在下载 {{asset}}",
+    "doneTitle": "下载完成",
+    "path": "文件位置：{{path}}",
+    "verified": "已通过 SHA-256 校验",
+    "unverified": "未校验（发布方未提供哈希）",
+    "verifiedFalse": "校验未通过，请勿运行此文件"
+  },
+  "adminNote": "系统会弹出管理员授权 / 密码提示，本工具不会静默提权。",
+  "oneClick": {
+    "whatHappens": "这会做什么？",
+    "waitingForPrompt": "如果看到「用户账户控制」或密码提示，请在那里确认；安装进度会显示在下方。"
+  },
+  "release": {
+    "version": "版本",
+    "asset": "安装包",
+    "sourceLabel": "来源",
+    "hash": "完整性校验",
+    "hashAvailable": "提供 SHA-256，下载后会自动校验",
+    "hashMissing": "本次发布未提供 SHA-256，无法自动校验；请确认下载来源是官方渠道",
+    "source": {
+      "official": "官方源 nodejs.org",
+      "npmmirror": "国内镜像 npmmirror",
+      "github": "GitHub 官方发布页",
+      "intranet": "公司内网镜像",
+      "static": "官方固定下载地址"
+    }
+  },
+  "installer": {
+    "successHint": "安装程序已运行完成。正在重新检查是否可用…",
+    "planFailed": "无法生成运行安装包的命令。你可以自己打开安装包完成安装，再回来重新检查。",
+    "downloadFailed": "下载失败。请检查网络后重试，或改用下面的手动方式。",
+    "failedHint": "安装程序运行失败（退出码 {{code}}）。请查看上方输出；如果是你取消了授权提示，可以再试一次。",
+    "failedNoCode": "安装程序没有正常结束。请查看上方输出后重试。",
+    "timedOut": "安装程序运行 {{minutes}} 分钟仍未完成，已被停止。请重试，或自己打开安装包完成安装。",
+    "cancelled": "安装已取消。",
+    "startFailed": "无法启动安装程序。"
+  },
+  "codexApp": {
+    "title": "Codex 桌面客户端",
+    "intro": "Codex 桌面客户端包含在 ChatGPT 桌面应用中，可选但推荐安装：它提供图形界面和「Sign in with ChatGPT」登录。没有它不影响 Codex CLI 的使用。",
+    "actions": {
+      "openStore": "打开微软商店安装",
+      "downloadOffline": "下载离线安装包并安装",
+      "downloadAndInstall": "下载并安装",
+      "openRegionSettings": "打开区域设置",
+      "openImage": "手动：打开下载的镜像",
+      "openPackage": "手动：打开下载的安装包"
+    },
+    "region": {
+      "title": "商店提示你所在地区不可用？",
+      "body": "微软商店按系统区域决定应用是否可见。把区域临时改成美国等地区后重新打开商店即可；或者直接用上面的「下载离线安装包并安装」。",
+      "step1": "点击「打开区域设置」（设置 → 时间和语言 → 区域）。",
+      "step2": "把「国家或地区」改为「美国」。",
+      "step3": "完全关闭微软商店后重新打开，再搜索 Codex / ChatGPT。"
+    },
+    "release": {
+      "size": "大小",
+      "sizeMsix": "约 745 MB",
+      "sizeDmg": "约 650 MB"
+    },
+    "afterDownload": {
+      "windows": "下载完成后会显示安装命令（Add-AppxPackage，仅为当前用户安装，不需要管理员权限），由你确认后安装。",
+      "macos": "下载完成后会显示安装命令：挂载镜像、把应用复制到「应用程序」文件夹、弹出镜像；不需要管理员权限。"
+    },
+    "fetchFailed": "无法获取 Codex 桌面客户端的下载地址。你可以打开下载页手动安装。",
+    "recheckPassed": "Codex 桌面客户端已就绪：{{message}}",
+    "recheckNotPassed": "重新检查结果：{{message}}。请确认安装已经完成（商店安装可能需要一两分钟），再试一次。"
   }
 }

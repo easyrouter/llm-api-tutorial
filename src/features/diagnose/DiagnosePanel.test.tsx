@@ -112,6 +112,40 @@ describe("DiagnosePanel", () => {
     expect(screen.getByText(/Advanced system settings/)).toBeInTheDocument();
   });
 
+  it("rule E (path.not_refreshed): the one-click PATH repair opens its plan dialog", async () => {
+    const pathRule: Diagnosis = {
+      ruleId: "E",
+      severity: "blocking",
+      code: "path.not_refreshed",
+      params: { tool: "codex", binary: "codex", dir: "C:\\Users\\alice\\AppData\\Roaming\\npm" },
+      actions: [
+        { kind: "repair_path", dir: "C:\\Users\\alice\\AppData\\Roaming\\npm" },
+        { kind: "go_to_step", step: "install" },
+        { kind: "rerun" },
+      ],
+      checklist: ["restart_terminal"],
+    };
+    setInvokeHandlers({
+      plan_path_repair: (args) => ({
+        dir: args?.dir,
+        platform: "windows",
+        location: "HKCU\\Environment\\Path",
+        displayCommand: "setx Path …",
+        alreadyPresent: false,
+        createsBackup: false,
+      }),
+    });
+    render(<DiagnosePanel diagnoses={[pathRule]} snapshot={null} onRerun={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fix PATH now" }));
+    expect(mockInvoke).toHaveBeenCalledWith("plan_path_repair", {
+      dir: "C:\\Users\\alice\\AppData\\Roaming\\npm",
+    });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("HKCU\\Environment\\Path");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("shows an empty state and the redaction note", () => {
     render(<DiagnosePanel diagnoses={[]} snapshot={null} />);
     expect(screen.getByText("No diagnosis available yet.")).toBeInTheDocument();

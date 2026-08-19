@@ -15,8 +15,11 @@
 //! - `env_vars`  : for each `env_vars_to_inspect`: present in this process? masked value;
 //!                 sources — Windows HKCU/HKLM Environment; macOS shell rc files with line
 //!                 numbers; `launchctl getenv`. Any *_API_KEY / *_BASE_URL / *_AUTH_TOKEN /
-//!                 *_API_BASE present → Warn with an `Instructions` fix (the tool must NOT
-//!                 modify env vars — PRD #17); proxies are informational only
+//!                 *_API_BASE present → Warn with a one-click `CleanEnvVars` fix (preview of
+//!                 the full values, then confirmed removal — ADR-0008) plus the manual
+//!                 `Instructions`; proxies are informational only
+//! - `codex_app`  : the Codex desktop client (ChatGPT app) — Warn when missing, with install /
+//!                 Store / region-settings fixes
 //! - `network`   : probes npm registries, the service gateway origin, GitHub releases API
 //!
 //! Codes (frontend key = `checks:<code>`), keep in sync with `src/i18n/locales/*/checks.json`:
@@ -32,6 +35,7 @@
 //!   windows_terminal.ok, windows_terminal.missing, windows_terminal.not_applicable
 //!                                                       (params: path)
 //!   cc_switch.ok, cc_switch.missing, cc_switch.data_only (params: version, path, dataDir)
+//!   codex_app.ok, codex_app.missing, codex_app.not_applicable (params: path, version)
 //!   env_vars.clean, env_vars.conflicts                  (params: names)
 //!   network.ok, network.mirror_only, network.unreachable (params: target)
 //!   check.internal_error                                (a check task could not complete)
@@ -45,6 +49,7 @@
 //! windows_terminal_download.
 
 pub mod cc_switch;
+pub mod codex_app;
 pub mod env_vars;
 pub mod network;
 pub mod node;
@@ -184,6 +189,7 @@ async fn run_inner(id: CheckId, ctx: &CheckContext) -> (Verdict, Extra) {
         CheckId::Codex => run_tool(ToolId::Codex, cfg).await,
         CheckId::ClaudeCode => run_tool(ToolId::ClaudeCode, cfg).await,
         CheckId::CcSwitch => (cc_switch::check(&cfg.cc_switch), Extra::None),
+        CheckId::CodexApp => (codex_app::check(&cfg.codex_app).await, Extra::None),
         CheckId::EnvVars => {
             let (verdict, findings) = env_vars::check(cfg).await;
             (verdict, Extra::EnvVars(findings))
@@ -438,9 +444,27 @@ const FAILURE_TAIL_LINES: usize = 5;
 
 /// Runs `program args…` with `timeout` and classifies the outcome (see [`VersionRun`]).
 /// `program` may be a bare name (resolved on `PATH`) or a full path.
+///
+/// The child gets the *fresh-session* environment (what a newly opened terminal has —
+/// `process::run_in_fresh_session`), not this process' possibly stale one: an npm shim such as
+/// `codex.cmd` resolves `node` through that `PATH`, so a Node installed (or a PATH repaired)
+/// after the app started is seen without restarting the app. Falls back to the inherited
+/// environment when the fresh one cannot be built.
 pub async fn run_version(program: &str, args: &[String], timeout: Duration) -> VersionRun {
     let spec = CommandSpec::new(program, args.iter().cloned()).with_timeout(timeout);
-    match process::run(&spec).await {
+    let result = match process::run_in_fresh_session(&spec).await {
+        Err(crate::error::AppError::CommandNotFound { .. }) => {
+            Err(crate::error::AppError::CommandNotFound {
+                program: program.to_owned(),
+            })
+        }
+        Err(e) => {
+            log::debug!("fresh-session run of {program} failed ({e}); using inherited env");
+            process::run(&spec).await
+        }
+        ok => ok,
+    };
+    match result {
         Ok(out) if out.success() => {
             let raw = first_line(&out.stdout)
                 .or_else(|| first_line(&out.stderr))

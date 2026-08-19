@@ -18,10 +18,12 @@
 //! - [`latest_cc_switch_release`] / [`download_installer`]: see [`cc_switch`] and `net`.
 
 pub mod cc_switch;
+pub mod installer;
+pub mod node;
 pub mod plan;
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -32,8 +34,8 @@ use crate::checks;
 use crate::error::{AppError, AppResult};
 use crate::events::{DOWNLOAD_PROGRESS, INSTALL_DONE, INSTALL_OUTPUT};
 use crate::models::{
-    AppConfig, CcSwitchRelease, DownloadProgressEvent, DownloadRequest, DownloadResult,
-    InstallDoneEvent, InstallJob, InstallOutputEvent, InstallPlan, InstallTarget, MirrorChoice,
+    AppConfig, DownloadProgressEvent, DownloadRequest, DownloadResult, InstallDoneEvent,
+    InstallJob, InstallOutputEvent, InstallPlan, InstallTarget, InstallerRelease, MirrorChoice,
     OutputStream, Platform,
 };
 use crate::process::{self, CommandSpec};
@@ -246,7 +248,11 @@ pub async fn start(
     plan: InstallPlan,
 ) -> AppResult<InstallJob> {
     let spec = command_spec(&plan)?;
-    plan::validate_plan(&plan, config)?;
+    if plan.installer_path.is_some() {
+        validate_installer_plan(&app, &plan)?;
+    } else {
+        plan::validate_plan(&plan, config)?;
+    }
     ensure_program_exists(&spec.program)?;
     let job_id = uuid::Uuid::new_v4().to_string();
     let cancel = jobs.register(&job_id);
@@ -265,6 +271,7 @@ pub async fn start(
         job_id,
         spec,
         plan.display_command,
+        plan.explanation_code,
         cancel,
     ));
     Ok(job)
@@ -323,6 +330,7 @@ async fn run_job(
     job_id: String,
     spec: CommandSpec,
     display_command: String,
+    plan_code: String,
     cancel: watch::Receiver<bool>,
 ) {
     let started = Instant::now();
@@ -351,7 +359,8 @@ async fn run_job(
             }
             InstallDoneEvent {
                 job_id: job_id.clone(),
-                success: output.success(),
+                success: output.success()
+                    || installer::exit_code_is_success(&plan_code, output.exit_code),
                 exit_code: output.exit_code,
                 duration_ms: output.duration_ms,
                 cancelled,
@@ -398,8 +407,74 @@ pub async fn latest_cc_switch_release(
     config: &AppConfig,
     platform: Platform,
     arch: &str,
-) -> AppResult<CcSwitchRelease> {
+) -> AppResult<InstallerRelease> {
     cc_switch::latest_release(client, config, platform, arch).await
+}
+
+/// The installer to download for `target` on this machine: CC Switch (GitHub / intranet),
+/// Node.js LTS (from the dist mirror the network probe chose) or the Codex desktop client
+/// (static URLs from the preset). npm targets have no installer file.
+pub async fn fetch_release(
+    target: InstallTarget,
+    client: &reqwest::Client,
+    config: &AppConfig,
+    mirrors: &MirrorChoice,
+    platform: Platform,
+    arch: &str,
+) -> AppResult<InstallerRelease> {
+    match target {
+        InstallTarget::CcSwitch => cc_switch::latest_release(client, config, platform, arch).await,
+        InstallTarget::Node => node::latest_lts(client, &mirrors.node_dist, platform, arch).await,
+        InstallTarget::CodexApp => installer::codex_app_release(&config.codex_app, platform, arch),
+        InstallTarget::Codex | InstallTarget::ClaudeCode => Err(AppError::InvalidInput(
+            "npm packages are installed by command, not downloaded".into(),
+        )),
+    }
+}
+
+/// The command that runs the installer previously downloaded to `path` (inside the app
+/// downloads dir) for `target` — shown to the user, then passed back to [`start`].
+pub fn plan_installer_run(
+    app: &AppHandle,
+    target: InstallTarget,
+    path: &str,
+) -> AppResult<InstallPlan> {
+    let downloads = downloads_dir(app)?;
+    let file = downloaded_file_in(&downloads, Path::new(path))?;
+    installer::run_plan(target, &file, platform::platform())
+}
+
+/// `start` gate for installer plans: the file must still live in the downloads dir and the
+/// command must be exactly what [`installer::run_plan`] renders for it.
+fn validate_installer_plan(app: &AppHandle, plan: &InstallPlan) -> AppResult<()> {
+    let invalid = |why: &str| AppError::InvalidInput(format!("install plan rejected: {why}"));
+    if !plan.env.is_empty() {
+        return Err(invalid("environment overrides are not allowed"));
+    }
+    let downloads = downloads_dir(app)?;
+    let raw = plan.installer_path.as_deref().unwrap_or_default();
+    let file = downloaded_file_in(&downloads, Path::new(raw))?;
+    // The plan embeds the canonical path verbatim (`plan_installer_run` canonicalises first).
+    if file != Path::new(raw) {
+        return Err(invalid("installer path is not the downloaded file"));
+    }
+    installer::validate_run_plan(plan, platform::platform()).map_err(invalid)
+}
+
+/// Canonical path of `path` when it is an existing regular file whose parent is exactly
+/// `downloads_dir` (canonicalised); `InvalidInput` otherwise. `..` components are refused
+/// outright (canonicalisation would resolve them, but the intent is never legitimate).
+pub fn downloaded_file_in(downloads_dir: &Path, path: &Path) -> AppResult<PathBuf> {
+    let outside = || AppError::InvalidInput("path is outside the app downloads directory".into());
+    if path.components().any(|c| c == Component::ParentDir) {
+        return Err(outside());
+    }
+    let dir = std::fs::canonicalize(downloads_dir).map_err(|_| outside())?;
+    let file = std::fs::canonicalize(path).map_err(|_| outside())?;
+    if !file.is_file() || file.parent() != Some(dir.as_path()) {
+        return Err(outside());
+    }
+    Ok(file)
 }
 
 /// Downloads `req` (https only, SHA-256 verified when `expected_sha256` is set) into
@@ -427,7 +502,7 @@ pub async fn download_installer(
 }
 
 /// `<app cache dir>/downloads` — the only place installers are written to.
-fn downloads_dir(app: &AppHandle) -> AppResult<PathBuf> {
+pub fn downloads_dir(app: &AppHandle) -> AppResult<PathBuf> {
     let cache = app
         .path()
         .app_cache_dir()
@@ -461,6 +536,7 @@ mod tests {
             requires_admin: false,
             explanation_code: plan::CODE_NPM_GLOBAL.to_owned(),
             download_url: None,
+            installer_path: None,
         }
     }
 

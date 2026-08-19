@@ -30,7 +30,7 @@
     "fail": "Done: {{fail}} blocked, {{warn}} warning(s), {{pass}} passed. Please deal with the blocked items first.",
     "skipped": "No check results to show.",
     "continueAnyway": "I understand some items are blocked; continue anyway (the next step installs what is missing)",
-    "continueAnywayHint": "Skipping is only offered when every blocked item can be fixed by installing something; other blockers must be resolved first."
+    "continueAnywayHint": "Skipping is only offered when every blocked item can be fixed by installing something or by a one-click fix; other blockers must be resolved first."
   },
   "os": {
     "title": "Operating system",
@@ -52,7 +52,7 @@
     "ok": "Node.js {{version}} is installed",
     "missing": "Node.js was not found. Both Codex CLI and Claude Code need it",
     "too_old": "The installed Node.js {{version}} is too old; please upgrade to a recent long-term-support (LTS) release",
-    "not_on_path": "Node.js is installed ({{path}}) but this terminal cannot see it yet — usually because no new terminal was opened after installing",
+    "not_on_path": "Node.js is installed ({{path}}) but this terminal cannot see it yet — usually because no new terminal was opened after installing. Use “Fix PATH now” below to add it to PATH",
     "broken": "Node.js was found ({{path}}) but it does not run properly (node --version failed). Please reinstall Node.js and check again",
     "instructions": {
       "not_on_path": "Node.js is installed; the current terminal simply has not picked up the new PATH yet:\n1. Close every terminal window completely (Windows: Command Prompt, PowerShell, Windows Terminal; macOS: Terminal, iTerm, …).\n2. On Windows, if you just installed Node.js, sign out and back in once.\n3. Open a fresh terminal and type node --version — a version number means it works.\n4. Come back here and click “Re-check”."
@@ -73,11 +73,11 @@
   "tool": {
     "ok": "{{tool}} {{version}} is installed",
     "missing": "{{tool}} was not found; the next step can install it for you",
-    "not_on_path": "{{tool}} is installed at {{path}} but this terminal cannot see it yet — usually because no new terminal was opened after installing",
-    "broken": "{{tool}} was found ({{path}}) but it does not run properly (the version command failed). Please reinstall it and check again",
+    "not_on_path": "{{tool}} is installed at {{path}} but this terminal cannot see it yet — usually because no new terminal was opened after installing. Use “Fix PATH now” below to add it to PATH",
+    "broken": "{{tool}} was found ({{path}}) but it does not run properly (the version command failed). Please reinstall it and check again. If the details say node is not recognized / command not found, Node.js is simply not on PATH — use “Fix PATH now” below",
     "not_configured": "The current preset has no entry for the tool {{toolId}}; the check was skipped",
     "instructions": {
-      "not_on_path": "{{tool}} is already installed; the terminal just has not picked up the new PATH yet:\n1. Close every terminal window completely.\n2. Open a fresh terminal and type {{tool}} --version — a version number means it works.\n3. If the command is still not found, make sure the folder {{dir}} is on your PATH (Windows: Settings → System → About → Advanced system settings → Environment Variables; macOS: check ~/.zshrc or ~/.zprofile). Editing environment variables is something you do yourself — this tool never changes them.\n4. Come back here and click “Re-check”."
+      "not_on_path": "{{tool}} is already installed; the terminal just has not picked up the new PATH yet:\n1. Close every terminal window completely.\n2. Open a fresh terminal and type {{tool}} --version — a version number means it works.\n3. If the command is still not found, make sure the folder {{dir}} is on your PATH (Windows: Settings → System → About → Advanced system settings → Environment Variables; macOS: check ~/.zshrc or ~/.zprofile). Or click “Fix PATH now” and this tool adds it after you confirm.\n4. Come back here and click “Re-check”."
     }
   },
   "check": {
@@ -89,13 +89,19 @@
     "missing": "CC Switch was not found; the next step can download it for you",
     "data_only": "Found the CC Switch data folder ({{dataDir}}) but not the app itself — it may have been uninstalled or moved. Please reinstall it"
   },
+  "codex_app": {
+    "title": "Codex desktop client (recommended)",
+    "ok": "Codex desktop client is installed ({{path}})",
+    "missing": "The Codex desktop client was not found. It now ships with the ChatGPT desktop app: on Windows install it from the Microsoft Store (if the Store says it is not available in your region, change the system region first and reopen the Store); on macOS download the DMG. The Install step can do this for you, or use the buttons below to open the Store",
+    "not_applicable": "There is no Codex desktop client for this system; skipped"
+  },
   "env_vars": {
     "title": "Environment variables",
     "clean": "No environment variables that would interfere with the configuration",
-    "conflicts": "Found environment variables that can override the CC Switch configuration: {{names}}. Please remove them by hand as described before continuing",
+    "conflicts": "Found environment variables that can override the CC Switch configuration: {{names}}. Click “Clean up environment variables” to review the full values and remove them, or remove them by hand as described",
     "instructions": {
-      "windows": "These variables override what you configure in CC Switch, so Codex / Claude Code may talk to the wrong address or use the wrong key. Please remove them yourself (this tool never edits your environment variables):\n1. Open Settings → System → About → Advanced system settings → Environment Variables.\n2. Look for {{names}} in both the “User variables” and “System variables” lists.\n3. Select each one, click Delete, then click OK all the way out to save.\n4. Close every terminal window and CC Switch completely, then reopen them.\n5. Come back here and click “Re-check” to confirm they are gone.",
-      "macos": "These variables override what you configure in CC Switch, so Codex / Claude Code may talk to the wrong address or use the wrong key. Please remove them yourself (this tool never edits your environment variables):\n1. Open Terminal and check these files one by one: ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bash_profile, ~/.bashrc, ~/.profile (for example open -e ~/.zshrc opens it in TextEdit).\n2. Find the line that looks like export {{names}}=… , delete the whole line and save.\n3. If the check listed launchctl as a source, run launchctl unsetenv NAME in Terminal.\n4. Close every terminal window completely and open a new one.\n5. Come back here and click “Re-check” to confirm they are gone."
+      "windows": "These variables override what you configure in CC Switch, so Codex / Claude Code may talk to the wrong address or use the wrong key. If you prefer not to use “Clean up environment variables”, you can remove them by hand (nothing is changed without your confirmation):\n1. Open Settings → System → About → Advanced system settings → Environment Variables.\n2. Look for {{names}} in both the “User variables” and “System variables” lists.\n3. Select each one, click Delete, then click OK all the way out to save.\n4. Close every terminal window and CC Switch completely, then reopen them.\n5. Come back here and click “Re-check” to confirm they are gone.",
+      "macos": "These variables override what you configure in CC Switch, so Codex / Claude Code may talk to the wrong address or use the wrong key. If you prefer not to use “Clean up environment variables”, you can remove them by hand (nothing is changed without your confirmation):\n1. Open Terminal and check these files one by one: ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bash_profile, ~/.bashrc, ~/.profile (for example open -e ~/.zshrc opens it in TextEdit).\n2. Find the line that looks like export {{names}}=… , delete the whole line and save.\n3. If the check listed launchctl as a source, run launchctl unsetenv NAME in Terminal.\n4. Close every terminal window completely and open a new one.\n5. Come back here and click “Re-check” to confirm they are gone."
     }
   },
   "network_npm": {
@@ -114,7 +120,7 @@
   },
   "envVars": {
     "title": "Environment variables found",
-    "intro": "These variables influence which address and key Codex / Claude Code use. Values are partially hidden for safety. This tool never modifies them.",
+    "intro": "These variables influence which address and key Codex / Claude Code use. Values are partially hidden here for safety; the “Clean up environment variables” dialog shows the full values before anything is removed.",
     "value": "Current value",
     "session": "This session",
     "present": "Set",

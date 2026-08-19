@@ -39,6 +39,14 @@
     "intranetMirror": "",
     "dataDir": "~/.cc-switch"
   },
+  "codexApp": {
+    "$comment": "Codex desktop client (part of the ChatGPT desktop app since 2026-07). Windows: Microsoft Store (product id) or the Store-signed offline MSIX; macOS: official DMG. Stable links per OpenAI's enterprise deployment docs.",
+    "storeProductId": "9PLM9XGG6VKS",
+    "windowsMsixX64": "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-x64.msix",
+    "windowsMsixArm64": "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-arm64.msix",
+    "macosDmg": "https://persistent.oaistatic.com/codex-app-prod/ChatGPT.dmg",
+    "downloadPage": "https://chatgpt.com/download/"
+  },
   "requirements": {
     "nodeMinVersion": "18.0.0",
     "nodeRecommendedLts": "22",

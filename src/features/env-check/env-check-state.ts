@@ -204,10 +204,26 @@ export function isInstallFixable(result: CheckResult): boolean {
   return result.fixes.some((f) => f.kind === "install" || f.kind === "open_url");
 }
 
-/** True when there is at least one failing row and every failing row is install-fixable. */
+/**
+ * A failure with a one-click fix right in the row (`repair_path`, `clean_env_vars`): the user
+ * can resolve it here without leaving the screen (ADR-0008).
+ */
+export function isFixableInPlace(result: CheckResult): boolean {
+  return result.fixes.some((f) => f.kind === "repair_path" || f.kind === "clean_env_vars");
+}
+
+/** Install-fixable or fixable in place — either way the wizard knows how to resolve it. */
+export function isResolvable(result: CheckResult): boolean {
+  return isInstallFixable(result) || isFixableInPlace(result);
+}
+
+/**
+ * True when there is at least one failing row and every failing row is resolvable (by the
+ * Install step or by a one-click fix on this screen).
+ */
 export function failuresAreInstallFixable(results: readonly CheckResult[]): boolean {
   const failing = results.filter((r) => r.status === "fail");
-  return failing.length > 0 && failing.every(isInstallFixable);
+  return failing.length > 0 && failing.every(isResolvable);
 }
 
 export interface NextGate {
@@ -219,7 +235,8 @@ export interface NextGate {
 
 /**
  * Next is enabled once the run finished and either nothing is blocked or the user explicitly
- * acknowledged blockers that the Install step can fix.
+ * acknowledged blockers that the Install step or a one-click fix can resolve. Warn-level rows
+ * (e.g. `codex_app.missing`, `env_vars.conflicts`) never block.
  */
 export function nextGate(state: EnvCheckState, ids: readonly CheckId[]): NextGate {
   if (state.phase !== "done" || state.rerunning.length > 0) {

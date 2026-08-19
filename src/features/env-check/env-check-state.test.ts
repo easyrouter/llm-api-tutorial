@@ -8,6 +8,7 @@ import { checkResult, envSnapshot } from "@/test/fixtures/env";
 import {
   envCheckReducer,
   failuresAreInstallFixable,
+  isFixableInPlace,
   initialEnvCheckState,
   isInstallFixable,
   nextGate,
@@ -127,17 +128,17 @@ describe("summarize", () => {
       checkResult("node", "warn"),
     ]);
     const all = summarize(s, CHECK_IDS);
-    expect(all).toMatchObject({ total: 11, done: 11, fail: 2, warn: 1, pass: 8, overall: "fail" });
+    expect(all).toMatchObject({ total: 12, done: 12, fail: 2, warn: 1, pass: 9, overall: "fail" });
     const codexOnly = summarize(s, visibleCheckIds(["codex"]));
-    expect(codexOnly).toMatchObject({ total: 10, fail: 1, overall: "fail" });
+    expect(codexOnly).toMatchObject({ total: 11, fail: 1, overall: "fail" });
     const none = summarize(s, visibleCheckIds([]));
-    expect(none).toMatchObject({ total: 9, fail: 0, warn: 1, overall: "warn" });
+    expect(none).toMatchObject({ total: 10, fail: 0, warn: 1, overall: "warn" });
   });
 
   it("reports progress while running", () => {
     let s = envCheckReducer(initialEnvCheckState, { type: "start_all" });
     s = envCheckReducer(s, { type: "result", result: checkResult("os") });
-    expect(summarize(s, CHECK_IDS)).toMatchObject({ total: 11, done: 1, pass: 1 });
+    expect(summarize(s, CHECK_IDS)).toMatchObject({ total: 12, done: 1, pass: 1 });
   });
 });
 
@@ -151,6 +152,14 @@ describe("install-fixable failures and the Next gate", () => {
     fixes: [{ kind: "open_url", url: "https://nodejs.org", labelCode: "node_download" }],
   });
   const oldOs = checkResult("os", "fail", { code: "os.too_old" });
+  const nodeOffPath = checkResult("node", "fail", {
+    code: "node.not_on_path",
+    fixes: [{ kind: "repair_path", dir: "C:\\Program Files\\nodejs" }, { kind: "rerun" }],
+  });
+  const envConflicts = checkResult("env_vars", "warn", {
+    code: "env_vars.conflicts",
+    fixes: [{ kind: "clean_env_vars", names: ["ANTHROPIC_BASE_URL"] }, { kind: "rerun" }],
+  });
 
   it("isInstallFixable needs an install or open_url fix", () => {
     expect(isInstallFixable(missingCodex)).toBe(true);
@@ -159,6 +168,34 @@ describe("install-fixable failures and the Next gate", () => {
     expect(failuresAreInstallFixable([missingCodex, missingNode])).toBe(true);
     expect(failuresAreInstallFixable([missingCodex, oldOs])).toBe(false);
     expect(failuresAreInstallFixable([checkResult("os")])).toBe(false);
+  });
+
+  it("one-click fixes (repair_path / clean_env_vars) count as fixable in place", () => {
+    expect(isFixableInPlace(nodeOffPath)).toBe(true);
+    expect(isFixableInPlace(envConflicts)).toBe(true);
+    expect(isFixableInPlace(missingCodex)).toBe(false);
+    expect(isInstallFixable(nodeOffPath)).toBe(false);
+    // a PATH-repairable failure can be acknowledged like an install-fixable one
+    expect(failuresAreInstallFixable([nodeOffPath, missingCodex])).toBe(true);
+    const s = doneState([nodeOffPath]);
+    expect(nextGate(s, CHECK_IDS)).toEqual({ canProceed: false, offerContinueAnyway: true });
+    expect(
+      nextGate(envCheckReducer(s, { type: "acknowledge", value: true }), CHECK_IDS).canProceed,
+    ).toBe(true);
+  });
+
+  it("warn-level one-click rows (codex_app.missing, env_vars.conflicts) never block Next", () => {
+    const s = doneState([
+      envConflicts,
+      checkResult("codex_app", "warn", {
+        code: "codex_app.missing",
+        fixes: [
+          { kind: "install", tool: "codex-app" },
+          { kind: "open_system_uri", uri: "ms_store_codex_app" },
+        ],
+      }),
+    ]);
+    expect(nextGate(s, CHECK_IDS)).toEqual({ canProceed: true, offerContinueAnyway: false });
   });
 
   it("is closed while running and open when nothing fails", () => {

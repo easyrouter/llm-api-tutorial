@@ -24,6 +24,8 @@ After the install the tool runs `codex --version` or `claude --version` in a fre
 
 If the tool reports "installed, but not on the current PATH", nothing went wrong — terminals that were already open simply have not loaded the new PATH yet. Close **all** terminal windows (including the built-in terminal of your editor) and open a new one. See "Apply & verify" and fault E.
 
+If the re-check **still** cannot find the command after that, npm's global folder really is not on your PATH. Click "Repair PATH": the tool appends the npm global folder to your user PATH (Windows: `HKCU\Environment\Path` plus a change broadcast; macOS: one `export PATH=…` line appended to `~/.zshrc` or similar, backup first) — no administrator rights. The same button handles "Codex CLI found but broken: `'"node"' is not recognized`", which means the Node.js folder is not on PATH. Details: "One-click actions explained".
+
 ## Common questions
 
 **The install is very slow or seems stuck**

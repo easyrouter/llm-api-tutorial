@@ -15,6 +15,13 @@
       "wizardStep": "env_check"
     },
     {
+      "id": "one-click",
+      "title": "One-click actions explained",
+      "path": "one-click.md",
+      "lang": "en",
+      "wizardStep": "env_check"
+    },
+    {
       "id": "install-node",
       "title": "Install Node.js",
       "path": "install-node.md",

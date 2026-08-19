@@ -1,8 +1,21 @@
 # 在 CC Switch 中配置服务网关
 
-配置在 CC Switch 的界面里完成，本工具不会替你写任何配置文件。向导的"配置"页面会显示每一个要填的值并提供复制按钮——**地址和名称直接复制即可，只有 API Key 需要你自己粘贴**。CC Switch 更新较快，按钮名称可能略有不同，以应用内实际显示为准。
+供应商的配置在 CC Switch 的界面里完成。向导的"配置"页面会显示每一个要填的值并提供复制按钮——**地址和名称直接复制即可，只有 API Key 需要你自己粘贴**。对 Codex，工具还会在你点按钮之后把推荐的 `config.toml` 写到本机（见下文"一键应用 config.toml"）。CC Switch 更新较快，按钮名称可能略有不同，以应用内实际显示为准。
 
-## 步骤
+## Codex：先选你的账号情况
+
+CC Switch 的 Codex 标签页自带一个 **"OpenAI 官方 / OpenAI Official"** 预设供应商。"配置"页顶部会让你二选一，后面的步骤只显示你那条路需要的：
+
+- **有可登录的 ChatGPT 账号（推荐）** → 用"OpenAI 官方"预设，**不需要**添加自定义供应商、也不用填 Key：
+  1. 在 Codex 标签页点"添加供应商"，从预设列表选"OpenAI 官方"，保存，并在列表里点"使用 / 切换"让它成为当前供应商。
+  2. 打开终端运行 `codex`，选"Sign in with ChatGPT"，在浏览器里完成登录。登录后官方联动功能（速度 / 档位选项等）可用。
+  3. 然后"一键应用 config.toml"（下文），请求就会走服务网关。
+  4. 以后若在 CC Switch 里切到第三方供应商又想保留登录，可在 CC Switch **设置 → 通用 → Codex 增强**里开启"切换第三方时保留官方登录"。
+- **没有账号** → 添加一个自定义供应商，填服务网关地址和你的 API Key（下面的"步骤"），之后同样"一键应用 config.toml"。
+
+Claude Code 只有一条路：添加自定义供应商。
+
+## 步骤（自定义供应商）
 
 1. **打开 CC Switch。**
 2. **选择工具标签页。** 顶部（或左侧）有 Claude / Codex 两个标签，先选你要配置的那个。两个都用的话，各配一次。
@@ -17,12 +30,24 @@
 6. **激活 / 切换到这个供应商。** 新添加的供应商不会自动生效，需要在列表里点一下"使用"或"切换"，让它变成当前供应商（通常卡片会变色或出现勾选）。
 7. 回到本工具，点"我已完成"，工具会检查配置是否已写入。
 
+也可以用"一键导入到 CC Switch"：工具先显示脱敏后的导入链接，你确认后打开 CC Switch 的 `ccswitch://` 导入链接，CC Switch 会再确认一次并自己写入。
+
+## 一键应用 config.toml（仅 Codex）
+
+"配置"页的"Codex config.toml 模板"卡片会生成推荐配置：把服务网关作为供应商，同时保留官方功能（priority 档位、大上下文、自动压缩）。模板里的 Key 是占位符 `<API-KEY>`，可以先编辑其他值。点"一键应用到本机 Codex"后：
+
+1. 真实 Key 在本机内存中代入，界面上不显示；
+2. 如果 `~/.codex/config.toml` 已存在，先备份为 `config.toml.seedrouter-<时间戳>.bak`；
+3. 写入新文件。
+
+"恢复上一个备份"可以随时撤回。**CC Switch 在切换供应商时可能会重写这个文件**——切换后回来再点一次"应用"即可，卡片会提示"与模板不一致"。这是本工具唯一会写入 `~/.codex/` 的文件，而且只在你点按钮之后；详见"一键操作说明"。
+
 ## Codex 与 Claude Code 的差别
 
-- **Codex CLI**：CC Switch 会写入 `~/.codex/config.toml` 和 `auth.json`，协议字段对应 `wire_api = "responses"`。
-- **Claude Code**：CC Switch 会写入 `~/.claude/settings.json`。协议无需选择。
+- **Codex CLI**：CC Switch 会写入 `~/.codex/config.toml` 和 `auth.json`，协议字段对应 `wire_api = "responses"`；本工具在你点"应用"后也会写 `config.toml`（带备份）。
+- **Claude Code**：CC Switch 会写入 `~/.claude/settings.json`。协议无需选择。本工具从不写 `~/.claude/`。
 
-你不需要手动编辑这些文件；如果以前手动改过，建议让 CC Switch 接管，避免互相覆盖。
+除此之外不需要手动编辑这些文件；如果以前手动改过，建议让 CC Switch 接管，避免互相覆盖。
 
 ## 配完之后
 

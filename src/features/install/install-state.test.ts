@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import type { InstallDoneEvent } from "@/lib/types";
-import { ccSwitchRelease, checkResult, downloadResult, installPlan } from "@/test/fixtures/env";
+import {
+  checkResult,
+  downloadResult,
+  installerRelease,
+  installerRunPlan,
+  installPlan,
+  nodeRelease,
+} from "@/test/fixtures/env";
 
 import {
   allHandled,
   countHandled,
   createInstallState,
+  downloadOf,
   hasRunningWork,
   installReducer,
   installTelemetryEvent,
@@ -194,7 +202,7 @@ describe("node flow", () => {
 });
 
 describe("cc-switch flow", () => {
-  const release = ccSwitchRelease();
+  const release = installerRelease();
   const base = createInstallState(["cc-switch"]);
   const cc = (s: InstallState) => {
     const item = s.items["cc-switch"];
@@ -219,8 +227,10 @@ describe("cc-switch flow", () => {
 
     const result = downloadResult();
     s = reduce(s, { type: "download_ok", target: "cc-switch", download: result });
-    expect(cc(s).step).toEqual({ phase: "downloaded", release, download: result });
+    expect(cc(s).step).toEqual({ phase: "downloaded", release, download: result, runPlan: null });
     expect(itemBadge(cc(s))).toEqual({ status: "pending", labelKey: "downloaded" });
+    expect(downloadOf(cc(s).step)).toEqual(result);
+    expect(planOf(cc(s).step)).toBeNull();
 
     s = reduce(s, {
       type: "recheck_ok",
@@ -250,6 +260,95 @@ describe("cc-switch flow", () => {
   it("download_start without a release is ignored", () => {
     const s = reduce(base, { type: "download_start", target: "cc-switch", jobId: "dl-1" });
     expect(cc(s).step.phase).toBe("idle");
+  });
+});
+
+describe("installer run flow (node)", () => {
+  const release = nodeRelease();
+  const download = downloadResult({ path: "C:\\dl\\node-v22.12.0-x64.msi" });
+  const runPlan = installerRunPlan("node", download.path);
+  const node = (s: InstallState) => {
+    const item = s.items.node;
+    if (!item) throw new Error("node item missing");
+    return item;
+  };
+  const downloaded = reduce(
+    createInstallState(["node"]),
+    { type: "release_ok", target: "node", release },
+    { type: "download_start", target: "node", jobId: "dl-1" },
+    { type: "download_ok", target: "node", download },
+  );
+
+  it("downloaded → run_planning → downloaded with the run plan → starting → running → done", () => {
+    let s = reduce(downloaded, { type: "run_plan_start", target: "node" });
+    expect(node(s).step).toEqual({ phase: "run_planning", release, download });
+    expect(isBusy(node(s))).toBe(true);
+    expect(hasRunningWork(s, ["node"])).toBe(false);
+    expect(itemBadge(node(s))).toEqual({ status: "running", labelKey: "run_planning" });
+
+    s = reduce(s, { type: "run_plan_ok", target: "node", plan: runPlan });
+    expect(node(s).step).toEqual({ phase: "downloaded", release, download, runPlan });
+    expect(planOf(node(s).step)).toEqual(runPlan);
+    expect(isBusy(node(s))).toBe(false);
+
+    s = reduce(s, { type: "run_start", target: "node" });
+    expect(node(s).step).toEqual({ phase: "starting", plan: runPlan });
+    expect(hasRunningWork(s, ["node"])).toBe(true);
+    s = reduce(s, { type: "run_ok", target: "node", job: { jobId: "job-9", target: "node" } });
+    expect(node(s).step).toEqual({
+      phase: "running",
+      plan: runPlan,
+      jobId: "job-9",
+      cancelling: false,
+    });
+    s = reduce(s, { type: "job_done", event: done({ jobId: "job-9" }) });
+    expect(node(s).step).toEqual({ phase: "done", jobId: "job-9" });
+    expect(allHandled(s, ["node"])).toBe(true);
+  });
+
+  it("a failed run plan keeps release and download so the installer can be re-planned or opened", () => {
+    const s = reduce(
+      downloaded,
+      { type: "run_plan_start", target: "node" },
+      { type: "run_plan_failed", target: "node", error: err },
+    );
+    expect(node(s).step).toMatchObject({ phase: "failed", stage: "run_plan", release, download });
+    expect(downloadOf(node(s).step)).toEqual(download);
+    // re-plan from the failed state
+    const again = reduce(
+      s,
+      { type: "run_plan_start", target: "node" },
+      { type: "run_plan_ok", target: "node", plan: runPlan },
+    );
+    expect(node(again).step).toEqual({ phase: "downloaded", release, download, runPlan });
+  });
+
+  it("a failed installer job keeps the run plan (with the installer path) for a retry", () => {
+    const s = reduce(
+      downloaded,
+      { type: "run_plan_ok", target: "node", plan: runPlan },
+      { type: "run_start", target: "node" },
+      { type: "run_ok", target: "node", job: { jobId: "job-9", target: "node" } },
+      { type: "job_done", event: done({ jobId: "job-9", success: false, exitCode: 1603 }) },
+    );
+    expect(node(s).step).toMatchObject({ phase: "failed", stage: "run", plan: runPlan });
+    expect(planOf(node(s).step)?.installerPath).toBe(download.path);
+    const retried = reduce(s, { type: "run_start", target: "node" });
+    expect(node(retried).step).toEqual({ phase: "starting", plan: runPlan });
+  });
+
+  it("run_plan_start / run_plan_ok without a download are ignored", () => {
+    const base = reduce(createInstallState(["node"]), {
+      type: "release_ok",
+      target: "node",
+      release,
+    });
+    expect(node(reduce(base, { type: "run_plan_start", target: "node" })).step.phase).toBe(
+      "release",
+    );
+    expect(
+      node(reduce(base, { type: "run_plan_ok", target: "node", plan: runPlan })).step.phase,
+    ).toBe("release");
   });
 });
 
@@ -306,7 +405,7 @@ describe("hasRunningWork / installTelemetryEvent", () => {
 
     state = reduce(
       state,
-      { type: "release_ok", target: "cc-switch", release: ccSwitchRelease() },
+      { type: "release_ok", target: "cc-switch", release: installerRelease() },
       { type: "download_start", target: "cc-switch", jobId: "dl-1" },
     );
     expect(hasRunningWork(state, targets)).toBe(true);

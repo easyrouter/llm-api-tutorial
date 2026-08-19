@@ -18,10 +18,16 @@ export const INSTALL_TARGET_ORDER: readonly InstallTarget[] = [
   "codex",
   "claude-code",
   "cc-switch",
+  "codex-app",
 ];
 
-/** How a target gets installed — decides which item body / state machine is used. */
-export type InstallKind = "npm" | "node" | "cc-switch";
+/**
+ * How a target gets installed — decides which state machine is used:
+ * - `npm`: `npm install -g` job (plan → confirm → run),
+ * - `installer`: resolve a release → download (SHA-256 verified) → run the installer
+ *   (or hand it to the user — see `runsInstaller`).
+ */
+export type InstallKind = "npm" | "installer";
 
 export function installKind(target: InstallTarget): InstallKind {
   switch (target) {
@@ -29,10 +35,19 @@ export function installKind(target: InstallTarget): InstallKind {
     case "claude-code":
       return "npm";
     case "node":
-      return "node";
     case "cc-switch":
-      return "cc-switch";
+    case "codex-app":
+      return "installer";
   }
+}
+
+/**
+ * True when the downloaded installer can be run by this tool (`planInstallerRun` →
+ * `startInstall`): Node.js (MSI / pkg) and the Codex desktop client (MSIX / DMG). The CC Switch
+ * setup is handed to the user (`openDownloadedFile`) — Rust has no run plan for it.
+ */
+export function runsInstaller(target: InstallTarget): boolean {
+  return target === "node" || target === "codex-app";
 }
 
 /** The check that is re-run after a target was installed. */
@@ -41,6 +56,7 @@ export const RECHECK_ID: Readonly<Record<InstallTarget, CheckId>> = {
   codex: "codex",
   "claude-code": "claude_code",
   "cc-switch": "cc_switch",
+  "codex-app": "codex_app",
 };
 
 const TARGET_OF_TOOL: Readonly<Record<ToolId, InstallTarget>> = {
@@ -63,6 +79,8 @@ function targetsFromCode(result: CheckResult): InstallTarget[] {
       return result.code === "cc_switch.missing" || result.code === "cc_switch.data_only"
         ? ["cc-switch"]
         : [];
+    case "codex_app":
+      return result.code === "codex_app.missing" ? ["codex-app"] : [];
     default:
       return [];
   }
@@ -79,6 +97,7 @@ function targetsFromFixes(result: CheckResult): InstallTarget[] {
  * - Node when the node/npm check says missing or too old,
  * - Codex / Claude Code when their check says `tool.missing` — only for selected tools,
  * - CC Switch when it is missing,
+ * - the Codex desktop client when its check says `codex_app.missing` (optional; can be skipped),
  * - whatever Rust attached as an `install` fix to a non-passing check (same tool filter),
  * - plus everything the user explicitly requested from the Environment screen.
  */
@@ -113,6 +132,15 @@ export function nodeDownloadPage(plan: InstallPlan | null, config: AppConfig | n
 }
 
 /**
+ * Download page of the Node dist mirror with id `source` (the `InstallerRelease.source` the
+ * network probe picked), falling back to `nodeDownloadPage(null, config)`.
+ */
+export function nodeDownloadPageFor(source: string | null, config: AppConfig | null): string {
+  const mirror = source ? config?.mirrors.nodeDist.find((m) => m.id === source) : undefined;
+  return mirror?.downloadPage || nodeDownloadPage(null, config);
+}
+
+/**
  * Registry id to leave out when re-planning after `plan` failed on it (PRD M2 "switch mirror
  * and retry"): the plan's registry when the preset configures at least one other npm registry,
  * `null` when there is nothing to switch to (plain retry).
@@ -130,6 +158,11 @@ export function registryToAvoidOnRetry(
 /** Release page for CC Switch (manual fallback when the release API is unreachable). */
 export function ccSwitchDownloadPage(config: AppConfig | null): string {
   return config?.ccSwitch.downloadPage || "https://github.com/farion1231/cc-switch/releases/latest";
+}
+
+/** Public download page of the Codex desktop client (manual fallback). */
+export function codexAppDownloadPage(config: AppConfig | null): string {
+  return config?.codexApp.downloadPage || "https://chatgpt.com/download/";
 }
 
 /** npm documentation on fixing global-install permission errors (never done for the user). */

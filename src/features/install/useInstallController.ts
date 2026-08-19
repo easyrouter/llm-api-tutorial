@@ -1,12 +1,13 @@
 /**
  * Wires the Install screen's pure reducer (`install-state.ts`) to the Rust core: typed
- * `invoke` wrappers for plan / start / cancel / release / download / re-check, and the three
- * event channels (`install://output`, `install://done`, `download://progress`) which are
+ * `invoke` wrappers for plan / start / cancel / release / download / run-plan / re-check, and
+ * the three event channels (`install://output`, `install://done`, `download://progress`) which are
  * subscribed once for the lifetime of the screen and released on unmount.
  *
- * Side effects that follow a state transition (auto re-check after a successful npm install,
- * forgetting an explicit request once the target is installed, one `step_result` telemetry
- * event per finished job / download) live here, not in components.
+ * Side effects that follow a state transition (auto re-check after a successful install job,
+ * planning the installer command right after a verified download for targets this tool runs
+ * itself, forgetting an explicit request once the target is installed, one `step_result`
+ * telemetry event per finished job / download) live here, not in components.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
@@ -15,13 +16,14 @@ import { toWireError } from "@/lib/errors";
 import {
   cancelInstall,
   downloadFile,
-  fetchCcSwitchRelease,
+  fetchInstallerRelease,
   planInstall,
+  planInstallerRun,
   runEnvCheck,
   startInstall,
   trackEvent,
 } from "@/lib/tauri";
-import type { CcSwitchRelease, InstallDoneEvent, InstallPlan, InstallTarget } from "@/lib/types";
+import type { InstallDoneEvent, InstallPlan, InstallTarget, InstallerRelease } from "@/lib/types";
 import { applyResultToSnapshot } from "@/features/env-check/snapshot-utils";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
@@ -32,7 +34,7 @@ import {
   installTelemetryEvent,
   type InstallState,
 } from "./install-state";
-import { RECHECK_ID } from "./install-targets";
+import { RECHECK_ID, runsInstaller } from "./install-targets";
 
 type Unlisten = () => void;
 
@@ -47,10 +49,18 @@ export interface InstallActions {
   /** confirm → starting → running (the user confirmed the displayed command). */
   run: (target: InstallTarget, plan: InstallPlan) => Promise<void>;
   cancel: (target: InstallTarget, jobId: string) => Promise<void>;
-  /** idle/failed → fetching_release → release. */
+  /** idle/failed → fetching_release → release (`fetchInstallerRelease`). */
   fetchRelease: (target: InstallTarget) => Promise<void>;
-  /** release → downloading → downloaded. */
-  download: (target: InstallTarget, release: CcSwitchRelease) => Promise<void>;
+  /**
+   * release → downloading → downloaded. For targets this tool runs itself (`runsInstaller`)
+   * a verified download continues straight into `planRun`.
+   */
+  download: (target: InstallTarget, release: InstallerRelease) => Promise<void>;
+  /**
+   * downloaded/failed → run_planning → downloaded (with `runPlan`): asks Rust for the command
+   * that runs the downloaded installer (`planInstallerRun`) so it can be shown before `run`.
+   */
+  planRun: (target: InstallTarget, path: string) => Promise<void>;
   /** Re-runs the target's check; a passing result marks the item done. */
   recheck: (target: InstallTarget) => Promise<void>;
   skip: (target: InstallTarget) => void;
@@ -192,33 +202,51 @@ export function useInstallController(
   const fetchRelease = useCallback(async (target: InstallTarget) => {
     dispatch({ type: "release_start", target });
     try {
-      const release = await fetchCcSwitchRelease();
+      const release = await fetchInstallerRelease(target);
       dispatch({ type: "release_ok", target, release });
     } catch (e) {
       dispatch({ type: "release_failed", target, error: toWireError(e) });
     }
   }, []);
 
-  const download = useCallback(async (target: InstallTarget, release: CcSwitchRelease) => {
-    const jobId = newJobId();
-    const startedAt = Date.now();
-    dispatch({ type: "download_start", target, jobId });
+  const planRun = useCallback(async (target: InstallTarget, path: string) => {
+    dispatch({ type: "run_plan_start", target });
     try {
-      const result = await downloadFile({
-        jobId,
-        url: release.downloadUrl,
-        fileName: release.assetName,
-        expectedSha256: release.sha256,
-      });
-      dispatch({ type: "download_ok", target, download: result });
-      track(
-        installTelemetryEvent(result.verified === false ? "fail" : "pass", Date.now() - startedAt),
-      );
+      const result = await planInstallerRun(target, path);
+      dispatch({ type: "run_plan_ok", target, plan: result });
     } catch (e) {
-      dispatch({ type: "download_failed", target, error: toWireError(e) });
-      track(installTelemetryEvent("fail", Date.now() - startedAt));
+      dispatch({ type: "run_plan_failed", target, error: toWireError(e) });
     }
   }, []);
+
+  const download = useCallback(
+    async (target: InstallTarget, release: InstallerRelease) => {
+      const jobId = newJobId();
+      const startedAt = Date.now();
+      dispatch({ type: "download_start", target, jobId });
+      try {
+        const result = await downloadFile({
+          jobId,
+          url: release.downloadUrl,
+          fileName: release.assetName,
+          expectedSha256: release.sha256,
+        });
+        dispatch({ type: "download_ok", target, download: result });
+        track(
+          installTelemetryEvent(
+            result.verified === false ? "fail" : "pass",
+            Date.now() - startedAt,
+          ),
+        );
+        // Show the user what running the installer means right away (never runs by itself).
+        if (result.verified !== false && runsInstaller(target)) await planRun(target, result.path);
+      } catch (e) {
+        dispatch({ type: "download_failed", target, error: toWireError(e) });
+        track(installTelemetryEvent("fail", Date.now() - startedAt));
+      }
+    },
+    [planRun],
+  );
 
   const skip = useCallback(
     (target: InstallTarget) => {
@@ -237,8 +265,8 @@ export function useInstallController(
   );
 
   const actions = useMemo<InstallActions>(
-    () => ({ plan, run, cancel, fetchRelease, download, recheck, skip, unskip }),
-    [plan, run, cancel, fetchRelease, download, recheck, skip, unskip],
+    () => ({ plan, run, cancel, fetchRelease, download, planRun, recheck, skip, unskip }),
+    [plan, run, cancel, fetchRelease, download, planRun, recheck, skip, unskip],
   );
 
   return { state, actions };

@@ -115,7 +115,7 @@
   "path": {
     "not_refreshed": {
       "title": "Command not found: PATH not refreshed or tool not installed",
-      "explanation": "The terminal reports “command not found” / “not recognized as an internal or external command”. Either the terminal was not restarted after installing, Node.js is missing or too old, or npm’s global bin directory is not on PATH.",
+      "explanation": "The terminal reports “command not found” / “not recognized as an internal or external command”. Either the terminal was not restarted after installing, Node.js is missing or too old, or npm’s global bin directory is not on PATH. When the folder is known, click “Fix PATH now” and the tool adds it to your user PATH after you confirm.",
       "steps": {
         "restart_terminal": "Just installed and terminal not restarted: close every terminal window and editor, open a new one and try again.",
         "check_npm_prefix_on_path": "In a new terminal run npm prefix -g and add the printed directory (on Windows the directory itself; on macOS its bin subfolder) to PATH. The tool shows the exact path.",

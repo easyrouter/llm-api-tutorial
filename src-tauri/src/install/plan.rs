@@ -30,6 +30,8 @@ pub const CODE_NODE_HOMEBREW: &str = "node.homebrew";
 pub const CODE_NPM_GLOBAL: &str = "npm_global";
 /// Explanation code for the CC Switch release download plan.
 pub const CODE_CC_SWITCH_DOWNLOAD: &str = "cc_switch.download";
+/// Explanation code for the Codex desktop client download plan.
+pub const CODE_CODEX_APP_DOWNLOAD: &str = "codex_app.download";
 
 /// Machine facts needed to build a plan (collected once by [`super::plan`]).
 #[derive(Debug, Clone)]
@@ -56,7 +58,17 @@ pub fn build_plan(
         InstallTarget::Codex => npm_plan(target, ToolId::Codex, config, mirrors, ctx),
         InstallTarget::ClaudeCode => npm_plan(target, ToolId::ClaudeCode, config, mirrors, ctx),
         InstallTarget::CcSwitch => Ok(cc_switch_plan()),
+        InstallTarget::CodexApp => Ok(manual_plan(
+            InstallTarget::CodexApp,
+            CODE_CODEX_APP_DOWNLOAD,
+            non_empty(&config.codex_app.download_page),
+        )),
     }
+}
+
+fn non_empty(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_owned())
 }
 
 /// A plan without a command: the UI shows instructions / a download link instead.
@@ -71,6 +83,7 @@ fn manual_plan(target: InstallTarget, code: &str, download_url: Option<String>) 
         requires_admin: false,
         explanation_code: code.to_owned(),
         download_url,
+        installer_path: None,
     }
 }
 
@@ -100,6 +113,7 @@ fn node_plan(_config: &AppConfig, mirrors: &MirrorChoice, ctx: &PlanContext) -> 
             requires_admin: false,
             explanation_code: CODE_NODE_HOMEBREW.to_owned(),
             download_url,
+            installer_path: None,
         };
     }
     manual_plan(InstallTarget::Node, CODE_NODE_DOWNLOAD_PAGE, download_url)
@@ -149,6 +163,7 @@ fn npm_plan(
         requires_admin: !ctx.npm_prefix_writable,
         explanation_code: CODE_NPM_GLOBAL.to_owned(),
         download_url: None,
+        installer_path: None,
     })
 }
 
@@ -177,6 +192,7 @@ pub fn validate_plan(plan: &InstallPlan, config: &AppConfig) -> AppResult<()> {
         }
         InstallTarget::Node => validate_brew_plan(plan).map_err(invalid),
         InstallTarget::CcSwitch => Err(invalid("CC Switch has no command to run")),
+        InstallTarget::CodexApp => Err(invalid("the Codex app has no command plan")),
     }
 }
 
@@ -188,7 +204,9 @@ fn validate_npm_plan(plan: &InstallPlan, config: &AppConfig) -> Result<(), &'sta
     let tool = match plan.target {
         InstallTarget::Codex => ToolId::Codex,
         InstallTarget::ClaudeCode => ToolId::ClaudeCode,
-        InstallTarget::Node | InstallTarget::CcSwitch => return Err("not an npm target"),
+        InstallTarget::Node | InstallTarget::CcSwitch | InstallTarget::CodexApp => {
+            return Err("not an npm target")
+        }
     };
     let package = config
         .tools

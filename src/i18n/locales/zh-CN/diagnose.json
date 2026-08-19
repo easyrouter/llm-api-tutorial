@@ -115,7 +115,7 @@
   "path": {
     "not_refreshed": {
       "title": "命令不存在：PATH 没刷新或没装好",
-      "explanation": "终端提示 command not found / 不是内部或外部命令。可能是刚装完还没关终端、Node.js 没装或版本太旧，或者 npm 的全局 bin 目录不在 PATH 里。",
+      "explanation": "终端提示 command not found / 不是内部或外部命令。可能是刚装完还没关终端、Node.js 没装或版本太旧，或者 npm 的全局 bin 目录不在 PATH 里。 如果目录已知，可以直接点「一键修复 PATH」，确认后由工具加入用户 PATH。",
       "steps": {
         "restart_terminal": "刚装完还没关终端：关掉所有终端窗口和编辑器，重新打开再试。",
         "check_npm_prefix_on_path": "在新终端执行 npm prefix -g，把输出的目录（Windows 直接用该目录；macOS 用其下的 bin）加入 PATH。工具会给出具体路径。",

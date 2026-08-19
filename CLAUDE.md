@@ -31,6 +31,10 @@ src-tauri/src/
   platform.rs     OS/PATH introspection                            process.rs    ALL child-process execution
   net.rs          probes, mirror choice, verified downloads       redact.rs     secret redaction (use it everywhere)
   checks/  M1     install/  M2     guide.rs  M3     verify.rs  M4     diagnose/  M5     docs/  M6     telemetry.rs
+  remediate.rs    one-click PATH repair / env-var cleanup / ~/.codex/config.toml — plan → confirm → apply (ADR-0008)
+  install/installer.rs  run a downloaded installer (Node MSI/pkg, Codex app MSIX/DMG) as an install job; exit-code rules
+  install/node.rs       Node LTS discovery on the chosen dist mirror (index.json → asset → SHASUMS256.txt)
+  checks/codex_app.rs   Codex desktop client (ChatGPT app) check — Warn + install / Store / region-settings fixes
   fast_ui.rs      optional Codex Fast UI toolkit (Windows only, opt-in — ADR-0007)
 src/
   lib/types.ts    IPC DTOs  <-- mirror of models.rs               lib/tauri.ts  typed invoke wrappers (only place invoke is called)
@@ -43,21 +47,35 @@ src-tauri/nsis/hooks.nsh                NSIS installer hooks (legacy-publisher u
 
 ## Hard rules (from PRD answers; violating these is a bug, not a style issue)
 
-1. **Never write** to `~/.codex/`, `~/.claude/` or `~/.cc-switch/` (PRD #4, ADR-0003). Reading for
-   diagnostics is fine. Configuration is done by the user inside CC Switch; we guide and verify.
-   The one-click import (ADR-0006) is a _hand-off_: it opens CC Switch's own
-   `ccswitch://v1/import` deep link after user confirmation — CC Switch confirms again and does
-   its own writing.
-2. **Never modify environment variables** (PRD #17). Report conflicts + give instructions.
+1. **Never write** to `~/.claude/` or `~/.cc-switch/` (ADR-0003). Reading for diagnostics is
+   fine. Provider configuration is done by the user inside CC Switch; we guide and verify. The
+   one-click import (ADR-0006) is a _hand-off_ via CC Switch's own `ccswitch://v1/import` link.
+   The **only** file this app writes under `~/.codex/` is `config.toml`, and only through
+   `remediate::apply_codex_config` after the user confirmed the shown template, with the existing
+   file backed up as `config.toml.seedrouter-<ts>.bak` (`restore_codex_config` undoes it) —
+   ADR-0008, PRD #4 revised 2026-08-19.
+2. **Environment variables / PATH are changed only through `remediate`** (plan → confirm →
+   apply; ADR-0008, PRD #17 revised): `plan_path_repair`/`apply_path_repair` may _append_ one dir
+   to the **user** PATH (`HKCU\Environment\Path` + broadcast, or an `export PATH=…` line in the
+   login-shell rc file with backup); `plan_env_cleanup`/`apply_env_cleanup` may remove conflict
+   variables from user/machine registry, rc files (commented out, backup) and `launchctl`.
+   Never silently, never the machine PATH, never anything the user did not see in the plan.
 3. **API keys**: never persisted, logged, put in telemetry or diagnostic reports. They may be held
-   in memory for gateway probes (connectivity test, model list, verify) and — only after the user
-   confirms the masked preview — embedded in the `ccswitch://` import link handed to CC Switch
-   (ADR-0006). Every string shown/logged/reported goes through
-   `redact::redact_secrets`; known secrets are masked with `redact::mask_value`.
-4. **Show before run**: any command executed on the user's machine is displayed
-   (`InstallPlan.display_command`, `FastUiPlan.display_command`) and confirmed by the user first.
-   No silent elevation (PRD #7). Both plans are re-derived server-side and compared before the
-   command runs, so a tampered webview cannot substitute a different one.
+   in memory for gateway probes (connectivity test, model list, verify), substituted into the
+   config.toml at apply time, and — only after the user confirms the masked preview — embedded
+   in the `ccswitch://` import link (ADR-0006). `EnvCleanupPlan` carries the **full** env-var
+   values for the confirmation dialog only — never log them, never put them in telemetry or
+   reports. Every other string shown/logged/reported goes through `redact::redact_secrets`;
+   known secrets are masked with `redact::mask_value`.
+4. **Show before run**: any command executed or file changed on the user's machine is displayed
+   first (`InstallPlan.display_command` incl. installer-run plans, `PathRepairPlan`,
+   `EnvCleanupPlan` items, the config.toml template, `FastUiPlan`) and confirmed by the user.
+   Every plan is re-derived server-side and compared before it runs, so a tampered webview
+   cannot substitute a different one. **No silent elevation** (PRD #7): admin steps are
+   labelled (`requiresAdmin` → "(需要管理员权限)" / "(needs administrator rights)") and
+   elevation happens only through the OS prompt of the installer itself (`msiexec`,
+   `installer -pkg` via `osascript`) or `Start-Process -Verb RunAs` for `reg delete` — this app
+   never runs elevated.
 5. **Bilingual by construction**: Rust returns _codes_ + params, never prose. Every user-facing
    string lives in both `zh-CN` and `en` locale files (`npm run i18n:check` enforces parity).
 6. **All process execution** goes through `process.rs` (timeouts, no console window on Windows).

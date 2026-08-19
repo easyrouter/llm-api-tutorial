@@ -55,7 +55,8 @@
     "claude-code": "Claude Code",
     "cc-switch": "CC Switch",
     "node": "Node.js",
-    "npm": "npm"
+    "npm": "npm",
+    "codex-app": "Codex 客户端"
   },
   "welcome": {
     "title": "欢迎使用 SeedRouter 接入引导工具",
@@ -69,8 +70,8 @@
     },
     "whatWeDont": "工具不会做什么",
     "whatWeDontItems": {
-      "noConfigWrite": "不会直接修改 ~/.codex、~/.claude 或 CC Switch 的配置文件（「一键导入」由 CC Switch 自己确认并写入）",
-      "noEnvEdit": "不会自动修改你的系统环境变量（发现冲突时只提示，由你手动处理）",
+      "noConfigWrite": "不会悄悄修改 ~/.codex、~/.claude 或 CC Switch 的配置文件：只有你在「配置」步骤确认「应用 Codex 配置模板」后才会写入 ~/.codex/config.toml，并先备份原文件；CC Switch 的配置由 CC Switch 自己写入",
+      "noEnvEdit": "不会在未经你确认的情况下修改环境变量：「一键清理环境变量」和「一键修复 PATH」都会先展示将要改动的内容，确认后才执行，并且会备份",
       "noKeyStorage": "不会保存或上传你的 API Key（仅在内存中用于连通性测试，或在你确认后交给 CC Switch 导入）"
     },
     "selectTools": "本次要接入的工具",
@@ -126,11 +127,80 @@
     "install": "安装 {{tool}}",
     "instructions": "查看操作说明",
     "rerun": "重新检查",
+    "repair_path": "一键修复 PATH",
+    "clean_env_vars": "一键清理环境变量",
+    "open_system_uri": {
+      "ms_store_codex_app": "打开微软商店",
+      "windows_region_settings": "打开区域设置"
+    },
+    "open_system_uri_hint": {
+      "ms_store_codex_app": "在微软商店中打开 Codex 客户端页面，点击「获取」安装",
+      "windows_region_settings": "商店提示地区不可用时：更改国家/地区后重开商店"
+    },
+    "adminHint": "需要管理员权限：系统会弹出授权提示",
     "labels": {
       "node_download": "Node.js 下载页",
       "cc_switch_download": "CC Switch 下载页",
       "windows_terminal_download": "Windows Terminal 下载页",
+      "codex_app_download": "Codex 客户端下载页",
       "docs": "帮助文档"
+    }
+  },
+  "remediate": {
+    "whatItDoes": "这会做什么",
+    "helpLink": "了解这个按钮背后做了什么",
+    "restartTerminals": "请关闭所有终端窗口（以及 CC Switch）再重新打开，新的设置才会生效。",
+    "path": {
+      "title": "一键修复 PATH",
+      "description": "把下面的目录加入你的用户 PATH，这样终端就能找到里面的命令。只改你自己的用户设置，不需要管理员权限。",
+      "dir": "要加入的目录",
+      "location": "修改位置",
+      "command": "将要执行的操作",
+      "backupNote": "修改前会先备份原文件（文件名加上 .seedrouter-<时间>.bak）。",
+      "alreadyPresent": "PATH 里已经包含这个目录，不需要修改——通常只要关闭所有终端窗口再重新打开即可。点「确认」不会做任何更改。",
+      "confirm": "确认修复",
+      "planning": "正在准备…",
+      "result": {
+        "title": "PATH 修复完成",
+        "changed": "已把 {{dir}} 加入 PATH（{{location}}）。",
+        "unchanged": "PATH 已包含 {{dir}}，没有做任何更改。",
+        "backup": "备份文件：{{path}}"
+      }
+    },
+    "env": {
+      "title": "一键清理环境变量",
+      "description": "下面列出了将被删除的环境变量、它们的来源和当前的完整值。请先核对，确认后才会删除。",
+      "adminWarning": "其中有系统级变量，删除需要管理员权限：系统会弹出授权提示（UAC）。",
+      "confirm": "确认清理",
+      "confirmAdmin": "确认清理（需要管理员权限）",
+      "planning": "正在准备…",
+      "showValues": "显示完整值",
+      "hideValues": "隐藏完整值",
+      "valuesShownNote": "完整值只在这个对话框里显示，不会被记录或上报。",
+      "hidden": "（已隐藏）",
+      "columns": {
+        "name": "变量名",
+        "source": "来源",
+        "value": "当前值",
+        "line": "文件中的行",
+        "action": "将要执行",
+        "command": "对应命令"
+      },
+      "action": {
+        "delete_user_registry": "从 Windows 用户环境变量中删除",
+        "delete_machine_registry": "从 Windows 系统环境变量中删除——需要管理员权限，会弹出 UAC 提示",
+        "comment_out_rc_line": "在文件中把这一行注释掉（先备份原文件）",
+        "launchctl_unsetenv": "执行 launchctl unsetenv 取消设置",
+        "none": "无法删除：它只在当前进程里设置——请关闭并重新打开启动本工具的程序或终端"
+      },
+      "empty": "没有找到可以清理的来源。",
+      "result": {
+        "title": "清理完成",
+        "removed": "已删除：{{names}}",
+        "failed": "未能删除：{{names}}",
+        "backups": "备份文件：{{paths}}",
+        "none": "没有删除任何变量。"
+      }
     }
   },
   "help": {

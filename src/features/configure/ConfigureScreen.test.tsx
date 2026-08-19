@@ -4,9 +4,11 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import type {
   CheckResult,
+  CodexConfigStatus,
   ConfigGuide,
   ConnectivityReport,
   GatewayProbeRequest,
+  GuideStep,
   KeyValidation,
   ToolId,
   UrlPreview,
@@ -30,13 +32,59 @@ function guideFor(tool: ToolId): ConfigGuide {
       modelHint: tool === "codex" ? "gpt-5-codex" : "",
       reasoningEffortHint: "",
     },
-    steps: [
-      { id: "1", code: "open_cc_switch", params: {}, copyValue: null, verifyCheck: "cc_switch" },
-      { id: "2", code: "select_tool_tab", params: { tool }, copyValue: null, verifyCheck: null },
-      { id: "3", code: "paste_base_url", params: {}, copyValue: BASE_URL, verifyCheck: null },
-      { id: "4", code: "set_model", params: {}, copyValue: null, verifyCheck: null },
-    ],
+    steps:
+      tool === "codex"
+        ? [
+            step("open_cc_switch", null, { verifyCheck: "cc_switch" }),
+            step("select_tool_tab", null, { params: { tool } }),
+            step("add_official_provider", "chatgpt_login"),
+            step("login_chatgpt", "chatgpt_login"),
+            step("paste_base_url", "api_key", { copyValue: BASE_URL }),
+            step("set_model", "api_key"),
+            step("apply_codex_config", null),
+          ]
+        : [
+            step("open_cc_switch", null, { verifyCheck: "cc_switch" }),
+            step("select_tool_tab", null, { params: { tool } }),
+            step("paste_base_url", null, { copyValue: BASE_URL }),
+            step("set_model", null),
+          ],
   };
+}
+
+function step(
+  code: string,
+  branch: GuideStep["branch"],
+  overrides: Partial<Pick<GuideStep, "params" | "copyValue" | "verifyCheck">> = {},
+): GuideStep {
+  return { id: code, code, params: {}, copyValue: null, verifyCheck: null, branch, ...overrides };
+}
+
+const CONFIG_PATH = "C:\\Users\\me\\.codex\\config.toml";
+const BACKUP_PATH = `${CONFIG_PATH}.seedrouter-20260819T120000.bak`;
+
+function configStatus(overrides: Partial<CodexConfigStatus> = {}): CodexConfigStatus {
+  return {
+    path: CONFIG_PATH,
+    exists: false,
+    currentRedacted: null,
+    backups: [],
+    matchesTemplate: null,
+    ...overrides,
+  };
+}
+
+/** Number badges of the visible steps, in order. */
+function stepNumbers(): string[] {
+  return within(screen.getByTestId("guide-steps"))
+    .getAllByRole("listitem")
+    .map((li) => li.querySelector("span[aria-hidden]")?.textContent ?? "");
+}
+
+function stepCodes(): string[] {
+  return within(screen.getByTestId("guide-steps"))
+    .getAllByRole("listitem")
+    .map((li) => li.getAttribute("data-step-code") ?? "");
 }
 
 function keyValidation(key: string): KeyValidation {
@@ -112,6 +160,9 @@ describe("ConfigureScreen", () => {
       preview_cc_switch_import: () => ({ displayUrl: MASKED_LINK, app: "codex" }),
       open_cc_switch_import: () => undefined,
       run_env_check: () => passResult,
+      codex_config_status: () => configStatus(),
+      apply_codex_config: () => ({ path: CONFIG_PATH, backupPath: null, bytes: 100 }),
+      restore_codex_config: () => ({ path: CONFIG_PATH, backupPath: null, bytes: 90 }),
     });
   });
 
@@ -132,9 +183,17 @@ describe("ConfigureScreen", () => {
     // the configuration covers Codex CLI + the Codex client (shared ~/.codex)
     expect(screen.getByTestId("codex-client-note")).toBeInTheDocument();
 
-    // steps in order, with params interpolated and copy values rendered
+    // steps in order (API-key path by default: the sign-in steps are hidden), with params
+    // interpolated and copy values rendered
     const steps = within(screen.getByTestId("guide-steps")).getAllByRole("listitem");
-    expect(steps).toHaveLength(4);
+    expect(steps).toHaveLength(5);
+    expect(stepCodes()).toEqual([
+      "open_cc_switch",
+      "select_tool_tab",
+      "paste_base_url",
+      "set_model",
+      "apply_codex_config",
+    ]);
     expect(steps[1]).toHaveTextContent("Switch to the Codex CLI tab");
     expect(within(steps[2]!).getByTestId("copy-field-value")).toHaveTextContent(BASE_URL);
     expect(steps[3]).toHaveTextContent("enter: gpt-5-codex");
@@ -327,5 +386,106 @@ describe("ConfigureScreen", () => {
       await Promise.resolve();
     });
     expect(useWizardStore.getState().step).toBe("verify");
+  });
+
+  it("switches the Codex account path: filters + renumbers steps and hides the import card", async () => {
+    render(<ConfigureScreen />);
+    await screen.findByText("Open CC Switch");
+    // default: API-key path — custom provider + one-click import + the Windows patch card
+    expect(screen.getByTestId("account-path-api_key")).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId("cc-switch-import")).toBeInTheDocument();
+    expect(stepNumbers()).toEqual(["1", "2", "3", "4", "5"]);
+
+    fireEvent.click(within(screen.getByTestId("account-path-chatgpt_login")).getByRole("radio"));
+    expect(screen.getByTestId("account-path-chatgpt_login")).toHaveAttribute(
+      "data-selected",
+      "true",
+    );
+    expect(stepCodes()).toEqual([
+      "open_cc_switch",
+      "select_tool_tab",
+      "add_official_provider",
+      "login_chatgpt",
+      "apply_codex_config",
+    ]);
+    expect(stepNumbers()).toEqual(["1", "2", "3", "4", "5"]);
+    expect(screen.getByText("Add the “OpenAI Official” preset provider")).toBeInTheDocument();
+    // no custom provider on the sign-in path: import card and Windows patch card are gone
+    expect(screen.queryByTestId("cc-switch-import")).toBeNull();
+    expect(screen.queryByTestId("codex-fast-ui")).toBeNull();
+    // the values card explains the key only feeds config.toml; the template card stays
+    expect(screen.getByText(/only goes into the config.toml template/)).toBeInTheDocument();
+    expect(screen.getByTestId("config-toml-input")).toBeInTheDocument();
+
+    // no account-path selector on the Claude Code tab
+    fireEvent.click(screen.getAllByRole("tab")[1]!);
+    await screen.findByTestId("tool-guide-claude-code");
+    expect(screen.queryByTestId("account-path")).toBeNull();
+    expect(screen.getByTestId("cc-switch-import")).toBeInTheDocument();
+    expect(stepCodes()).toHaveLength(4);
+  });
+
+  it("applies the codex config only after a masked preview and confirmation", async () => {
+    setInvokeHandlers({
+      codex_config_status: () =>
+        configStatus({ exists: true, matchesTemplate: false, backups: [BACKUP_PATH] }),
+      apply_codex_config: () => ({ path: CONFIG_PATH, backupPath: BACKUP_PATH, bytes: 120 }),
+    });
+    render(<ConfigureScreen />);
+    await screen.findByText("Open CC Switch");
+    const textarea = screen.getByTestId<HTMLTextAreaElement>("config-toml-input");
+    await waitFor(() => expect(textarea.value).toContain("<API-KEY>"));
+    const status = await screen.findByTestId("config-status");
+    expect(status).toHaveTextContent("differs from the template (1 backups)");
+
+    // an empty key blocks the apply: no dialog, nothing written
+    fireEvent.click(screen.getByTestId("config-apply"));
+    expect(await screen.findByTestId("config-apply-needs-key")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mockInvoke).not.toHaveBeenCalledWith("apply_codex_config", expect.anything());
+
+    // with a key: the dialog shows path, backup note and a masked preview — never the real key
+    fireEvent.change(await keyInput(), { target: { value: GOOD_KEY } });
+    fireEvent.click(screen.getByTestId("config-apply"));
+    const dialog = await screen.findByRole("dialog");
+    expect(screen.queryByTestId("config-apply-needs-key")).toBeNull();
+    expect(dialog).toHaveTextContent(CONFIG_PATH);
+    expect(dialog).toHaveTextContent(/backed up first/);
+    const preview = within(dialog).getByTestId("config-apply-preview");
+    expect(preview).toHaveTextContent('experimental_bearer_token = "sk-****wxyz"');
+    expect(preview).not.toHaveTextContent("<API-KEY>");
+    expect(dialog).not.toHaveTextContent(GOOD_KEY);
+    expect(within(dialog).getAllByRole("button", { name: /What does this do/ })).not.toHaveLength(
+      0,
+    );
+    expect(mockInvoke).not.toHaveBeenCalledWith("apply_codex_config", expect.anything());
+
+    // confirm → the real key is written (memory only), success shows path + backup
+    fireEvent.click(within(dialog).getByRole("button", { name: "Write file" }));
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("apply_codex_config", {
+        request: {
+          content: expect.stringContaining(`experimental_bearer_token = "${GOOD_KEY}"`) as string,
+        },
+      }),
+    );
+    expect(mockInvoke).not.toHaveBeenCalledWith("apply_codex_config", {
+      request: { content: expect.stringContaining("<API-KEY>") as string },
+    });
+    const applied = await screen.findByTestId("config-applied");
+    expect(applied).toHaveTextContent(CONFIG_PATH);
+    expect(applied).toHaveTextContent(BACKUP_PATH);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // the screen still never shows the real key
+    expect(document.body).not.toHaveTextContent(GOOD_KEY);
+
+    // restore: confirm first (destructive), then the newest backup is put back
+    fireEvent.click(screen.getByTestId("config-restore"));
+    const restoreDialog = await screen.findByRole("dialog");
+    expect(restoreDialog).toHaveTextContent(BACKUP_PATH);
+    expect(mockInvoke).not.toHaveBeenCalledWith("restore_codex_config");
+    fireEvent.click(within(restoreDialog).getByRole("button", { name: "Restore backup" }));
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("restore_codex_config"));
+    expect(await screen.findByTestId("config-restored")).toHaveTextContent(CONFIG_PATH);
   });
 });

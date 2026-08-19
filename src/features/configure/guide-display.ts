@@ -7,7 +7,7 @@
  * (`tool`, `protocol`, `model_hint`) so a missing param can never leak as `{{model_hint}}`.
  */
 import type { Translate } from "@/lib/errors";
-import type { ConfigGuide, GuideStep, Params, Protocol, ToolId } from "@/lib/types";
+import type { ConfigGuide, GuideBranch, GuideStep, Params, Protocol, ToolId } from "@/lib/types";
 
 const TOOL_IDS: readonly string[] = ["codex", "claude-code"];
 const PROTOCOLS: readonly string[] = ["responses", "chat_completions"];
@@ -86,4 +86,13 @@ export function liveCopyValue(step: GuideStep, live?: LiveProviderValues): strin
     default:
       return step.copyValue;
   }
+}
+
+/**
+ * Steps visible for the chosen Codex account path: steps without a branch are shared, the rest
+ * show only for their own branch. Without a branch (Claude Code) every step is shown.
+ */
+export function visibleSteps(steps: readonly GuideStep[], branch: GuideBranch | null): GuideStep[] {
+  if (!branch) return [...steps];
+  return steps.filter((step) => step.branch === null || step.branch === branch);
 }

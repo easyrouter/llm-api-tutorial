@@ -1,5 +1,6 @@
-//! Environment-variable conflict check (guide fault D). The tool only *reports* — it never
-//! modifies environment variables (PRD #17) and never exposes raw values (`mask_value`).
+//! Environment-variable conflict check (guide fault D). The check only *reports* (masked
+//! values); removal is a separate, previewed and confirmed one-click action
+//! (`remediate::plan_env_cleanup` / `apply_env_cleanup`, ADR-0008) or manual instructions.
 //!
 //! For every name in `env_vars_to_inspect` the finding lists where the variable is defined:
 //! - `Process`         — set in this process (`std::env::var`), i.e. inherited at launch;
@@ -146,6 +147,9 @@ pub fn evaluate(findings: &[EnvVarFinding], platform: Platform) -> Verdict {
         params.insert("names".to_owned(), names.clone());
         Verdict::warn("env_vars.conflicts")
             .param("names", names)
+            .fix(FixAction::CleanEnvVars {
+                names: conflicts.iter().map(|f| f.name.clone()).collect(),
+            })
             .fix(FixAction::Instructions {
                 code: instructions_code(platform).to_owned(),
                 params,
@@ -507,16 +511,22 @@ mod tests {
                 "OPENAI_BASE_URL ← ~/.zshrc:12",
             ]
         );
+        assert_eq!(
+            v.fixes[0],
+            FixAction::CleanEnvVars {
+                names: vec!["OPENAI_API_KEY".into(), "OPENAI_BASE_URL".into()]
+            }
+        );
         assert!(matches!(
-            &v.fixes[0],
+            &v.fixes[1],
             FixAction::Instructions { code, params }
                 if code == "checks:env_vars.instructions.macos"
                     && params.get("names").map(String::as_str) == Some("OPENAI_API_KEY, OPENAI_BASE_URL")
         ));
-        assert_eq!(v.fixes[1], FixAction::Rerun);
+        assert_eq!(v.fixes[2], FixAction::Rerun);
         let win = evaluate(&findings, Platform::Windows);
         assert!(matches!(
-            &win.fixes[0],
+            &win.fixes[1],
             FixAction::Instructions { code, .. } if code == "checks:env_vars.instructions.windows"
         ));
     }

@@ -55,7 +55,8 @@
     "claude-code": "Claude Code",
     "cc-switch": "CC Switch",
     "node": "Node.js",
-    "npm": "npm"
+    "npm": "npm",
+    "codex-app": "Codex desktop client"
   },
   "welcome": {
     "title": "Welcome to SeedRouter Onboarding",
@@ -69,8 +70,8 @@
     },
     "whatWeDont": "What this tool never does",
     "whatWeDontItems": {
-      "noConfigWrite": "It never edits ~/.codex, ~/.claude or CC Switch configuration files (the one-click import is confirmed and written by CC Switch itself)",
-      "noEnvEdit": "It never changes your system environment variables (conflicts are reported for you to fix)",
+      "noConfigWrite": "It never silently edits ~/.codex, ~/.claude or CC Switch configuration files: ~/.codex/config.toml is written only after you confirm “Apply the Codex config template” in the Configure step (with a backup); CC Switch writes its own configuration",
+      "noEnvEdit": "It never changes environment variables without your confirmation: “Clean up environment variables” and “Fix PATH now” show exactly what will change, run only after you confirm, and keep a backup",
       "noKeyStorage": "It never stores or uploads your API key (used in memory for connectivity tests, or handed to CC Switch after you confirm the import)"
     },
     "selectTools": "Tools to set up",
@@ -126,11 +127,80 @@
     "install": "Install {{tool}}",
     "instructions": "Show instructions",
     "rerun": "Re-check",
+    "repair_path": "Fix PATH now",
+    "clean_env_vars": "Clean up environment variables",
+    "open_system_uri": {
+      "ms_store_codex_app": "Open Microsoft Store",
+      "windows_region_settings": "Open region settings"
+    },
+    "open_system_uri_hint": {
+      "ms_store_codex_app": "Opens the Codex client page in the Microsoft Store — click “Get” to install",
+      "windows_region_settings": "If the Store says the app is not available in your region: change the country/region, then reopen the Store"
+    },
+    "adminHint": "Needs administrator rights: the system will ask for permission",
     "labels": {
       "node_download": "Node.js download page",
       "cc_switch_download": "CC Switch download page",
       "windows_terminal_download": "Windows Terminal download page",
+      "codex_app_download": "Codex client download page",
       "docs": "Help documentation"
+    }
+  },
+  "remediate": {
+    "whatItDoes": "What this does",
+    "helpLink": "Learn what this button does behind the scenes",
+    "restartTerminals": "Close every terminal window (and CC Switch) and open them again so the new setting takes effect.",
+    "path": {
+      "title": "Fix PATH",
+      "description": "Adds the folder below to your user PATH so the terminal can find the commands in it. Only your own user settings change; no administrator rights needed.",
+      "dir": "Folder to add",
+      "location": "Where it is written",
+      "command": "What will run",
+      "backupNote": "The original file is backed up first (same name plus .seedrouter-<time>.bak).",
+      "alreadyPresent": "PATH already contains this folder, so nothing needs to change — usually closing every terminal window and opening a new one is enough. Confirming makes no change.",
+      "confirm": "Fix PATH",
+      "planning": "Preparing…",
+      "result": {
+        "title": "PATH fixed",
+        "changed": "Added {{dir}} to PATH ({{location}}).",
+        "unchanged": "PATH already contained {{dir}}; nothing was changed.",
+        "backup": "Backup: {{path}}"
+      }
+    },
+    "env": {
+      "title": "Clean up environment variables",
+      "description": "The variables below will be removed. Each row shows where it comes from and its full current value — please review before confirming.",
+      "adminWarning": "Some of these are system-wide variables; removing them needs administrator rights (a UAC prompt will appear).",
+      "confirm": "Remove them",
+      "confirmAdmin": "Remove them (needs administrator rights)",
+      "planning": "Preparing…",
+      "showValues": "Show full values",
+      "hideValues": "Hide full values",
+      "valuesShownNote": "Full values are shown in this dialog only; they are never logged or reported.",
+      "hidden": "(hidden)",
+      "columns": {
+        "name": "Variable",
+        "source": "Source",
+        "value": "Current value",
+        "line": "Line in file",
+        "action": "Action",
+        "command": "Command"
+      },
+      "action": {
+        "delete_user_registry": "Delete from the Windows user variables",
+        "delete_machine_registry": "Delete from the Windows system variables — needs administrator rights, a UAC prompt will appear",
+        "comment_out_rc_line": "Comment out this line in the file (backup first)",
+        "launchctl_unsetenv": "Run launchctl unsetenv to unset it",
+        "none": "Cannot remove: it is only set in the current process — close and reopen the program or terminal that launched this tool"
+      },
+      "empty": "No removable source was found.",
+      "result": {
+        "title": "Clean-up finished",
+        "removed": "Removed: {{names}}",
+        "failed": "Could not remove: {{names}}",
+        "backups": "Backups: {{paths}}",
+        "none": "No variable was removed."
+      }
     }
   },
   "help": {

@@ -373,17 +373,23 @@ fn path_not_refreshed(tool: ToolId, ctx: &Context<'_>) -> Diagnosis {
     let dir = npm_bin_dir_for(tool, ctx);
     let mut params = params([("tool", tool_key(tool)), ("binary", binary.as_str())]);
     params.insert("dir".into(), redact_secrets(&dir));
+    // One-click PATH repair first (ADR-0008), then the manual routes.
+    let mut actions = Vec::new();
+    if !dir.trim().is_empty() {
+        actions.push(FixAction::RepairPath { dir: dir.clone() });
+    }
+    actions.extend([
+        FixAction::GoToStep {
+            step: WizardStep::Install,
+        },
+        FixAction::Rerun,
+    ]);
     Diagnosis {
         rule_id: RULE_PATH.into(),
         severity: Severity::Blocking,
         code: "path.not_refreshed".into(),
         params,
-        actions: vec![
-            FixAction::GoToStep {
-                step: WizardStep::Install,
-            },
-            FixAction::Rerun,
-        ],
+        actions,
         checklist: keys(&["restart_terminal", "check_npm_prefix_on_path", "reinstall"]),
     }
 }
@@ -836,15 +842,20 @@ mod tests {
         assert_eq!(p(&d, "tool"), "codex");
         assert_eq!(p(&d, "binary"), "codex");
         assert!(d.params.contains_key("dir"));
-        assert_eq!(
-            d.actions,
-            vec![
-                FixAction::GoToStep {
-                    step: WizardStep::Install
-                },
-                FixAction::Rerun
-            ]
-        );
+        let dir = p(&d, "dir");
+        let mut expected = Vec::new();
+        if !dir.trim().is_empty() {
+            expected.push(FixAction::RepairPath {
+                dir: dir.to_owned(),
+            });
+        }
+        expected.extend([
+            FixAction::GoToStep {
+                step: WizardStep::Install,
+            },
+            FixAction::Rerun,
+        ]);
+        assert_eq!(d.actions, expected);
     }
 
     #[test]

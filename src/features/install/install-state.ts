@@ -6,15 +6,16 @@
  * Per-target flows (see `installKind`):
  * - npm (Codex, Claude Code): idle → planning → confirm → starting → running → done | failed
  *   (done triggers an automatic re-check whose result is shown as information)
- * - node: idle → planning → confirm (open download page, then "I installed it — re-check";
- *   a passing re-check moves the item to done)
- * - cc-switch: idle → fetching_release → release → downloading → downloaded (open installer,
- *   then "I installed it — re-check"; a passing re-check moves the item to done)
+ * - installer (Node.js, CC Switch, Codex desktop client): idle → fetching_release → release →
+ *   downloading → downloaded; then either
+ *   - run it for the user (Node, Codex app): run_planning → downloaded (with `runPlan`) →
+ *     starting → running → done (automatic re-check) | failed, or
+ *   - hand it over (CC Switch: open installer, then "I installed it — re-check"; a passing
+ *     re-check moves the item to done).
  * Every phase can be skipped; failures carry the stage so Retry knows where to resume.
  */
 import type { BadgeStatus, LogLine } from "@/components/ui";
 import type {
-  CcSwitchRelease,
   CheckResult,
   DownloadProgressEvent,
   DownloadResult,
@@ -23,11 +24,12 @@ import type {
   InstallOutputEvent,
   InstallPlan,
   InstallTarget,
+  InstallerRelease,
   TelemetryEvent,
   WireError,
 } from "@/lib/types";
 
-export type FailStage = "plan" | "start" | "run" | "release" | "download";
+export type FailStage = "plan" | "start" | "run" | "release" | "download" | "run_plan";
 
 export type ItemPhase =
   | { phase: "idle" }
@@ -37,9 +39,20 @@ export type ItemPhase =
   | { phase: "starting"; plan: InstallPlan }
   | { phase: "running"; plan: InstallPlan; jobId: string; cancelling: boolean }
   | { phase: "fetching_release" }
-  | { phase: "release"; release: CcSwitchRelease }
-  | { phase: "downloading"; release: CcSwitchRelease; jobId: string }
-  | { phase: "downloaded"; release: CcSwitchRelease; download: DownloadResult }
+  | { phase: "release"; release: InstallerRelease }
+  | { phase: "downloading"; release: InstallerRelease; jobId: string }
+  /** `planInstallerRun` in flight (the command that runs the downloaded file). */
+  | { phase: "run_planning"; release: InstallerRelease; download: DownloadResult }
+  /**
+   * Download finished. `runPlan` is the command that runs the installer once it is known
+   * (`run_plan_ok`); `null` for hand-over targets (CC Switch) or before planning.
+   */
+  | {
+      phase: "downloaded";
+      release: InstallerRelease;
+      download: DownloadResult;
+      runPlan: InstallPlan | null;
+    }
   | { phase: "done"; jobId: string | null }
   | {
       phase: "failed";
@@ -48,7 +61,9 @@ export type ItemPhase =
       /** Set when an install job ended unsuccessfully (exit code / cancelled). */
       done: InstallDoneEvent | null;
       plan: InstallPlan | null;
-      release: CcSwitchRelease | null;
+      release: InstallerRelease | null;
+      /** Kept after a failed `run_plan` so the installer can be re-planned or opened by hand. */
+      download: DownloadResult | null;
       jobId: string | null;
     };
 
@@ -95,12 +110,15 @@ export type InstallAction =
   | { type: "job_output"; event: InstallOutputEvent }
   | { type: "job_done"; event: InstallDoneEvent }
   | Targeted<"release_start">
-  | Targeted<"release_ok", { release: CcSwitchRelease }>
+  | Targeted<"release_ok", { release: InstallerRelease }>
   | Targeted<"release_failed", { error: WireError }>
   | Targeted<"download_start", { jobId: string }>
   | { type: "download_progress"; event: DownloadProgressEvent }
   | Targeted<"download_ok", { download: DownloadResult }>
   | Targeted<"download_failed", { error: WireError }>
+  | Targeted<"run_plan_start">
+  | Targeted<"run_plan_ok", { plan: InstallPlan }>
+  | Targeted<"run_plan_failed", { error: WireError }>
   | Targeted<"recheck_start">
   | Targeted<"recheck_ok", { result: CheckResult }>
   | Targeted<"recheck_failed", { error: WireError }>
@@ -137,6 +155,7 @@ function failed(
     done: null,
     plan: null,
     release: null,
+    download: null,
     jobId: null,
     ...extra,
   };
@@ -217,13 +236,40 @@ function reduceItem(state: InstallState, action: InstallAction): InstallState {
       return withItem(state, action.target, (item) => {
         const release = releaseOf(item.step);
         return release
-          ? { ...item, step: { phase: "downloaded", release, download: action.download } }
+          ? {
+              ...item,
+              step: { phase: "downloaded", release, download: action.download, runPlan: null },
+            }
           : item;
       });
     case "download_failed":
       return withItem(state, action.target, (item) => ({
         ...item,
         step: failed("download", action.error, { release: releaseOf(item.step) }),
+      }));
+    case "run_plan_start":
+      return withItem(state, action.target, (item) => {
+        const release = releaseOf(item.step);
+        const download = downloadOf(item.step);
+        return release && download
+          ? { ...item, step: { phase: "run_planning", release, download } }
+          : item;
+      });
+    case "run_plan_ok":
+      return withItem(state, action.target, (item) => {
+        const release = releaseOf(item.step);
+        const download = downloadOf(item.step);
+        return release && download
+          ? { ...item, step: { phase: "downloaded", release, download, runPlan: action.plan } }
+          : item;
+      });
+    case "run_plan_failed":
+      return withItem(state, action.target, (item) => ({
+        ...item,
+        step: failed("run_plan", action.error, {
+          release: releaseOf(item.step),
+          download: downloadOf(item.step),
+        }),
       }));
     case "recheck_start":
       return withItem(state, action.target, (item) => ({
@@ -289,13 +335,18 @@ export function installReducer(state: InstallState, action: InstallAction): Inst
 // selectors
 // ---------------------------------------------------------------------------
 
-/** The plan carried by a phase, if any (confirm/starting/running/failed-after-plan). */
+/**
+ * The plan carried by a phase, if any (confirm/starting/running/failed-after-plan, or the
+ * installer run plan of a downloaded item).
+ */
 export function planOf(step: ItemPhase): InstallPlan | null {
   switch (step.phase) {
     case "confirm":
     case "starting":
     case "running":
       return step.plan;
+    case "downloaded":
+      return step.runPlan;
     case "failed":
       return step.plan;
     default:
@@ -303,15 +354,29 @@ export function planOf(step: ItemPhase): InstallPlan | null {
   }
 }
 
-/** The CC Switch release carried by a phase, if any. */
-export function releaseOf(step: ItemPhase): CcSwitchRelease | null {
+/** The installer release carried by a phase, if any. */
+export function releaseOf(step: ItemPhase): InstallerRelease | null {
   switch (step.phase) {
     case "release":
     case "downloading":
+    case "run_planning":
     case "downloaded":
       return step.release;
     case "failed":
       return step.release;
+    default:
+      return null;
+  }
+}
+
+/** The finished download carried by a phase, if any. */
+export function downloadOf(step: ItemPhase): DownloadResult | null {
+  switch (step.phase) {
+    case "run_planning":
+    case "downloaded":
+      return step.download;
+    case "failed":
+      return step.download;
     default:
       return null;
   }
@@ -368,6 +433,7 @@ export function isBusy(item: ItemState): boolean {
     case "running":
     case "fetching_release":
     case "downloading":
+    case "run_planning":
       return true;
     default:
       return false;
@@ -400,6 +466,7 @@ export function itemBadge(item: ItemState): { status: BadgeStatus; labelKey: str
     case "starting":
     case "fetching_release":
     case "downloading":
+    case "run_planning":
       return { status: "running", labelKey: step.phase };
   }
 }
@@ -429,7 +496,7 @@ export function installTelemetryEvent(
 
 /**
  * True while a job or download that would be orphaned by leaving the screen is in flight
- * (`starting` / `running` npm job, `downloading` installer). Short IPC calls (planning,
+ * (`starting` / `running` job, `downloading` installer). Short IPC calls (planning,
  * fetching a release, re-checking) do not count.
  */
 export function hasRunningWork(state: InstallState, targets: readonly InstallTarget[]): boolean {

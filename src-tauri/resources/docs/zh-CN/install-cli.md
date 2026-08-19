@@ -24,6 +24,8 @@ npm install -g @anthropic-ai/claude-code
 
 如果工具说"已安装，但当前 PATH 未生效"，不是安装出错，而是已经打开的终端还没有加载新的 PATH：把**所有**终端窗口（包括编辑器里的内置终端）关掉再打开就好了。详见"生效与验证"和故障 E。
 
+如果关掉重开之后重新检查**仍然**找不到命令，说明 npm 的全局目录真的不在你的 PATH 里。这时点"一键修复 PATH"：工具把 npm 全局目录追加到你的用户 PATH（Windows 写 `HKCU\Environment\Path` 并广播变更；macOS 在 `~/.zshrc` 等文件末尾追加一行 `export PATH=…`，先备份），不需要管理员权限。同一个按钮也处理"Codex CLI 已找到但无法运行：`'"node"' 不是内部或外部命令`"——那是 Node.js 目录不在 PATH 里。详见"一键操作说明"。
+
 ## 常见问题
 
 **安装很慢或者卡住**
