@@ -12,21 +12,21 @@ download page (PRD #11). Every distributed build must be signed (PRD #12).
 
 ## Pilot test builds
 
-Two builds are piloted side by side; they differ only in the optional Codex Fast UI toolkit
-(ADR-0007). Keep their versions distinct so the installer file name says which one it is —
-the bundler derives it from `version`, and two files both called `…_0.1.0_x64-setup.exe` are
-indistinguishable once downloaded.
+From `v0.1.0-test.6` only **one** build ships: the one carrying the optional Codex Fast UI
+toolkit (ADR-0007). The `-patched` suffix existed to tell the two pilot builds apart in the
+installer file name; with a single build there is nothing left to tell apart, so it is gone.
 
-| branch                      | version                | tag                     | contains the patch |
-| --------------------------- | ---------------------- | ----------------------- | ------------------ |
-| `feat/onboarding-revisions` | `0.1.0-test.5`         | `v0.1.0-test.5`         | no                 |
-| `feat/codex-fast-ui`        | `0.1.0-test.5-patched` | `v0.1.0-test.5-patched` | yes                |
+| branch                      | role                               | version        | tag             |
+| --------------------------- | ---------------------------------- | -------------- | --------------- |
+| `feat/onboarding-revisions` | integration base, not released     | `0.1.0-test.6` | none            |
+| `feat/codex-fast-ui`        | the shipped build (with the patch) | `0.1.0-test.6` | `v0.1.0-test.6` |
 
-Every pilot round ships **both** tags (`vX-test.N` from `feat/onboarding-revisions`,
-`vX-test.N-patched` from `feat/codex-fast-ui`); fixes land on `feat/onboarding-revisions` and
-are merged into `feat/codex-fast-ui`, which then bumps only its own version.
+Fixes still land on `feat/onboarding-revisions` first and are merged into `feat/codex-fast-ui`;
+both branches carry the same version so the merge never conflicts on it, and only
+`feat/codex-fast-ui` is tagged. Rounds up to `v0.1.0-test.5` shipped two tags each
+(`vX-test.N` and `vX-test.N-patched`) and are left as they are.
 
-Both are pre-releases and unsigned until Q-12 is answered. Build either with
+The build is a pre-release and unsigned until Q-12 is answered. Build it with
 _Actions → Release → Run workflow_ on the branch, or by pushing its tag. NSIS accepts the
 semver pre-release suffix; the DMG is unaffected.
 
