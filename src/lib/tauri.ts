@@ -10,10 +10,12 @@ import type {
   AppInfo,
   CcSwitchImportPreview,
   CcSwitchImportRequest,
-  CcSwitchRelease,
   CheckId,
   CheckResult,
+  CodexConfigApplyRequest,
+  CodexConfigApplyResult,
   CodexConfigRequest,
+  CodexConfigStatus,
   ConfigGuide,
   ConnectivityReport,
   DiagnoseRequest,
@@ -23,14 +25,20 @@ import type {
   DocsIndex,
   DownloadRequest,
   DownloadResult,
+  EnvCleanupPlan,
+  EnvCleanupResult,
   EnvSnapshot,
   GatewayProbeRequest,
   InstallJob,
   InstallPlan,
   InstallTarget,
+  InstallerRelease,
   KeyValidation,
   MirrorChoice,
   ModelList,
+  PathRepairPlan,
+  PathRepairResult,
+  SystemUri,
   TelemetryEvent,
   TelemetryStatus,
   TerminalProcess,
@@ -44,6 +52,8 @@ import type {
 export const getAppInfo = () => invoke<AppInfo>("get_app_info");
 export const getAppConfig = () => invoke<AppConfig>("get_app_config");
 export const openExternal = (url: string) => invoke<void>("open_external", { url });
+/** Opens a well-known OS URI (Microsoft Store page of the Codex app, Windows region settings). */
+export const openSystemUri = (uri: SystemUri) => invoke<void>("open_system_uri", { uri });
 
 // M1
 export const runEnvChecks = () => invoke<EnvSnapshot>("run_env_checks");
@@ -56,10 +66,30 @@ export const planInstall = (target: InstallTarget, excludeRegistry: string | nul
   invoke<InstallPlan>("plan_install", { target, excludeRegistry });
 export const startInstall = (plan: InstallPlan) => invoke<InstallJob>("start_install", { plan });
 export const cancelInstall = (jobId: string) => invoke<void>("cancel_install", { jobId });
-export const fetchCcSwitchRelease = () => invoke<CcSwitchRelease>("fetch_cc_switch_release");
+/** The installer file for `target` (cc-switch, node, codex-app); npm targets are rejected. */
+export const fetchInstallerRelease = (target: InstallTarget) =>
+  invoke<InstallerRelease>("fetch_installer_release", { target });
+/** The command that runs a downloaded installer — show it, then pass it to `startInstall`. */
+export const planInstallerRun = (target: InstallTarget, path: string) =>
+  invoke<InstallPlan>("plan_installer_run", { target, path });
 export const downloadFile = (request: DownloadRequest) =>
   invoke<DownloadResult>("download_file", { request });
 export const openDownloadedFile = (path: string) => invoke<void>("open_downloaded_file", { path });
+
+// One-click remediation (ADR-0008) — every apply re-derives and compares the plan in Rust.
+export const planPathRepair = (dir: string) => invoke<PathRepairPlan>("plan_path_repair", { dir });
+export const applyPathRepair = (plan: PathRepairPlan) =>
+  invoke<PathRepairResult>("apply_path_repair", { plan });
+/** Full values are returned once for the confirmation dialog; never log or persist them. */
+export const planEnvCleanup = (names: string[]) =>
+  invoke<EnvCleanupPlan>("plan_env_cleanup", { names });
+export const applyEnvCleanup = (plan: EnvCleanupPlan) =>
+  invoke<EnvCleanupResult>("apply_env_cleanup", { plan });
+export const codexConfigStatus = (template: string | null = null) =>
+  invoke<CodexConfigStatus>("codex_config_status", { template });
+export const applyCodexConfig = (request: CodexConfigApplyRequest) =>
+  invoke<CodexConfigApplyResult>("apply_codex_config", { request });
+export const restoreCodexConfig = () => invoke<CodexConfigApplyResult>("restore_codex_config");
 
 // M3
 export const getConfigGuide = (tool: ToolId) => invoke<ConfigGuide>("get_config_guide", { tool });

@@ -19,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { testConnectivity } from "@/lib/tauri";
 import type {
   ConnectivityReport,
+  GuideBranch,
   KeyIssue,
   KeyValidation,
   Protocol,
@@ -36,6 +37,8 @@ const inputClass =
 export interface ProviderValuesCardProps {
   tool: ToolId;
   preset: ProviderPreset;
+  /** Codex account path; on `chatgpt_login` the key only feeds the config.toml template. */
+  branch?: GuideBranch | null;
   /** Wire protocol used for the live probe (Claude Code always speaks Anthropic Messages). */
   probeProtocol: Protocol;
   providerName: string;
@@ -59,6 +62,7 @@ export interface ProviderValuesCardProps {
 export function ProviderValuesCard({
   tool,
   preset,
+  branch = null,
   probeProtocol,
   providerName,
   onProviderNameChange,
@@ -93,7 +97,14 @@ export function ProviderValuesCard({
   };
 
   return (
-    <Card title={t("guide:values.title")} description={t("guide:values.description")}>
+    <Card
+      title={t("guide:values.title")}
+      description={
+        branch === "chatgpt_login"
+          ? t("guide:values.descriptionLogin")
+          : t("guide:values.description")
+      }
+    >
       <div className="space-y-4">
         <EditableRow
           label={t("guide:values.providerName")}

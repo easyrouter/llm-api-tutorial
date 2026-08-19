@@ -1,7 +1,7 @@
 {
   "title": "Configure the service gateway in CC Switch",
-  "intro": "The configuration itself is written by CC Switch; this tool never edits a config file for you. Review and edit the values below, test connectivity first, then either import them into CC Switch with one click or follow the manual steps.",
-  "codexClientNote": "This configuration covers both Codex CLI and the Codex client / IDE extension — they share the same configuration under ~/.codex, so one setup serves both.",
+  "intro": "The configuration itself is done in CC Switch; this tool helps you review and edit the values, test connectivity first, then import them into CC Switch with one click or follow the manual steps. The Codex config.toml template can be written to this machine with one click after you confirm (the previous file is backed up).",
+  "codexClientNote": "This configuration covers both Codex CLI and the Codex client / IDE extension — they share the same configuration under ~/.codex, so one setup serves both. Pick your account situation below first; the steps adapt to it.",
   "tabs": {
     "label": "Choose the tool to configure"
   },
@@ -27,7 +27,8 @@
     "modelHint": "Model (suggested)",
     "modelHintEmpty": "There is no company-wide model name; enter the model you were assigned (or fetch the list from the gateway in the steps below).",
     "reasoningEffortHint": "Reasoning effort (suggested)",
-    "apiKeyRow": "API key"
+    "apiKeyRow": "API key",
+    "descriptionLogin": "On the sign-in path you do not enter these values in CC Switch (the “OpenAI Official” preset is enough). The API key is still needed: it only goes into the config.toml template below so requests reach the service gateway; run “Test connectivity” once after entering it."
   },
   "test": {
     "button": "Test connectivity",
@@ -51,7 +52,7 @@
   },
   "config": {
     "title": "Codex config.toml template (recommended)",
-    "description": "Paste this configuration into the “config.toml / configuration” field of the Codex provider in CC Switch (after the one-click import above, you can also edit that provider in CC Switch and replace its configuration with this). It routes through the service gateway while keeping most official features, and enables the priority tier, the large context window and auto-compaction for gpt-5.6-sol. The content is editable — for example, set a more radical model_auto_compact_token_limit or change any other default.",
+    "description": "This configuration routes Codex through the service gateway while keeping most official features, and enables the priority tier, the large context window and auto-compaction for gpt-5.6-sol. Press “Apply to Codex on this machine” to write ~/.codex/config.toml after confirming (the previous file is backed up), or copy it and paste it yourself into the “config.toml / configuration” field of the Codex provider in CC Switch. The content is editable — for example, set a more radical model_auto_compact_token_limit or change any other default.",
     "scopeLabel": "Auto-compaction accounting (model_auto_compact_token_limit_scope)",
     "scopeHint": "Choose what the 300000 auto-compaction threshold counts; when unsure, keep the recommended value.",
     "scope": {
@@ -65,11 +66,40 @@
       }
     },
     "templateLabel": "config.toml content (editable)",
-    "keySubstitution": "Copying replaces <API-KEY> with the real key entered above; the real key is never shown on screen.",
-    "keyMissing": "No API key entered above yet: the copied content keeps the <API-KEY> placeholder — replace it yourself after pasting.",
+    "keySubstitution": "Copying or applying replaces <API-KEY> with the real key entered above; the real key is never shown on screen.",
+    "keyMissing": "No API key entered above yet: the copied content keeps the <API-KEY> placeholder (replace it yourself after pasting); one-click apply needs the key first.",
     "edited": "Edited by hand: changing the values above or the accounting scope will not overwrite your changes; use “Restore generated template” when needed.",
     "regenerate": "Restore generated template",
-    "loading": "Generating the template…"
+    "loading": "Generating the template…",
+    "apply": {
+      "button": "Apply to Codex on this machine (writes ~/.codex/config.toml)",
+      "whatItDoes": "What does this do?",
+      "needsKey": "Enter your API key above first — the placeholder is never written to the file.",
+      "restore": "Restore previous backup",
+      "status": {
+        "label": "config.toml on this machine: ",
+        "missing": "not present (will be created)",
+        "upToDate": "already the latest template",
+        "differs": "differs from the template ({{n}} backups)",
+        "exists": "present ({{n}} backups; enter the API key to compare with the template)"
+      },
+      "confirmTitle": "Write the Codex configuration on this machine?",
+      "confirmBody": "Below is the exact content that will be written (the key is masked in the preview; the full key is written). The existing file is backed up first as config.toml.seedrouter-<timestamp>.bak and can be restored at any time.",
+      "confirmAction": "Write file",
+      "targetPath": "Target file",
+      "defaultPath": "~/.codex/config.toml",
+      "existing": "Existing file",
+      "existingYes": "yes — backed up first as config.toml.seedrouter-<timestamp>.bak",
+      "existingNo": "none — it will be created",
+      "previewLabel": "Content to be written (key masked)",
+      "ccSwitchNote": "Note: CC Switch may rewrite this file when you switch providers. If you switch providers in CC Switch later, come back and press Apply once more.",
+      "applied": "Written to {{path}}. Close and reopen your terminals / the Codex client for it to take effect.",
+      "appliedWithBackup": "Written to {{path}}; the previous file was backed up as {{backup}}. Close and reopen your terminals / the Codex client for it to take effect.",
+      "restoreTitle": "Restore the previous backup?",
+      "restoreBody": "Overwrites the current config.toml with the newest backup ({{backup}}); the current content is backed up once more before that.",
+      "restoreAction": "Restore backup",
+      "restored": "Restored {{path}}."
+    }
   },
   "models": {
     "fetch": "Fetch model list from the gateway",
@@ -92,12 +122,16 @@
     "body": "Find CC Switch in the Start menu / Launchpad and open it. If it is not installed yet, go back to the “Install” step first."
   },
   "login_chatgpt": {
-    "title": "Sign in with your ChatGPT account (optional)",
-    "body": "Once CC Switch is installed, it is worth signing in to Codex with your ChatGPT account first: open a terminal, run codex and pick “Sign in with ChatGPT”. Being signed in keeps the official login-gated features (such as the speed / tier option) available, which works best together with the config.toml template below. This step is optional — skipping it does not affect the rest of the setup."
+    "title": "Sign in to ChatGPT inside Codex",
+    "body": "Open a terminal, run codex, pick “Sign in with ChatGPT” and finish signing in in the browser. Once signed in, Codex's official login-gated features (speed / tier option etc.) are available; requests go through the service gateway via the config.toml applied below. If you later switch to a third-party provider in CC Switch and want to keep the login, enable “Keep official login when switching to third-party” under CC Switch Settings → General → Codex enhancements."
   },
   "select_tool_tab": {
     "title": "Switch to the {{tool}} tab",
     "body": "CC Switch has Claude / Codex tabs at the top (or on the left). Pick “{{tool}}”. If you use both tools, configure each one separately."
+  },
+  "add_official_provider": {
+    "title": "Add the “OpenAI Official” preset provider",
+    "body": "In the Codex tab press “Add provider” and pick “OpenAI Official” from the preset list (no URL or key to enter). Save it, then press “Use / Switch” in the list to make it the current provider."
   },
   "add_provider": {
     "title": "Click “Add provider”",
@@ -122,6 +156,10 @@
   "save_and_activate": {
     "title": "Save and switch to this provider",
     "body": "Click “Save”. A newly added provider is not active automatically: click “Use / Switch” in the list so it becomes the current provider (the card usually changes colour or shows a check mark)."
+  },
+  "apply_codex_config": {
+    "title": "Apply the config.toml template with one click",
+    "body": "Go back to the “Codex config.toml template” card above and press “Apply to Codex on this machine”. It writes the service gateway URL, the priority tier, the large context window and the other settings into ~/.codex/config.toml; the previous file is backed up automatically and can be restored at any time."
   },
   "close_terminals": {
     "title": "Close every terminal window",
@@ -176,9 +214,21 @@
       "body": "Terminals that are already open will not see the new configuration — including the built-in terminals of VS Code, Cursor and similar editors. Close them all before moving on to verification.",
       "help": "Why is this needed?"
     },
-    "noWrite": "This tool never edits ~/.codex, ~/.claude or CC Switch configuration files; the one-click import merely hands the values to CC Switch, which writes its own configuration after you confirm."
+    "noWrite": "This tool never edits ~/.claude or CC Switch configuration files; the one-click import merely hands the values to CC Switch, which writes its own configuration after you confirm. The one exception is Codex's ~/.codex/config.toml: it is written only after you press “Apply” and confirm, and the previous file is backed up first."
   },
   "footer": {
     "next": "Go to verification"
+  },
+  "branch": {
+    "title": "Your Codex account",
+    "description": "CC Switch's Codex tab ships an “OpenAI Official” preset: with a ChatGPT account, use it and sign in inside Codex — no custom provider needed. Add a custom provider only without an account. Both paths apply the config.toml template below.",
+    "chatgpt_login": {
+      "label": "I have a ChatGPT account I can sign in with (recommended)",
+      "description": "Pick the “OpenAI Official” preset in CC Switch and sign in inside Codex; keeps the official login-gated features (speed / tier option etc.)."
+    },
+    "api_key": {
+      "label": "I have no ChatGPT account",
+      "description": "Add a custom provider in CC Switch with the service gateway URL and your API key."
+    }
   }
 }

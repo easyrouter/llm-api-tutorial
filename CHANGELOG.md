@@ -5,6 +5,53 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Added (one-click remediation, ADR-0008)
+
+- One-click **Node.js install** from the env-check / install step: the network probe picks the
+  Node dist source (official vs npmmirror), `install/node.rs` resolves the newest LTS
+  (`index.json` → `node-v<X>-x64|arm64.msi` / `node-v<X>.pkg`) with its SHA-256 from the same
+  source's `SHASUMS256.txt`; `plan_installer_run` + `start_install` run `msiexec /i … /passive
+  /norestart` (UAC from Windows Installer, exit 3010 = reboot pending) or `installer -pkg` via
+  `osascript … with administrator privileges`. Buttons that elevate say so.
+- One-click **PATH repair** (`remediate::plan_path_repair` / `apply_path_repair`): appends the
+  Node dir or npm global bin dir to the **user** PATH (`HKCU\Environment\Path` kept
+  `REG_EXPAND_SZ` + `WM_SETTINGCHANGE`; macOS `export PATH=…` line in the login-shell rc file,
+  backup first). Offered first on `node.not_on_path`, `tool.not_on_path`, `tool.broken` with
+  `nodeMissing` (`'"node"' is not recognized`) and diagnose rule E.
+- One-click **env-var clean-up** (`plan_env_cleanup` / `apply_env_cleanup`): per-source removal
+  (user registry; machine registry via elevated `reg delete`; rc-file / PowerShell-profile line
+  commented out as `# removed by SeedRouter Onboarding: …` with backup; `launchctl unsetenv`;
+  process-only values reported as not removable). The confirmation dialog shows the **full**
+  values on purpose; they are never logged or sent.
+- **Codex `config.toml` auto-apply** (`codex_config_status` / `apply_codex_config` /
+  `restore_codex_config`): writes `~/.codex/config.toml` with the real key substituted at apply
+  time, after backing the existing file up as `config.toml.seedrouter-<ts>.bak`; one-click
+  restore of the newest backup.
+- New check `codex_app` (Codex desktop client, now inside the ChatGPT app; Warn when missing)
+  with fixes: install via the wizard (Store-signed MSIX `Add-AppxPackage` per user / DMG copied
+  into `/Applications`), open the Microsoft Store page (`9PLM9XGG6VKS`), open Windows region
+  settings (`ms-settings:regionformatting`) when the Store says "not available in your region",
+  open the download page. `AppConfig.codexApp`, `InstallTarget = codex-app`,
+  `fetchInstallerRelease(target)` (replaces `fetchCcSwitchRelease`), `FixAction` kinds
+  `repair_path` / `clean_env_vars` / `open_system_uri`.
+- Codex account paths in the configure step: `GuideStep.branch` (`chatgpt_login` → CC Switch
+  "OpenAI Official" preset + `codex` sign-in; `api_key` → custom provider), new steps
+  `add_official_provider`, `apply_codex_config`.
+- Help: new bilingual page `one-click` (what every button does step by step, rights, undo,
+  failure handling); env-check / install-node / install-cli / configure-cc-switch /
+  troubleshooting / FAQ / overview pages updated; ADR-0008; ADR-0003 superseded in part;
+  `CLAUDE.md` hard rules 1–4, `docs/ARCHITECTURE.md`, `docs/OPEN_QUESTIONS.md` (PRD #4/#7/#17
+  revised 2026-08-19; Q-OC1–Q-OC3) and `README.md` aligned.
+
+### Changed (one-click remediation)
+
+- The "never writes `~/.codex`, never edits env vars, never needs admin" promises are narrowed:
+  `~/.codex/config.toml` (explicit click, backup), user PATH append and env-var removal are
+  allowed through plan → confirm → apply only; admin steps are labelled and prompted by the OS /
+  installer; `~/.claude`, `~/.cc-switch` and the machine PATH remain untouchable.
+- `login_chatgpt` is no longer "optional" — it is the `chatgpt_login` path; the config.toml
+  template is applied by the tool instead of being pasted into CC Switch.
+
 ### Added
 
 - Project scaffold: Tauri 2 + React 19 + TypeScript + Vite + Tailwind 4; Rust core module

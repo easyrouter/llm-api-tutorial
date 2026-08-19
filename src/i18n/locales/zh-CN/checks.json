@@ -30,7 +30,7 @@
     "fail": "检查完成：{{fail}} 项阻断，{{warn}} 项警告，{{pass}} 项通过。请先处理阻断项。",
     "skipped": "没有可显示的检查结果。",
     "continueAnyway": "我知道有阻断项，仍要继续（下一步会引导安装缺失的组件）",
-    "continueAnywayHint": "只有当所有阻断项都可以通过安装解决时才允许跳过；其他阻断项需要先处理。"
+    "continueAnywayHint": "只有当所有阻断项都可以通过安装或一键修复解决时才允许跳过；其他阻断项需要先处理。"
   },
   "os": {
     "title": "操作系统",
@@ -52,7 +52,7 @@
     "ok": "已安装 Node.js {{version}}",
     "missing": "没有找到 Node.js，Codex CLI 和 Claude Code 都需要它",
     "too_old": "已安装的 Node.js {{version}} 版本过低，需要升级到较新的长期支持（LTS）版本",
-    "not_on_path": "已安装 Node.js（{{path}}），但当前终端还找不到它，通常是因为安装后没有重新打开终端",
+    "not_on_path": "已安装 Node.js（{{path}}），但当前终端还找不到它，通常是因为安装后没有重新打开终端。可以用下面的「一键修复 PATH」把它加入 PATH",
     "broken": "找到了 Node.js（{{path}}），但它无法正常运行（node --version 执行失败）。请重新安装 Node.js 后再检查一次",
     "instructions": {
       "not_on_path": "Node.js 已经安装，只是当前的终端还没有读到新的 PATH 设置。请按下面的步骤处理：\n1. 完全关闭所有终端窗口（Windows：命令提示符、PowerShell、Windows Terminal；macOS：终端、iTerm 等）。\n2. 如果是 Windows，且刚刚安装完 Node.js，建议注销并重新登录一次。\n3. 重新打开一个终端，输入 node --version，能看到版本号即表示生效。\n4. 回到本工具点击「重新检查」。"
@@ -73,11 +73,11 @@
   "tool": {
     "ok": "已安装 {{tool}} {{version}}",
     "missing": "没有找到 {{tool}}，下一步可以一键安装",
-    "not_on_path": "{{tool}} 已经安装在 {{path}}，但当前终端还找不到它，通常是因为安装后没有重新打开终端",
-    "broken": "找到了 {{tool}}（{{path}}），但它无法正常运行（版本命令执行失败）。请重新安装后再检查一次",
+    "not_on_path": "{{tool}} 已经安装在 {{path}}，但当前终端还找不到它，通常是因为安装后没有重新打开终端。可以用下面的「一键修复 PATH」把它加入 PATH",
+    "broken": "找到了 {{tool}}（{{path}}），但它无法正常运行（版本命令执行失败）。请重新安装后再检查一次。如果详情里显示 node 不是内部命令 / command not found，说明 Node.js 不在 PATH 里——用下面的「一键修复 PATH」即可",
     "not_configured": "当前配置中没有 {{toolId}} 这个工具的信息，已跳过检查",
     "instructions": {
-      "not_on_path": "{{tool}} 已经安装好了，只是终端还没有读到新的 PATH 设置：\n1. 完全关闭所有终端窗口。\n2. 重新打开一个终端，输入 {{tool}} --version，能看到版本号即表示生效。\n3. 如果仍然提示找不到命令，请确认目录 {{dir}} 已加入 PATH（Windows：设置 → 系统 → 关于 → 高级系统设置 → 环境变量；macOS：检查 ~/.zshrc 或 ~/.zprofile）。修改环境变量需要你手动完成，本工具不会代劳。\n4. 回到本工具点击「重新检查」。"
+      "not_on_path": "{{tool}} 已经安装好了，只是终端还没有读到新的 PATH 设置：\n1. 完全关闭所有终端窗口。\n2. 重新打开一个终端，输入 {{tool}} --version，能看到版本号即表示生效。\n3. 如果仍然提示找不到命令，请确认目录 {{dir}} 已加入 PATH（Windows：设置 → 系统 → 关于 → 高级系统设置 → 环境变量；macOS：检查 ~/.zshrc 或 ~/.zprofile）。也可以直接点「一键修复 PATH」，由本工具在你确认后加入。\n4. 回到本工具点击「重新检查」。"
     }
   },
   "check": {
@@ -89,13 +89,19 @@
     "missing": "没有找到 CC Switch，下一步可以下载安装",
     "data_only": "找到了 CC Switch 的数据目录（{{dataDir}}），但没有找到应用本身，可能已被卸载或移动，请重新安装"
   },
+  "codex_app": {
+    "title": "Codex 客户端（推荐）",
+    "ok": "已安装 Codex 客户端（{{path}}）",
+    "missing": "未检测到 Codex 桌面客户端。它现在随 ChatGPT 桌面应用一起分发：Windows 通过微软商店安装（如果商店提示「当前地区不可用」，请先更改系统区域再重开商店）；macOS 下载 DMG 安装。可在「安装」步骤一键完成，也可用下面的按钮打开商店",
+    "not_applicable": "当前系统没有 Codex 桌面客户端，已跳过"
+  },
   "env_vars": {
     "title": "环境变量",
     "clean": "没有发现会干扰配置的环境变量",
-    "conflicts": "检测到可能覆盖 CC Switch 配置的环境变量：{{names}}。建议按说明手动移除后再继续",
+    "conflicts": "检测到可能覆盖 CC Switch 配置的环境变量：{{names}}。可点「一键清理环境变量」查看完整值并删除，或按说明手动移除",
     "instructions": {
-      "windows": "这些环境变量会覆盖 CC Switch 中的配置，导致 Codex / Claude Code 连到错误的地址或使用错误的密钥。请手动删除（本工具不会修改你的环境变量）：\n1. 打开「设置」→「系统」→「关于」→「高级系统设置」→「环境变量」。\n2. 在「用户变量」和「系统变量」两个列表中分别查找 {{names}}。\n3. 选中后点击「删除」，然后一路点「确定」保存。\n4. 完全关闭所有终端窗口和 CC Switch，再重新打开。\n5. 回到本工具点击「重新检查」确认已经清除。",
-      "macos": "这些环境变量会覆盖 CC Switch 中的配置，导致 Codex / Claude Code 连到错误的地址或使用错误的密钥。请手动删除（本工具不会修改你的环境变量）：\n1. 打开「终端」，依次检查 ~/.zshrc、~/.zprofile、~/.zshenv、~/.bash_profile、~/.bashrc、~/.profile 这些文件（可用 open -e ~/.zshrc 用文本编辑打开）。\n2. 找到形如 export {{names}}=… 的那一行，整行删除后保存。\n3. 如果检查结果显示来源是 launchctl，请在终端执行 launchctl unsetenv 变量名。\n4. 完全关闭所有终端窗口，再重新打开一个新的终端。\n5. 回到本工具点击「重新检查」确认已经清除。"
+      "windows": "这些环境变量会覆盖 CC Switch 中的配置，导致 Codex / Claude Code 连到错误的地址或使用错误的密钥。如果不想用「一键清理环境变量」，也可以手动删除（只会在你确认后才改动）：\n1. 打开「设置」→「系统」→「关于」→「高级系统设置」→「环境变量」。\n2. 在「用户变量」和「系统变量」两个列表中分别查找 {{names}}。\n3. 选中后点击「删除」，然后一路点「确定」保存。\n4. 完全关闭所有终端窗口和 CC Switch，再重新打开。\n5. 回到本工具点击「重新检查」确认已经清除。",
+      "macos": "这些环境变量会覆盖 CC Switch 中的配置，导致 Codex / Claude Code 连到错误的地址或使用错误的密钥。如果不想用「一键清理环境变量」，也可以手动删除（只会在你确认后才改动）：\n1. 打开「终端」，依次检查 ~/.zshrc、~/.zprofile、~/.zshenv、~/.bash_profile、~/.bashrc、~/.profile 这些文件（可用 open -e ~/.zshrc 用文本编辑打开）。\n2. 找到形如 export {{names}}=… 的那一行，整行删除后保存。\n3. 如果检查结果显示来源是 launchctl，请在终端执行 launchctl unsetenv 变量名。\n4. 完全关闭所有终端窗口，再重新打开一个新的终端。\n5. 回到本工具点击「重新检查」确认已经清除。"
     }
   },
   "network_npm": {
@@ -114,7 +120,7 @@
   },
   "envVars": {
     "title": "检测到的环境变量",
-    "intro": "以下变量会影响 Codex / Claude Code 选择哪个地址和密钥。为安全起见，值已部分隐藏。本工具不会修改它们。",
+    "intro": "以下变量会影响 Codex / Claude Code 选择哪个地址和密钥。为安全起见，这里的值已部分隐藏；点「一键清理环境变量」时会在确认对话框里显示完整值。",
     "value": "当前值",
     "session": "本次会话",
     "present": "已生效",

@@ -5,9 +5,10 @@ import { Alert, ErrorBanner, Spinner } from "@/components/ui";
 import { probeProtocol } from "@/features/verify/verify-logic";
 import { useAsync } from "@/hooks";
 import { getConfigGuide } from "@/lib/tauri";
-import type { ConfigGuide, ToolId } from "@/lib/types";
+import type { ConfigGuide, GuideBranch, ToolId } from "@/lib/types";
 import { useAppStore } from "@/stores/app";
 
+import { AccountPathCard } from "./AccountPathCard";
 import { CcSwitchImportCard } from "./CcSwitchImportCard";
 import { CodexConfigCard } from "./CodexConfigCard";
 import { GuideStepList } from "./GuideStepList";
@@ -47,10 +48,17 @@ export function ToolGuide({ tool }: ToolGuideProps) {
   return <LoadedGuide guide={guide.data} />;
 }
 
-/** The loaded walkthrough; owns the editable values (and the in-memory API key). */
+/**
+ * The loaded walkthrough; owns the editable values (and the in-memory API key) and, for Codex,
+ * the account path: `chatgpt_login` (CC Switch "OpenAI Official" preset + sign in) or `api_key`
+ * (custom provider with the gateway key). The path is session state only — never persisted.
+ */
 function LoadedGuide({ guide }: { guide: ConfigGuide }) {
   const { t } = useTranslation();
   const config = useAppStore((s) => s.config);
+  const isCodex = guide.tool === "codex";
+  const [branch, setBranch] = useState<GuideBranch>("api_key");
+  const activeBranch: GuideBranch | null = isCodex ? branch : null;
   const [providerName, setProviderName] = useState(guide.preset.providerName);
   const [baseUrl, setBaseUrl] = useState(guide.preset.baseUrl);
   const [model, setModel] = useState(guide.preset.modelHint);
@@ -59,14 +67,16 @@ function LoadedGuide({ guide }: { guide: ConfigGuide }) {
 
   return (
     <div className="space-y-5" data-testid={`tool-guide-${guide.tool}`}>
-      {guide.tool === "codex" && (
+      {isCodex && (
         <Alert variant="info" data-testid="codex-client-note">
           {t("guide:codexClientNote")}
         </Alert>
       )}
+      {isCodex && <AccountPathCard branch={branch} onChange={setBranch} />}
       <ProviderValuesCard
         tool={guide.tool}
         preset={guide.preset}
+        branch={activeBranch}
         probeProtocol={protocol}
         providerName={providerName}
         onProviderNameChange={setProviderName}
@@ -77,14 +87,16 @@ function LoadedGuide({ guide }: { guide: ConfigGuide }) {
         apiKey={apiKey}
         onApiKeyChange={setApiKey}
       />
-      <CcSwitchImportCard
-        tool={guide.tool}
-        providerName={providerName}
-        baseUrl={baseUrl}
-        model={model}
-        apiKey={apiKey}
-      />
-      {guide.tool === "codex" && (
+      {activeBranch !== "chatgpt_login" && (
+        <CcSwitchImportCard
+          tool={guide.tool}
+          providerName={providerName}
+          baseUrl={baseUrl}
+          model={model}
+          apiKey={apiKey}
+        />
+      )}
+      {isCodex && (
         <CodexConfigCard
           preset={guide.preset}
           providerName={providerName}
@@ -95,6 +107,7 @@ function LoadedGuide({ guide }: { guide: ConfigGuide }) {
       )}
       <GuideStepList
         guide={guide}
+        branch={activeBranch}
         live={{ providerName, baseUrl, model }}
         probe={{ baseUrl, apiKey, protocol }}
         onPickModel={setModel}

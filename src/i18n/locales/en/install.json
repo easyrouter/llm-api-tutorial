@@ -15,10 +15,17 @@
     "npm_global": "{{tool}} will be installed with npm into the current user's global folder. The output of the install is shown live below.",
     "node": {
       "download_page": "Node.js is installed from the official installer. Use the button below to open the download page, download the “LTS” installer (Windows: .msi, macOS: .pkg) and click through it with the defaults.",
-      "homebrew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal (open a new terminal window afterwards; if node is still not found, run brew link --overwrite node once); or simply install it from the download page below."
+      "homebrew": "Homebrew was detected, so Node.js can also be installed by running the command below in a terminal (open a new terminal window afterwards; if node is still not found, run brew link --overwrite node once); or simply install it from the download page below.",
+      "msi": "Runs the Node.js installer you just downloaded as administrator (msiexec, unattended with the default options). Windows shows a User Account Control prompt — click “Yes”. The check re-runs automatically afterwards.",
+      "pkg": "Runs the Node.js package you just downloaded (macOS installer). macOS asks for your password to grant administrator rights; the install starts once you enter it. The check re-runs automatically afterwards."
     },
     "cc_switch": {
       "download": "CC Switch is a desktop app. The installer is downloaded from the official release channel, its integrity is verified, and then you run it yourself."
+    },
+    "codex_app": {
+      "msix": "Installs the offline package you just downloaded with PowerShell's Add-AppxPackage (for the current user only, no administrator rights). The check re-runs automatically afterwards.",
+      "dmg": "Mounts the downloaded image, copies the app into the Applications folder and ejects the image. No administrator rights needed; the check re-runs automatically afterwards.",
+      "download": "The Codex desktop client ships inside the ChatGPT desktop app. Open the download page, install it, then come back and re-check."
     }
   },
   "state": {
@@ -35,7 +42,8 @@
     "release": "Ready to download",
     "downloading": "Downloading…",
     "downloaded": "Downloaded",
-    "rechecking": "Re-checking…"
+    "rechecking": "Re-checking…",
+    "run_planning": "Preparing install command…"
   },
   "actions": {
     "prepare": "Prepare install",
@@ -52,7 +60,13 @@
     "changeMirror": "Switch mirror and retry",
     "installerBlocked": "The installer was blocked or does not open",
     "showOutput": "Show output",
-    "hideOutput": "Hide output"
+    "hideOutput": "Hide output",
+    "prepareOneClick": "Prepare one-click install",
+    "installNow": "Install now",
+    "installNowAdmin": "Install now (needs administrator rights)",
+    "installNowAgain": "Run the installer again",
+    "prepareRun": "Prepare install command",
+    "redownload": "Download again"
   },
   "common": {
     "command": "Command that will run",
@@ -68,7 +82,8 @@
       "prefixCommandUnix": "npm config set prefix \"$HOME/.npm-global\"",
       "prefixHint": "Afterwards add that folder (Windows: %USERPROFILE%\\.npm-global; macOS: $HOME/.npm-global/bin) to your PATH and open a new terminal. Step-by-step guide in the npm docs:",
       "docsLabel": "npm docs: resolving global install permission errors"
-    }
+    },
+    "commandHintInstaller": "Nothing runs until you click “Install now”; the operating system shows its usual authorisation prompt — this tool never elevates silently."
   },
   "npm": {
     "outputTitle": "Install output",
@@ -91,25 +106,20 @@
     },
     "downloadPage": "Download page: {{url}}",
     "recheckPassed": "Node.js is ready: {{message}}",
-    "recheckNotPassed": "Re-check result: {{message}}. If you only just installed it, close every terminal window completely (or sign out and back in) and re-check again."
+    "recheckNotPassed": "Re-check result: {{message}}. If you only just installed it, close every terminal window completely (or sign out and back in) and re-check again.",
+    "manual": {
+      "title": "Install manually"
+    },
+    "oneClick": {
+      "intro": "This tool downloads the Node.js LTS installer from the source below, verifies its SHA-256 and then — after your confirmation — runs the installer.",
+      "sourceChosen": "The network probe picked: {{source}} (chosen automatically by reachability and speed)",
+      "adminAhead": "Running the installer needs administrator rights: the system will show an authorisation prompt.",
+      "fetchFailed": "Could not fetch the Node.js installer information (network or mirror unreachable). Use the manual path below for now."
+    }
   },
   "ccSwitch": {
     "intro": "CC Switch is the desktop app used to configure and switch providers. This tool fetches the latest version from the official release channel, verifies the file after download and hands it over to you to install.",
-    "release": {
-      "version": "Version",
-      "asset": "Installer",
-      "source": "Source",
-      "hash": "Integrity check",
-      "hashAvailable": "SHA-256 provided; verified automatically after download",
-      "hashMissing": "This release ships no SHA-256, so it cannot be verified automatically; make sure the source is the official release page"
-    },
     "fetchFailed": "Could not fetch the CC Switch release information. You can also open the release page and download it by hand.",
-    "downloading": "Downloading {{asset}}",
-    "downloadedTitle": "Download complete",
-    "downloadedPath": "File location: {{path}}",
-    "verified": "SHA-256 verified",
-    "unverified": "Not verified (the publisher provided no hash)",
-    "verifiedFalse": "Verification failed — do not run this file",
     "blockedNote": "Windows SmartScreen or macOS Gatekeeper may block an installer it does not recognise. Follow the steps below, then run the installer again.",
     "afterDownload": {
       "title": "Next",
@@ -134,6 +144,73 @@
   },
   "download": {
     "sizeKnown": "{{downloaded}} / {{total}}",
-    "sizeUnknown": "{{downloaded}} downloaded"
+    "sizeUnknown": "{{downloaded}} downloaded",
+    "downloading": "Downloading {{asset}}",
+    "doneTitle": "Download complete",
+    "path": "File location: {{path}}",
+    "verified": "SHA-256 verified",
+    "unverified": "Not verified (the publisher provided no hash)",
+    "verifiedFalse": "Verification failed — do not run this file"
+  },
+  "adminNote": "The system will show an administrator authorisation / password prompt; this tool never elevates silently.",
+  "oneClick": {
+    "whatHappens": "What does this do?",
+    "waitingForPrompt": "If a User Account Control or password prompt appears, confirm it there; the progress is shown below."
+  },
+  "release": {
+    "version": "Version",
+    "asset": "Installer",
+    "sourceLabel": "Source",
+    "hash": "Integrity check",
+    "hashAvailable": "SHA-256 provided; verified automatically after download",
+    "hashMissing": "This release ships no SHA-256, so it cannot be verified automatically; make sure the source is the official channel",
+    "source": {
+      "official": "official source nodejs.org",
+      "npmmirror": "China mirror npmmirror",
+      "github": "official GitHub release page",
+      "intranet": "company intranet mirror",
+      "static": "official fixed download link"
+    }
+  },
+  "installer": {
+    "successHint": "The installer finished. Re-checking that the tool is available…",
+    "planFailed": "Could not build the command that runs the installer. You can open the installer yourself and re-check afterwards.",
+    "downloadFailed": "The download failed. Check the network and retry, or use the manual path below.",
+    "failedHint": "The installer failed (exit code {{code}}). Check the output above; if you dismissed the authorisation prompt, simply try again.",
+    "failedNoCode": "The installer did not finish normally. Check the output above and retry.",
+    "timedOut": "The installer was stopped after {{minutes}} min without finishing. Retry, or open the installer yourself.",
+    "cancelled": "Install cancelled.",
+    "startFailed": "The installer could not be started."
+  },
+  "codexApp": {
+    "title": "Codex desktop client",
+    "intro": "The Codex desktop client ships inside the ChatGPT desktop app. Optional but recommended: it adds a graphical interface and “Sign in with ChatGPT”. The Codex CLI works without it.",
+    "actions": {
+      "openStore": "Install from the Microsoft Store",
+      "downloadOffline": "Download the offline package and install",
+      "downloadAndInstall": "Download and install",
+      "openRegionSettings": "Open region settings",
+      "openImage": "Manual: open the downloaded image",
+      "openPackage": "Manual: open the downloaded package"
+    },
+    "region": {
+      "title": "Does the Store say it is not available in your region?",
+      "body": "The Microsoft Store decides by the system region whether an app is visible. Temporarily switch the region (e.g. United States) and reopen the Store — or simply use “Download the offline package and install” above.",
+      "step1": "Click “Open region settings” (Settings → Time & language → Region).",
+      "step2": "Change “Country or region” to “United States”.",
+      "step3": "Close the Microsoft Store completely, reopen it and search for Codex / ChatGPT again."
+    },
+    "release": {
+      "size": "Size",
+      "sizeMsix": "about 745 MB",
+      "sizeDmg": "about 650 MB"
+    },
+    "afterDownload": {
+      "windows": "After the download the install command is shown (Add-AppxPackage, current user only, no administrator rights) and runs once you confirm.",
+      "macos": "After the download the install command is shown: mount the image, copy the app into Applications, eject the image. No administrator rights needed."
+    },
+    "fetchFailed": "Could not resolve the Codex desktop client download. You can open the download page and install it by hand.",
+    "recheckPassed": "Codex desktop client is ready: {{message}}",
+    "recheckNotPassed": "Re-check result: {{message}}. Make sure the install has finished (a Store install can take a minute or two), then try again."
   }
 }

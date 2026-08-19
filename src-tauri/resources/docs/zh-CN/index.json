@@ -15,6 +15,13 @@
       "wizardStep": "env_check"
     },
     {
+      "id": "one-click",
+      "title": "一键操作说明",
+      "path": "one-click.md",
+      "lang": "zh-CN",
+      "wizardStep": "env_check"
+    },
+    {
       "id": "install-node",
       "title": "安装 Node.js",
       "path": "install-node.md",

@@ -8,11 +8,15 @@ import { useAppStore } from "@/stores/app";
 import { useInstallStore } from "@/stores/install";
 import { useWizardStore } from "@/stores/wizard";
 import {
-  ccSwitchRelease,
   checkResult,
+  codexAppRelease,
+  codexAppSpec,
   downloadResult,
   envSnapshot,
+  installerRelease,
+  installerRunPlan,
   installPlan,
+  nodeRelease,
 } from "@/test/fixtures/env";
 import {
   emitMockEvent,
@@ -73,25 +77,32 @@ describe("InstallScreen", () => {
       }),
     );
     useInstallStore.getState().request("cc-switch");
+    useInstallStore.getState().request("codex-app");
     setInvokeHandlers({
       plan_install: (args) => installPlan(args?.target as InstallTarget),
-      fetch_cc_switch_release: () => ccSwitchRelease(),
+      fetch_installer_release: (args) =>
+        args?.target === "node" ? nodeRelease() : installerRelease(),
     });
     render(<InstallScreen />);
 
     expect(card("node")).toBeInTheDocument();
     expect(card("codex")).toBeInTheDocument();
     expect(card("cc-switch")).toBeInTheDocument();
+    expect(card("codex-app")).toBeInTheDocument();
     expect(screen.queryByTestId("install-item-claude-code")).toBeNull();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    // every item is prepared once on mount
+    // every item is prepared once on mount (the optional Codex app waits for the user's choice)
     await waitFor(() => expect(card("codex")).toHaveAttribute("data-phase", "confirm"));
+    await waitFor(() => expect(card("node")).toHaveAttribute("data-phase", "release"));
     expect(calls("plan_install").map((c) => c[1])).toEqual([
-      { target: "node", excludeRegistry: null },
       { target: "codex", excludeRegistry: null },
     ]);
-    expect(calls("fetch_cc_switch_release")).toHaveLength(1);
+    expect(calls("fetch_installer_release").map((c) => c[1])).toEqual([
+      { target: "node" },
+      { target: "cc-switch" },
+    ]);
+    expect(card("codex-app")).toHaveAttribute("data-phase", "idle");
     expect(listenerCount(EVENTS.installOutput)).toBe(1);
     expect(listenerCount(EVENTS.installDone)).toBe(1);
     expect(listenerCount(EVENTS.downloadProgress)).toBe(1);
@@ -299,40 +310,256 @@ describe("InstallScreen", () => {
     expect(within(codex).getByRole("alert")).toHaveTextContent("stopped after 15 min");
   });
 
-  it("node target: opens the download page and is done once the re-check passes", async () => {
+  it("node target: one-click — release from the probed mirror → download → run plan → install (admin) → done → re-check", async () => {
     useWizardStore
       .getState()
       .setSnapshot(envSnapshot({ node: checkResult("node", "fail", { code: "node.missing" }) }));
+    const release = nodeRelease();
+    const download = downloadResult({
+      path: "C:\\Users\\alice\\AppData\\Local\\seedrouter-onboarding\\cache\\node-v22.12.0-x64.msi",
+      sha256: release.sha256 ?? "",
+    });
+    const runPlan = installerRunPlan("node", download.path);
+    let downloadArgs: Record<string, unknown> | undefined;
     setInvokeHandlers({
-      plan_install: () =>
-        installPlan("node", {
-          program: "",
-          args: [],
-          displayCommand: "",
-          explanationCode: "node.download_page",
-          registry: {
-            id: "official",
-            url: "https://nodejs.org/dist/",
-            downloadPage: "https://nodejs.org/en/download",
-          },
-        }),
+      fetch_installer_release: () => release,
+      download_file: (args) => {
+        downloadArgs = args;
+        return download;
+      },
+      plan_installer_run: () => runPlan,
+      start_install: () => ({ jobId: "job-node", target: "node" }),
       run_env_check: () =>
-        checkResult("node", "pass", { code: "node.ok", params: { version: "22.1.0" } }),
+        checkResult("node", "pass", { code: "node.ok", params: { version: "22.12.0" } }),
     });
     render(<InstallScreen />);
     const node = card("node");
-    await waitFor(() => expect(node).toHaveAttribute("data-phase", "confirm"));
-    expect(within(node).queryByTestId("copy-field-value")).toBeNull();
 
-    fireEvent.click(within(node).getByRole("button", { name: "Open download page" }));
-    expect(calls("open_external")[0]?.[1]).toEqual({ url: "https://nodejs.org/en/download" });
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "release"));
+    expect(within(node).getByTestId("release-card")).toHaveTextContent("v22.12.0");
+    expect(within(node).getByTestId("release-card")).toHaveTextContent("China mirror npmmirror");
+    expect(within(node).getByTestId("node-source")).toHaveTextContent("The network probe picked");
+    expect(within(node).getByText("What does this do?")).toHaveAttribute(
+      "data-help-section",
+      "one-click",
+    );
+    expect(calls("plan_install")).toHaveLength(0);
 
-    fireEvent.click(within(node).getByRole("button", { name: "I installed it — re-check" }));
-    await waitFor(() => expect(node).toHaveAttribute("data-phase", "done"));
-    expect(within(node).getByTestId("recheck-feedback")).toHaveTextContent(
-      "Node.js 22.1.0 is installed",
+    fireEvent.click(within(node).getByRole("button", { name: "Download installer" }));
+    // a verified download continues straight into the run plan (shown, never started)
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "downloaded"));
+    expect((downloadArgs?.request as Record<string, unknown>).expectedSha256).toBe(release.sha256);
+    await waitFor(() =>
+      expect(within(node).getByTestId("run-installer-panel")).toBeInTheDocument(),
+    );
+    expect(calls("plan_installer_run")[0]?.[1]).toEqual({ target: "node", path: download.path });
+    expect(within(node).getByTestId("copy-field-value")).toHaveTextContent("msiexec.exe /i");
+    expect(within(node).getByTestId("admin-note")).toHaveTextContent("never elevates silently");
+    expect(calls("start_install")).toHaveLength(0);
+
+    fireEvent.click(
+      within(node).getByRole("button", { name: "Install now (needs administrator rights)" }),
+    );
+    expect(calls("start_install")[0]?.[1]).toEqual({ plan: runPlan });
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "running"));
+    expect(useWizardStore.getState().navigationLocked).toBe(true);
+    act(() => {
+      emitMockEvent(EVENTS.installOutput, {
+        jobId: "job-node",
+        stream: "stdout",
+        line: "Installing Node.js",
+      });
+      emitMockEvent(EVENTS.installDone, {
+        jobId: "job-node",
+        success: true,
+        exitCode: 3010,
+        durationMs: 42_000,
+        cancelled: false,
+        timedOut: false,
+      });
+    });
+    expect(node).toHaveAttribute("data-phase", "done");
+    await waitFor(() => expect(calls("run_env_check")).toHaveLength(1));
+    expect(calls("run_env_check")[0]?.[1]).toEqual({ id: "node" });
+    await waitFor(() =>
+      expect(within(node).getByTestId("recheck-feedback")).toHaveTextContent(
+        "Node.js 22.12.0 is installed",
+      ),
     );
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+  });
+
+  it("node target: the manual path stays available and a non-passing re-check shows its fixes", async () => {
+    useWizardStore
+      .getState()
+      .setSnapshot(envSnapshot({ node: checkResult("node", "fail", { code: "node.missing" }) }));
+    useAppStore.setState({
+      config: {
+        mirrors: {
+          npmRegistries: [],
+          nodeDist: [
+            {
+              id: "official",
+              url: "https://nodejs.org/dist/",
+              downloadPage: "https://nodejs.org/en/download",
+            },
+            {
+              id: "npmmirror",
+              url: "https://npmmirror.com/mirrors/node/",
+              downloadPage: "https://npmmirror.com/mirrors/node/",
+            },
+          ],
+          probeTimeoutMs: 1000,
+        },
+      } as unknown as AppConfig,
+    });
+    setInvokeHandlers({
+      fetch_installer_release: () => nodeRelease(),
+      run_env_check: () =>
+        checkResult("node", "warn", {
+          code: "node.not_on_path",
+          params: { path: "C:\\Program Files\\nodejs\\node.exe" },
+          fixes: [{ kind: "rerun" }],
+        }),
+    });
+    render(<InstallScreen />);
+    const node = card("node");
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "release"));
+
+    // collapsed by default; opens the download page of the mirror the probe chose
+    expect(within(node).queryByRole("button", { name: "Open download page" })).toBeNull();
+    fireEvent.click(within(node).getByTestId("manual-install-toggle"));
+    fireEvent.click(within(node).getByRole("button", { name: "Open download page" }));
+    expect(calls("open_external")[0]?.[1]).toEqual({ url: "https://npmmirror.com/mirrors/node/" });
+
+    fireEvent.click(within(node).getByRole("button", { name: "I installed it — re-check" }));
+    await waitFor(() => expect(within(node).getByTestId("recheck-feedback")).toBeInTheDocument());
+    expect(node).toHaveAttribute("data-phase", "release");
+    expect(within(node).getByTestId("recheck-feedback")).toHaveTextContent("cannot see it yet");
+    // the fixes Rust attached to the result are rendered (here: rerun → another re-check)
+    fireEvent.click(
+      within(within(node).getByTestId("recheck-feedback")).getByRole("button", {
+        name: "Re-check",
+      }),
+    );
+    await waitFor(() => expect(calls("run_env_check")).toHaveLength(2));
+  });
+
+  it("node target: when the release cannot be fetched the manual path is expanded", async () => {
+    useWizardStore
+      .getState()
+      .setSnapshot(envSnapshot({ node: checkResult("node", "fail", { code: "node.missing" }) }));
+    setInvokeHandlers({ fetch_installer_release: rejectWith(wireError("network")) });
+    render(<InstallScreen />);
+    const node = card("node");
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "failed"));
+    expect(within(node).getByRole("alert")).toHaveTextContent("Could not fetch the Node.js");
+    fireEvent.click(within(node).getByRole("button", { name: "Open download page" }));
+    expect(calls("open_external")[0]?.[1]).toEqual({ url: "https://nodejs.org/en/download" });
+  });
+
+  it("codex-app target (Windows): Store / region buttons, offline package → Add-AppxPackage plan → install", async () => {
+    useWizardStore
+      .getState()
+      .setSnapshot(
+        envSnapshot({ codex_app: checkResult("codex_app", "warn", { code: "codex_app.missing" }) }),
+      );
+    useAppStore.setState({ config: { codexApp: codexAppSpec } as unknown as AppConfig });
+    const release = codexAppRelease();
+    const download = downloadResult({
+      path: "C:\\Users\\alice\\AppData\\Local\\seedrouter-onboarding\\cache\\ChatGPT-x64.msix",
+      verified: null,
+    });
+    const runPlan = installerRunPlan("codex-app", download.path);
+    setInvokeHandlers({
+      fetch_installer_release: () => release,
+      download_file: () => download,
+      plan_installer_run: () => runPlan,
+      start_install: () => ({ jobId: "job-app", target: "codex-app" }),
+      run_env_check: () =>
+        checkResult("codex_app", "pass", { code: "codex_app.ok", params: { path: "x" } }),
+    });
+    render(<InstallScreen />);
+    const app = card("codex-app");
+    expect(app).toHaveAttribute("data-phase", "idle");
+    expect(app).toHaveTextContent("Codex desktop client");
+
+    fireEvent.click(within(app).getByRole("button", { name: "Install from the Microsoft Store" }));
+    expect(calls("open_system_uri")[0]?.[1]).toEqual({ uri: "ms_store_codex_app" });
+    expect(within(app).getByTestId("region-hint")).toHaveTextContent(
+      "not available in your region",
+    );
+    fireEvent.click(within(app).getByRole("button", { name: "Open region settings" }));
+    expect(calls("open_system_uri")[1]?.[1]).toEqual({ uri: "windows_region_settings" });
+
+    fireEvent.click(within(app).getByTestId("codex-app-download"));
+    await waitFor(() => expect(app).toHaveAttribute("data-phase", "release"));
+    expect(within(app).getByTestId("release-card")).toHaveTextContent("about 745 MB");
+    expect(within(app).getByTestId("release-card")).toHaveTextContent("ships no SHA-256");
+    fireEvent.click(
+      within(app).getByRole("button", { name: "Download the offline package and install" }),
+    );
+    await waitFor(() => expect(within(app).getByTestId("run-installer-panel")).toBeInTheDocument());
+    expect(within(app).getByTestId("copy-field-value")).toHaveTextContent("Add-AppxPackage");
+    expect(within(app).queryByTestId("admin-note")).toBeNull();
+    // manual fallback: open the package with the OS
+    fireEvent.click(
+      within(app).getByRole("button", { name: "Manual: open the downloaded package" }),
+    );
+    expect(calls("open_downloaded_file")[0]?.[1]).toEqual({ path: download.path });
+
+    fireEvent.click(within(app).getByRole("button", { name: "Install now" }));
+    expect(calls("start_install")[0]?.[1]).toEqual({ plan: runPlan });
+    await waitFor(() => expect(app).toHaveAttribute("data-phase", "running"));
+    act(() => {
+      emitMockEvent(EVENTS.installDone, {
+        jobId: "job-app",
+        success: true,
+        exitCode: 0,
+        durationMs: 9000,
+        cancelled: false,
+        timedOut: false,
+      });
+    });
+    expect(app).toHaveAttribute("data-phase", "done");
+    await waitFor(() => expect(calls("run_env_check")[0]?.[1]).toEqual({ id: "codex_app" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
+  });
+
+  it("codex-app target (macOS): download and install, or open the image by hand", async () => {
+    useAppStore.setState((s) => ({ info: s.info ? { ...s.info, platform: "macos" } : s.info }));
+    useWizardStore
+      .getState()
+      .setSnapshot(
+        envSnapshot({ codex_app: checkResult("codex_app", "warn", { code: "codex_app.missing" }) }),
+      );
+    const download = downloadResult({ path: "/Users/alice/Library/Caches/x/ChatGPT.dmg" });
+    setInvokeHandlers({
+      fetch_installer_release: () =>
+        codexAppRelease({ assetName: "ChatGPT.dmg", downloadUrl: "https://x/ChatGPT.dmg" }),
+      download_file: () => download,
+      plan_installer_run: () =>
+        installerRunPlan("codex-app", download.path, {
+          program: "/bin/sh",
+          displayCommand:
+            "/bin/sh -c '<mount, copy, detach>' sh /Users/alice/Library/Caches/x/ChatGPT.dmg",
+          explanationCode: "codex_app.dmg",
+        }),
+    });
+    render(<InstallScreen />);
+    const app = card("codex-app");
+    expect(
+      within(app).queryByRole("button", { name: "Install from the Microsoft Store" }),
+    ).toBeNull();
+    expect(within(app).queryByTestId("region-hint")).toBeNull();
+    fireEvent.click(within(app).getByRole("button", { name: "Download and install" }));
+    await waitFor(() => expect(app).toHaveAttribute("data-phase", "release"));
+    expect(app).toHaveTextContent("about 650 MB");
+    fireEvent.click(within(app).getByRole("button", { name: "Download and install" }));
+    await waitFor(() => expect(within(app).getByTestId("run-installer-panel")).toBeInTheDocument());
+    expect(app).toHaveTextContent("Mounts the downloaded image");
+    fireEvent.click(within(app).getByRole("button", { name: "Manual: open the downloaded image" }));
+    expect(calls("open_downloaded_file")[0]?.[1]).toEqual({ path: download.path });
   });
 
   it("cc-switch target: release info → download with progress → verified badge → open installer", async () => {
@@ -341,10 +568,10 @@ describe("InstallScreen", () => {
       .setSnapshot(
         envSnapshot({ cc_switch: checkResult("cc_switch", "fail", { code: "cc_switch.missing" }) }),
       );
-    const release = ccSwitchRelease();
+    const release = installerRelease();
     let downloadArgs: Record<string, unknown> | undefined;
     setInvokeHandlers({
-      fetch_cc_switch_release: () => release,
+      fetch_installer_release: () => release,
       download_file: (args) => {
         downloadArgs = args;
         return downloadResult();
@@ -368,6 +595,9 @@ describe("InstallScreen", () => {
     });
     expect(typeof request.jobId).toBe("string");
     expect(within(cc).getByTestId("verified-badge")).toBeInTheDocument();
+    // CC Switch is handed over, never run by this tool
+    expect(calls("plan_installer_run")).toHaveLength(0);
+    expect(within(cc).queryByTestId("run-installer-panel")).toBeNull();
 
     fireEvent.click(within(cc).getByRole("button", { name: "Open installer" }));
     expect(calls("open_downloaded_file")[0]?.[1]).toEqual({ path: downloadResult().path });
@@ -412,7 +642,7 @@ describe("InstallScreen", () => {
       );
     let jobId = "";
     setInvokeHandlers({
-      fetch_cc_switch_release: () => ccSwitchRelease({ sha256: null }),
+      fetch_installer_release: () => installerRelease({ sha256: null }),
       download_file: (args) => {
         jobId = (args?.request as { jobId: string }).jobId;
         return new Promise(() => undefined); // never resolves — stays in downloading
@@ -437,7 +667,7 @@ describe("InstallScreen", () => {
       .setSnapshot(
         envSnapshot({ cc_switch: checkResult("cc_switch", "fail", { code: "cc_switch.missing" }) }),
       );
-    setInvokeHandlers({ fetch_cc_switch_release: rejectWith(wireError("network")) });
+    setInvokeHandlers({ fetch_installer_release: rejectWith(wireError("network")) });
     render(<InstallScreen />);
     const cc = card("cc-switch");
     await waitFor(() => expect(cc).toHaveAttribute("data-phase", "failed"));
@@ -448,7 +678,7 @@ describe("InstallScreen", () => {
     expect(calls("open_external")[0]?.[1]).toEqual({
       url: "https://github.com/farion1231/cc-switch/releases/latest",
     });
-    setInvokeHandlers({ fetch_cc_switch_release: () => ccSwitchRelease() });
+    setInvokeHandlers({ fetch_installer_release: () => installerRelease() });
     fireEvent.click(within(cc).getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(cc).toHaveAttribute("data-phase", "release"));
   });

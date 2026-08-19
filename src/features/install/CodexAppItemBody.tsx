@@ -1,10 +1,11 @@
-import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
-import { useId, useState } from "react";
+import { Download, Globe, RefreshCw, Store } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Alert, Button, ErrorBanner } from "@/components/ui";
 import { HelpLink } from "@/features/help/HelpLink";
-import type { AppConfig, InstallerRelease, Platform } from "@/lib/types";
+import { openSystemUri } from "@/lib/tauri";
+import type { AppConfig, Platform, SystemUri } from "@/lib/types";
 
 import {
   DownloadButton,
@@ -21,13 +22,13 @@ import {
   RunInstallerPanel,
   RunningInstallerView,
 } from "./ItemParts";
-import { jobFailureMessage, releaseSourceLabel } from "./item-text";
+import { jobFailureMessage } from "./item-text";
 import type { InstallActions } from "./useInstallController";
-import { releaseOf, type DownloadProgress, type ItemState, type JobLog } from "./install-state";
-import { nodeDownloadPageFor } from "./install-targets";
+import type { DownloadProgress, ItemState, JobLog } from "./install-state";
+import { codexAppDownloadPage } from "./install-targets";
 import { PlanDetails } from "./PlanDetails";
 
-export interface NodeItemBodyProps {
+export interface CodexAppItemBodyProps {
   item: ItemState;
   progress: DownloadProgress | null;
   log: JobLog | null;
@@ -37,86 +38,76 @@ export interface NodeItemBodyProps {
   actions: InstallActions;
 }
 
-const STEP_KEYS = ["open", "run", "close", "recheck"] as const;
-
-interface ManualInstallProps {
-  url: string;
-  onRecheck: () => void;
+interface SystemUriButtonProps {
+  uri: SystemUri;
+  label: string;
+  icon: "store" | "region";
+  variant?: "primary" | "secondary";
   disabled?: boolean;
-  /** Expanded by default (when the one-click path is unavailable). */
-  defaultOpen?: boolean;
 }
 
-/** Collapsible "install it yourself" alternative: download page, steps, re-check. */
-function ManualInstall({ url, onRecheck, disabled, defaultOpen = false }: ManualInstallProps) {
-  const { t } = useTranslation();
-  const id = useId();
-  const [open, setOpen] = useState(defaultOpen);
+/** Opens a well-known OS URI (Store page / region settings); failures are shown inline. */
+function SystemUriButton({
+  uri,
+  label,
+  icon,
+  variant = "primary",
+  disabled,
+}: SystemUriButtonProps) {
+  const [error, setError] = useState<unknown>(null);
+  const open = () => {
+    setError(null);
+    openSystemUri(uri).catch((e: unknown) => setError(e));
+  };
+  const Icon = icon === "store" ? Store : Globe;
   return (
-    <div className="border-t border-neutral-200 pt-2 dark:border-neutral-800">
+    <>
       <Button
-        variant="ghost"
         size="sm"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={id}
-        className="-ml-3"
-        data-testid="manual-install-toggle"
-        leftIcon={
-          open ? (
-            <ChevronUp className="size-4" aria-hidden />
-          ) : (
-            <ChevronDown className="size-4" aria-hidden />
-          )
-        }
+        variant={variant}
+        onClick={open}
+        disabled={disabled}
+        data-testid={`system-uri-${uri}`}
+        leftIcon={<Icon className="size-4" aria-hidden />}
       >
-        {t("install:node.manual.title")}
+        {label}
       </Button>
-      <div id={id} hidden={!open} className="mt-2 space-y-3">
-        <p className="text-sm font-medium">{t("install:node.steps.title")}</p>
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
-          {STEP_KEYS.map((k) => (
-            <li key={k}>{t(`install:node.steps.${k}`)}</li>
-          ))}
-        </ol>
-        <p className="text-xs text-neutral-500" data-selectable>
-          {t("install:node.downloadPage", { url })}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <OpenPageButton
-            url={url}
-            label={t("install:actions.openDownloadPage")}
-            disabled={disabled}
-          />
-          <RecheckButton onClick={onRecheck} disabled={disabled} />
-        </div>
-      </div>
-    </div>
+      {error !== null && <ErrorBanner error={error} className="basis-full" />}
+    </>
   );
 }
 
-function ReleaseIntro({ release }: { release: InstallerRelease }) {
+/** "The Store says not available in your region" → open Windows region settings + steps. */
+function RegionHint({ disabled }: { disabled?: boolean }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-neutral-700 dark:text-neutral-300">
-        {t("install:node.oneClick.intro")}
-      </p>
-      <ReleaseCard release={release} />
-      <p className="text-xs text-neutral-500" data-testid="node-source">
-        {t("install:node.oneClick.sourceChosen", { source: releaseSourceLabel(t, release.source) })}
-      </p>
-    </div>
+    <Alert variant="info" title={t("install:codexApp.region.title")} data-testid="region-hint">
+      <p>{t("install:codexApp.region.body")}</p>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        <li>{t("install:codexApp.region.step1")}</li>
+        <li>{t("install:codexApp.region.step2")}</li>
+        <li>{t("install:codexApp.region.step3")}</li>
+      </ol>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <SystemUriButton
+          uri="windows_region_settings"
+          icon="region"
+          variant="secondary"
+          label={t("install:codexApp.actions.openRegionSettings")}
+          disabled={disabled}
+        />
+      </div>
+    </Alert>
   );
 }
 
 /**
- * Node.js one-click install: fetch the LTS installer from the dist mirror the network probe
- * picked → download (SHA-256 verified) → show the exact installer command → "Install now
- * (needs administrator rights)" → live output → done → automatic re-check. The manual path
- * (download page + steps + re-check) stays available as a collapsible alternative.
+ * Codex desktop client (part of the ChatGPT desktop app; optional but recommended).
+ * Windows: Microsoft Store page, or the offline MSIX (download → `Add-AppxPackage`, no admin),
+ * plus the region-settings hint. macOS: download the DMG → mount it and copy the app into
+ * /Applications (no admin), or open the image by hand. Done once a re-check passes.
  */
-export function NodeItemBody({
+export function CodexAppItemBody({
   item,
   progress,
   log,
@@ -124,28 +115,68 @@ export function NodeItemBody({
   platform,
   config,
   actions,
-}: NodeItemBodyProps) {
+}: CodexAppItemBodyProps) {
   const { t } = useTranslation();
   const { target, step, recheck } = item;
   const rechecking = recheck.status === "running";
-  const release = releaseOf(step);
-  const manualUrl = nodeDownloadPageFor(release?.source ?? null, config);
+  const windows = platform === "windows";
+  const macos = platform === "macos";
+  const downloadPage = codexAppDownloadPage(config);
   const recheckNow = () => void actions.recheck(target);
+  const fetch = () => void actions.fetchRelease(target);
   const feedback = (
     <RecheckFeedback
       recheck={recheck}
-      passedKey="install:node.recheckPassed"
-      notPassedKey="install:node.recheckNotPassed"
+      passedKey="install:codexApp.recheckPassed"
+      notPassedKey="install:codexApp.recheckNotPassed"
       onRerun={recheckNow}
     />
   );
-  const manual = (defaultOpen = false) => (
-    <ManualInstall
-      url={manualUrl}
-      onRecheck={recheckNow}
-      disabled={rechecking}
-      defaultOpen={defaultOpen}
-    />
+  const intro = (
+    <p className="text-sm text-neutral-700 dark:text-neutral-300">{t("install:codexApp.intro")}</p>
+  );
+  const helpLink = (
+    <HelpLink sectionId={ONE_CLICK_HELP_SECTION}>{t("install:oneClick.whatHappens")}</HelpLink>
+  );
+  const downloadLabel = windows
+    ? t("install:codexApp.actions.downloadOffline")
+    : t("install:codexApp.actions.downloadAndInstall");
+
+  /** Platform-specific entry points (idle, and again next to errors). */
+  const entryPoints = (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {windows && (
+          <SystemUriButton
+            uri="ms_store_codex_app"
+            icon="store"
+            label={t("install:codexApp.actions.openStore")}
+            disabled={rechecking}
+          />
+        )}
+        {windows || macos ? (
+          <Button
+            size="sm"
+            variant={windows ? "secondary" : "primary"}
+            onClick={fetch}
+            disabled={rechecking}
+            data-testid="codex-app-download"
+            leftIcon={<Download className="size-4" aria-hidden />}
+          >
+            {downloadLabel}
+          </Button>
+        ) : (
+          <OpenPageButton
+            url={downloadPage}
+            label={t("install:actions.openDownloadPage")}
+            disabled={rechecking}
+          />
+        )}
+        <RecheckButton onClick={recheckNow} disabled={rechecking} />
+        {helpLink}
+      </div>
+      {windows && <RegionHint disabled={rechecking} />}
+    </div>
   );
 
   switch (step.phase) {
@@ -153,38 +184,48 @@ export function NodeItemBody({
     case "skipped":
       return (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" onClick={() => void actions.fetchRelease(target)}>
-              {t("install:actions.prepareOneClick")}
-            </Button>
-            <HelpLink sectionId={ONE_CLICK_HELP_SECTION}>
-              {t("install:oneClick.whatHappens")}
-            </HelpLink>
-          </div>
-          {manual()}
+          {intro}
+          {entryPoints}
+          {feedback}
         </div>
       );
     case "fetching_release":
       return <PhaseSpinner labelKey="fetching_release" />;
-    case "release":
+    case "release": {
+      const { release } = step;
       return (
         <div className="space-y-3">
-          <ReleaseIntro release={step.release} />
-          {step.release.requiresAdmin && (
-            <p className="text-sm text-neutral-700 dark:text-neutral-300">
-              {t("install:node.oneClick.adminAhead")}
-            </p>
-          )}
+          {intro}
+          <ReleaseCard
+            release={release}
+            extraItems={[
+              {
+                label: t("install:codexApp.release.size"),
+                value: macos
+                  ? t("install:codexApp.release.sizeDmg")
+                  : t("install:codexApp.release.sizeMsix"),
+              },
+            ]}
+          />
+          <p className="text-sm text-neutral-700 dark:text-neutral-300">
+            {macos
+              ? t("install:codexApp.afterDownload.macos")
+              : t("install:codexApp.afterDownload.windows")}
+          </p>
           <div className="flex flex-wrap items-center gap-3">
-            <DownloadButton onClick={() => void actions.download(target, step.release)} />
-            <HelpLink sectionId={ONE_CLICK_HELP_SECTION}>
-              {t("install:oneClick.whatHappens")}
-            </HelpLink>
+            <DownloadButton
+              onClick={() => void actions.download(target, release)}
+              label={downloadLabel}
+            />
+            {helpLink}
           </div>
-          {manual()}
+          <div className="flex flex-wrap items-center gap-2">
+            <RecheckButton onClick={recheckNow} disabled={rechecking} />
+          </div>
           {feedback}
         </div>
       );
+    }
     case "downloading":
       return <DownloadProgressView release={step.release} progress={progress} />;
     case "run_planning":
@@ -222,8 +263,12 @@ export function NodeItemBody({
             {runnable && (
               <OpenDownloadedFileButton
                 path={download.path}
-                label={t("install:actions.openInstaller")}
                 variant="secondary"
+                label={
+                  macos
+                    ? t("install:codexApp.actions.openImage")
+                    : t("install:codexApp.actions.openPackage")
+                }
                 disabled={rechecking}
               />
             )}
@@ -238,7 +283,6 @@ export function NodeItemBody({
             )}
             <RecheckButton onClick={recheckNow} disabled={rechecking} />
           </div>
-          {manual()}
           {feedback}
         </div>
       );
@@ -274,8 +318,7 @@ export function NodeItemBody({
           {log && log.lines.length > 0 && <OutputPane log={log} defaultOpen={false} />}
         </div>
       );
-    case "failed": {
-      const retryFetch = () => void actions.fetchRelease(target);
+    case "failed":
       switch (step.stage) {
         case "run_plan": {
           const download = step.download;
@@ -285,19 +328,22 @@ export function NodeItemBody({
               <ErrorBanner
                 error={step.error}
                 title={t("install:installer.planFailed")}
-                onRetry={download ? () => void actions.planRun(target, download.path) : retryFetch}
+                onRetry={download ? () => void actions.planRun(target, download.path) : fetch}
               />
               <div className="flex flex-wrap items-center gap-2">
                 {download && download.verified !== false && (
                   <OpenDownloadedFileButton
                     path={download.path}
-                    label={t("install:actions.openInstaller")}
+                    label={
+                      macos
+                        ? t("install:codexApp.actions.openImage")
+                        : t("install:codexApp.actions.openPackage")
+                    }
                     disabled={rechecking}
                   />
                 )}
                 <RecheckButton onClick={recheckNow} disabled={rechecking} />
               </div>
-              {manual(true)}
               {feedback}
             </div>
           );
@@ -305,29 +351,17 @@ export function NodeItemBody({
         case "start":
         case "run": {
           const plan = step.plan;
-          const retry = plan ? () => void actions.run(target, plan) : retryFetch;
           return (
             <div className="space-y-3">
               {plan && <PlanDetails plan={plan} toolName={toolName} platform={platform} />}
               <ErrorBanner
                 error={step.error}
                 title={jobFailureMessage(t, step.done, "installer")}
-                onRetry={retry}
+                onRetry={plan ? () => void actions.run(target, plan) : fetch}
                 retryLabel={plan ? t("install:actions.installNowAgain") : undefined}
               />
               {log && log.lines.length > 0 && <OutputPane log={log} defaultOpen />}
-              <div className="flex flex-wrap items-center gap-2">
-                {plan?.installerPath && (
-                  <OpenDownloadedFileButton
-                    path={plan.installerPath}
-                    label={t("install:actions.openInstaller")}
-                    variant="secondary"
-                    disabled={rechecking}
-                  />
-                )}
-                <RecheckButton onClick={recheckNow} disabled={rechecking} />
-              </div>
-              {manual(true)}
+              {entryPoints}
               {feedback}
             </div>
           );
@@ -339,33 +373,35 @@ export function NodeItemBody({
               <ErrorBanner
                 error={step.error}
                 title={t("install:installer.downloadFailed")}
-                onRetry={
-                  failedRelease ? () => void actions.download(target, failedRelease) : retryFetch
-                }
+                onRetry={failedRelease ? () => void actions.download(target, failedRelease) : fetch}
               />
-              {manual(true)}
+              {entryPoints}
               {feedback}
             </div>
           );
         }
         default:
-          // release (or a stale plan failure): the manual path still works.
           return (
             <div className="space-y-3">
               <ErrorBanner
                 error={step.error}
-                title={t("install:node.oneClick.fetchFailed")}
-                onRetry={retryFetch}
+                title={t("install:codexApp.fetchFailed")}
+                onRetry={fetch}
+                actions={
+                  <OpenPageButton
+                    url={downloadPage}
+                    label={t("install:actions.openDownloadPage")}
+                  />
+                }
               />
-              {manual(true)}
+              {entryPoints}
               {feedback}
             </div>
           );
       }
-    }
     default:
       return (
-        <Button size="sm" variant="secondary" onClick={() => void actions.fetchRelease(target)}>
+        <Button size="sm" variant="secondary" onClick={fetch}>
           {t("install:actions.retry")}
         </Button>
       );

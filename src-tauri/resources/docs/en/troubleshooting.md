@@ -27,18 +27,23 @@ Almost always a terminal that was not closed. Close **every** terminal window an
 
 ## D. Environment variable conflict
 
-If `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` or `ANTHROPIC_AUTH_TOKEN` are set on your system, the command-line tools **prefer them** over the CC Switch configuration. This tool only detects and locates them; it **never edits them for you**:
+If `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` or `ANTHROPIC_AUTH_TOKEN` are set on your system, the command-line tools **prefer them** over the CC Switch configuration.
+
+**One-click clean-up**: on the Environment page click "Clean up" on the environment-variable row. The confirmation dialog lists where each variable comes from and its **full value** (deliberately unmasked, so you can see what is deleted and note it down if needed). After you confirm, the tool deletes user variables, deletes system variables as administrator (UAC), comments the line out of rc files as `# removed by SeedRouter Onboarding: …` (backup first) and runs `launchctl unsetenv` on macOS. A variable that exists only in the current process cannot be removed — restart the tool. Details in "One-click actions explained".
+
+To do it by hand instead:
 
 - **Windows** — right-click "This PC" → "Properties" → "Advanced system settings" → "Environment Variables". Look for those names under both "User variables" and "System variables", select and "Delete" (note the value first if you might need it). Then close all terminals and reopen.
 - **macOS** — they usually live in `~/.zshrc` or `~/.zprofile` (bash: `~/.bash_profile`, `~/.bashrc`). Open the file, delete lines such as `export OPENAI_API_KEY=...` or comment them out with a leading `#`, save, close all terminals and reopen.
 
-The Environment page shows where each variable comes from (registry, or file and line).
+The Environment page shows where each variable comes from (registry, or file and line). Proxy variables (`HTTP_PROXY` etc.) are not conflicts and are never cleaned up.
 
 ## E. "Command not found" / "not recognized as an internal or external command"
 
 1. Just installed, terminal not restarted → close all terminals and reopen (as in C).
 2. Node.js missing or too old → back to the Install step.
-3. npm's global bin folder not on PATH → run `npm prefix -g` in a new terminal and add the printed folder (Windows: the folder itself; macOS: its `bin` sub-folder) to PATH. The tool shows the exact path.
+3. npm's global bin folder not on PATH → click "Repair PATH": the tool appends that folder to your **user** PATH (Windows: `HKCU\Environment\Path` plus a change broadcast; macOS: an `export PATH=…` line appended to `~/.zshrc` or similar, backup first), no administrator rights; then close all terminals and reopen. By hand: run `npm prefix -g` in a new terminal and add the printed folder (Windows: the folder itself; macOS: its `bin` sub-folder) to PATH.
+4. `'"node"' is not recognized` (Codex CLI found but broken) → the Node.js folder is not on PATH; use the same "Repair PATH" button.
 
 ## F. Protocol mismatch (400 / 422, oddly shaped responses)
 

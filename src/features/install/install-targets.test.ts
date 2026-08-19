@@ -5,11 +5,15 @@ import { checkResult, envSnapshot, installPlan } from "@/test/fixtures/env";
 
 import {
   ccSwitchDownloadPage,
+  codexAppDownloadPage,
   deriveInstallTargets,
+  INSTALL_TARGET_ORDER,
   installKind,
   nodeDownloadPage,
+  nodeDownloadPageFor,
   RECHECK_ID,
   registryToAvoidOnRetry,
+  runsInstaller,
 } from "./install-targets";
 
 const ALL_TOOLS = ["codex", "claude-code"] as const;
@@ -79,6 +83,38 @@ describe("deriveInstallTargets", () => {
     expect(deriveInstallTargets(snap, ["codex"], [])).toEqual([]);
   });
 
+  it("offers the Codex desktop client when its check says missing (code or install fix)", () => {
+    expect(
+      deriveInstallTargets(
+        envSnapshot({ codex_app: checkResult("codex_app", "warn", { code: "codex_app.missing" }) }),
+        [],
+        [],
+      ),
+    ).toEqual(["codex-app"]);
+    expect(
+      deriveInstallTargets(
+        envSnapshot({
+          codex_app: checkResult("codex_app", "warn", {
+            code: "codex_app.missing",
+            fixes: [{ kind: "install", tool: "codex-app" }],
+          }),
+        }),
+        [],
+        [],
+      ),
+    ).toEqual(["codex-app"]);
+    // not applicable (skipped) rows never add it
+    expect(
+      deriveInstallTargets(
+        envSnapshot({
+          codex_app: checkResult("codex_app", "skipped", { code: "codex_app.not_applicable" }),
+        }),
+        ALL_TOOLS,
+        [],
+      ),
+    ).toEqual([]);
+  });
+
   it("adds explicit requests and keeps the canonical order, without duplicates", () => {
     const snap = envSnapshot({ codex: checkResult("codex", "fail", { code: "tool.missing" }) });
     expect(deriveInstallTargets(snap, ALL_TOOLS, ["cc-switch", "node", "codex"])).toEqual([
@@ -86,6 +122,9 @@ describe("deriveInstallTargets", () => {
       "codex",
       "cc-switch",
     ]);
+    expect(
+      deriveInstallTargets(snap, ALL_TOOLS, ["codex-app", "cc-switch", "node", "codex"]),
+    ).toEqual(INSTALL_TARGET_ORDER.filter((t) => t !== "claude-code"));
   });
 });
 
@@ -93,13 +132,19 @@ describe("installKind / RECHECK_ID", () => {
   it("maps every target", () => {
     expect(installKind("codex")).toBe("npm");
     expect(installKind("claude-code")).toBe("npm");
-    expect(installKind("node")).toBe("node");
-    expect(installKind("cc-switch")).toBe("cc-switch");
+    expect(installKind("node")).toBe("installer");
+    expect(installKind("cc-switch")).toBe("installer");
+    expect(installKind("codex-app")).toBe("installer");
+    expect(runsInstaller("node")).toBe(true);
+    expect(runsInstaller("codex-app")).toBe(true);
+    expect(runsInstaller("cc-switch")).toBe(false);
+    expect(runsInstaller("codex")).toBe(false);
     expect(RECHECK_ID).toEqual({
       node: "node",
       codex: "codex",
       "claude-code": "claude_code",
       "cc-switch": "cc_switch",
+      "codex-app": "codex_app",
     });
   });
 });
@@ -121,6 +166,7 @@ describe("download pages", () => {
       ],
     },
     ccSwitch: { downloadPage: "https://github.com/farion1231/cc-switch/releases/latest" },
+    codexApp: { downloadPage: "https://chatgpt.com/download/" },
   } as unknown as AppConfig;
 
   it("nodeDownloadPage prefers plan.downloadUrl, then the plan's mirror, then config, then nodejs.org", () => {
@@ -137,6 +183,18 @@ describe("download pages", () => {
       "https://nodejs.org/en/download",
     );
     expect(nodeDownloadPage(null, null)).toBe("https://nodejs.org/en/download");
+  });
+
+  it("nodeDownloadPageFor picks the page of the mirror the probe chose", () => {
+    expect(nodeDownloadPageFor("npmmirror", config)).toBe("https://npmmirror.com/mirrors/node/");
+    expect(nodeDownloadPageFor("official", config)).toBe("https://nodejs.org/en/download");
+    expect(nodeDownloadPageFor("unknown", config)).toBe("https://nodejs.org/en/download");
+    expect(nodeDownloadPageFor(null, null)).toBe("https://nodejs.org/en/download");
+  });
+
+  it("codexAppDownloadPage falls back to the public ChatGPT download page", () => {
+    expect(codexAppDownloadPage(config)).toBe("https://chatgpt.com/download/");
+    expect(codexAppDownloadPage(null)).toContain("chatgpt.com");
   });
 
   it("ccSwitchDownloadPage falls back to the GitHub releases page", () => {

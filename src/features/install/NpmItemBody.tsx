@@ -1,11 +1,11 @@
-import { ChevronDown, ChevronUp, Play, RefreshCw, Square } from "lucide-react";
-import { useId, useState } from "react";
+import { Play, RefreshCw, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Alert, Button, ErrorBanner, LogView } from "@/components/ui";
-import type { AppConfig, InstallDoneEvent, Platform } from "@/lib/types";
+import { Alert, Button, ErrorBanner } from "@/components/ui";
+import type { AppConfig, Platform } from "@/lib/types";
 
-import { PhaseSpinner, RecheckFeedback } from "./ItemParts";
+import { OutputPane, PhaseSpinner, RecheckFeedback } from "./ItemParts";
+import { jobFailureMessage } from "./item-text";
 import type { InstallActions } from "./useInstallController";
 import type { ItemState, JobLog } from "./install-state";
 import { registryToAvoidOnRetry } from "./install-targets";
@@ -18,61 +18,6 @@ export interface NpmItemBodyProps {
   platform: Platform | null;
   config: AppConfig | null;
   actions: InstallActions;
-}
-
-/** Collapsible output pane shown once a job has produced (or finished producing) output. */
-function OutputPane({ log, defaultOpen }: { log: JobLog | null; defaultOpen: boolean }) {
-  const { t } = useTranslation();
-  const id = useId();
-  const [open, setOpen] = useState(defaultOpen);
-  const lines = log?.lines ?? [];
-  if (defaultOpen) {
-    return (
-      <div className="mt-3 space-y-1">
-        <p className="text-xs font-medium text-neutral-500">{t("install:npm.outputTitle")}</p>
-        <LogView lines={lines} />
-      </div>
-    );
-  }
-  return (
-    <div className="mt-3">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={id}
-        className="-ml-3"
-        leftIcon={
-          open ? (
-            <ChevronUp className="size-4" aria-hidden />
-          ) : (
-            <ChevronDown className="size-4" aria-hidden />
-          )
-        }
-      >
-        {open ? t("install:actions.hideOutput") : t("install:actions.showOutput")}
-      </Button>
-      <div id={id} hidden={!open}>
-        <LogView lines={lines} className="mt-1" />
-      </div>
-    </div>
-  );
-}
-
-function failureMessage(
-  t: (key: string, opts?: Record<string, unknown>) => string,
-  done: InstallDoneEvent | null,
-): string {
-  if (!done) return t("install:npm.startFailed");
-  if (done.cancelled) return t("install:npm.cancelled");
-  if (done.timedOut) {
-    return t("install:npm.timedOut", {
-      minutes: Math.max(1, Math.round(done.durationMs / 60_000)),
-    });
-  }
-  if (done.exitCode === null) return t("install:npm.failedNoCode");
-  return t("install:npm.failedHint", { code: done.exitCode });
 }
 
 /**
@@ -136,6 +81,7 @@ export function NpmItemBody({ item, log, toolName, platform, config, actions }: 
             recheck={item.recheck}
             passedKey="install:npm.recheckAfterDone"
             notPassedKey="install:npm.recheckStillMissing"
+            onRerun={() => void actions.recheck(target)}
           />
           {log && log.lines.length > 0 && <OutputPane log={log} defaultOpen={false} />}
         </div>
@@ -154,14 +100,14 @@ export function NpmItemBody({ item, log, toolName, platform, config, actions }: 
           {step.error ? (
             <ErrorBanner
               error={step.error}
-              title={failureMessage(t, step.done)}
+              title={jobFailureMessage(t, step.done)}
               onRetry={retry}
               retryLabel={retryLabel}
             />
           ) : (
             <Alert
               variant="danger"
-              title={failureMessage(t, step.done)}
+              title={jobFailureMessage(t, step.done)}
               actions={
                 <Button
                   variant="secondary"

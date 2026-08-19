@@ -5,6 +5,7 @@ import { Alert, Button, Card, StatusBadge } from "@/components/ui";
 import type { AppConfig, Platform } from "@/lib/types";
 
 import { CcSwitchItemBody } from "./CcSwitchItemBody";
+import { CodexAppItemBody } from "./CodexAppItemBody";
 import type { InstallActions } from "./useInstallController";
 import {
   isBusy,
@@ -14,7 +15,6 @@ import {
   type InstallState,
   type ItemState,
 } from "./install-state";
-import { installKind } from "./install-targets";
 import { NodeItemBody } from "./NodeItemBody";
 import { NpmItemBody } from "./NpmItemBody";
 
@@ -30,19 +30,24 @@ export interface InstallItemCardProps {
 export function InstallItemCard({ item, state, actions, config, platform }: InstallItemCardProps) {
   const { t } = useTranslation();
   const { target } = item;
-  const toolName = t(`common:tools.${target}`);
+  const toolName =
+    target === "codex-app" ? t("install:codexApp.title") : t(`common:tools.${target}`);
   const badge = itemBadge(item);
   const outcome = itemOutcome(item);
   const busy = isBusy(item);
   const jobId = jobIdOf(item.step);
+  const log = jobId ? (state.jobs[jobId] ?? null) : null;
+  const progress =
+    item.step.phase === "downloading" ? (state.downloads[item.step.jobId] ?? null) : null;
 
   const body = (() => {
-    switch (installKind(target)) {
-      case "npm":
+    switch (target) {
+      case "codex":
+      case "claude-code":
         return (
           <NpmItemBody
             item={item}
-            log={jobId ? (state.jobs[jobId] ?? null) : null}
+            log={log}
             toolName={toolName}
             platform={platform}
             config={config}
@@ -53,6 +58,8 @@ export function InstallItemCard({ item, state, actions, config, platform }: Inst
         return (
           <NodeItemBody
             item={item}
+            progress={progress}
+            log={log}
             toolName={toolName}
             platform={platform}
             config={config}
@@ -63,9 +70,19 @@ export function InstallItemCard({ item, state, actions, config, platform }: Inst
         return (
           <CcSwitchItemBody
             item={item}
-            progress={
-              item.step.phase === "downloading" ? (state.downloads[item.step.jobId] ?? null) : null
-            }
+            progress={progress}
+            platform={platform}
+            config={config}
+            actions={actions}
+          />
+        );
+      case "codex-app":
+        return (
+          <CodexAppItemBody
+            item={item}
+            progress={progress}
+            log={log}
+            toolName={toolName}
             platform={platform}
             config={config}
             actions={actions}

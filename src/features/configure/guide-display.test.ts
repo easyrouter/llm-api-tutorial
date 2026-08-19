@@ -9,6 +9,7 @@ import {
   modelHintText,
   protocolLabel,
   toolLabel,
+  visibleSteps,
 } from "./guide-display";
 
 const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
@@ -32,6 +33,7 @@ const step = (params: Record<string, string> = {}): GuideStep => ({
   params,
   copyValue: null,
   verifyCheck: null,
+  branch: null,
 });
 
 describe("guide-display", () => {
@@ -107,6 +109,7 @@ describe("guide-display", () => {
       params: {},
       copyValue,
       verifyCheck: null,
+      branch: null,
     });
     const live = { providerName: "My Gateway", baseUrl: "https://x.example/v1", model: "gpt-5" };
     expect(liveCopyValue(at("add_provider", "Service Gateway"), live)).toBe("My Gateway");
@@ -128,5 +131,38 @@ describe("guide-display", () => {
         model: "",
       }),
     ).toBe("Service Gateway");
+  });
+
+  it("visibleSteps keeps shared steps, filters by branch and preserves order", () => {
+    const at = (code: string, branch: GuideStep["branch"]): GuideStep => ({
+      id: code,
+      code,
+      params: {},
+      copyValue: null,
+      verifyCheck: null,
+      branch,
+    });
+    const steps = [
+      at("open_cc_switch", null),
+      at("add_official_provider", "chatgpt_login"),
+      at("login_chatgpt", "chatgpt_login"),
+      at("add_provider", "api_key"),
+      at("paste_api_key", "api_key"),
+      at("apply_codex_config", null),
+    ];
+    expect(visibleSteps(steps, "chatgpt_login").map((s) => s.code)).toEqual([
+      "open_cc_switch",
+      "add_official_provider",
+      "login_chatgpt",
+      "apply_codex_config",
+    ]);
+    expect(visibleSteps(steps, "api_key").map((s) => s.code)).toEqual([
+      "open_cc_switch",
+      "add_provider",
+      "paste_api_key",
+      "apply_codex_config",
+    ]);
+    // no branch (Claude Code): everything is shown, in order
+    expect(visibleSteps(steps, null)).toHaveLength(6);
   });
 });

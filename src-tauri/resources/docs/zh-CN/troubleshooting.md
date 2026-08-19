@@ -27,18 +27,23 @@
 
 ## D. 环境变量冲突
 
-如果系统里设置了 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_API_BASE`、`ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN` 等变量，命令行工具会**优先使用它们**，把 CC Switch 里的配置盖掉。本工具只负责发现和定位，**不会替你修改**：
+如果系统里设置了 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_API_BASE`、`ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN` 等变量，命令行工具会**优先使用它们**，把 CC Switch 里的配置盖掉。
+
+**一键清理**：在"环境检查"页的环境变量那一行点"一键清理"。确认框会列出每个变量来自哪里和它的**完整值**（故意不遮盖，让你看清删的是什么，必要时先抄下来）；确认后工具删除用户变量、以管理员身份删除系统变量（UAC）、把配置文件里的那一行注释为 `# removed by SeedRouter Onboarding: …`（先备份）、在 macOS 上执行 `launchctl unsetenv`。只存在于当前进程的变量无法删除——请重新启动本工具。详见"一键操作说明"。
+
+想自己动手也可以：
 
 - **Windows**：右键"此电脑"→"属性"→"高级系统设置"→"环境变量"。在"用户变量"和"系统变量"里分别找上面这些名字，选中后点"删除"（需要的话先记下值）。改完后关闭所有终端窗口重开。
 - **macOS**：这些变量通常写在 `~/.zshrc` 或 `~/.zprofile`（bash 用户看 `~/.bash_profile`、`~/.bashrc`）。打开文件，找到 `export OPENAI_API_KEY=...` 之类的行，删掉或在行首加 `#` 注释掉，保存后关闭所有终端窗口重开。
 
-工具"环境检查"页会标出每个变量来自哪里（注册表，或哪个文件的第几行）。
+工具"环境检查"页会标出每个变量来自哪里（注册表，或哪个文件的第几行）。代理类变量（`HTTP_PROXY` 等）不算冲突，不会被清理。
 
 ## E. 提示"命令不存在"（command not found / 不是内部或外部命令）
 
 1. 刚装完还没关终端 → 关掉所有终端重开（同 C）。
 2. Node.js 没装或版本太旧 → 回到"安装"步骤。
-3. npm 的全局 bin 目录不在 PATH 里 → 在新终端执行 `npm prefix -g`，把输出的目录（Windows 直接用该目录；macOS 用其下的 `bin`）加入 PATH。工具会给出具体路径。
+3. npm 的全局 bin 目录不在 PATH 里 → 点"一键修复 PATH"，工具把该目录追加到你的**用户** PATH（Windows 写 `HKCU\Environment\Path` 并广播变更；macOS 在 `~/.zshrc` 等文件末尾追加 `export PATH=…`，先备份），不需要管理员权限，然后关掉所有终端重开。手动做法：在新终端执行 `npm prefix -g`，把输出的目录（Windows 直接用该目录；macOS 用其下的 `bin`）加入 PATH。
+4. 提示 `'"node"' 不是内部或外部命令`（Codex CLI 已找到但无法运行）→ 是 Node.js 目录不在 PATH 里，同样用"一键修复 PATH"。
 
 ## F. 协议不匹配（400 / 422，或返回内容格式怪异）
 

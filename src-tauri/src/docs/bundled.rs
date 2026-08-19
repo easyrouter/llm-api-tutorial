@@ -41,6 +41,7 @@ pub const INDEXES: &[(&str, &str)] = &[
 pub const PAGES: &[BundledDoc] = &[
     page!("zh-CN", "overview.md"),
     page!("zh-CN", "env-check.md"),
+    page!("zh-CN", "one-click.md"),
     page!("zh-CN", "install-node.md"),
     page!("zh-CN", "install-cli.md"),
     page!("zh-CN", "install-cc-switch.md"),
@@ -50,6 +51,7 @@ pub const PAGES: &[BundledDoc] = &[
     page!("zh-CN", "faq.md"),
     page!("en", "overview.md"),
     page!("en", "env-check.md"),
+    page!("en", "one-click.md"),
     page!("en", "install-node.md"),
     page!("en", "install-cli.md"),
     page!("en", "install-cc-switch.md"),

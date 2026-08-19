@@ -1,7 +1,7 @@
 {
   "title": "在 CC Switch 中配置服务网关",
-  "intro": "配置写入由 CC Switch 完成，本工具不会替你改任何配置文件。你可以在下面直接核对并编辑要填的值、先测一下连通性，然后一键导入 CC Switch，或按手动步骤自己填写。",
-  "codexClientNote": "这份配置对 Codex CLI 和 Codex 客户端 / IDE 扩展同时生效——它们共用 ~/.codex 下的同一份配置，配置一次即可。",
+  "intro": "配置主要在 CC Switch 中完成；本工具帮你核对并编辑要填的值、先测一下连通性，然后一键导入 CC Switch 或按手动步骤自己填写。Codex 的 config.toml 模板可以在你确认后一键写入本机（原文件会自动备份）。",
+  "codexClientNote": "这份配置对 Codex CLI 和 Codex 客户端 / IDE 扩展同时生效——它们共用 ~/.codex 下的同一份配置，配置一次即可。先在下面选择你的账号情况，步骤会随之变化。",
   "tabs": {
     "label": "选择要配置的工具"
   },
@@ -27,7 +27,8 @@
     "modelHint": "模型（建议值）",
     "modelHintEmpty": "本次没有统一的模型名，请填写你被分配的模型名称（也可以在下方步骤里从网关获取列表）。",
     "reasoningEffortHint": "Reasoning Effort（建议值）",
-    "apiKeyRow": "API Key"
+    "apiKeyRow": "API Key",
+    "descriptionLogin": "登录路径下不需要在 CC Switch 里填这些值（选「OpenAI 官方」预设即可）。API Key 仍然需要：它只会写进下面的 config.toml 模板里，让请求走服务网关；填好后可先「测试连通性」确认一遍。"
   },
   "test": {
     "button": "测试连通性",
@@ -51,7 +52,7 @@
   },
   "config": {
     "title": "Codex config.toml 模板（推荐）",
-    "description": "把这份配置粘贴到 CC Switch 里 Codex 供应商的「config.toml / 配置内容」一栏（用过上面的一键导入后，也可以在 CC Switch 中编辑该供应商，把配置替换成这份）。它在走服务网关的同时保留大部分官方功能，并为 gpt-5.6-sol 启用 priority 档、大上下文与自动压缩。内容可以直接修改——例如把 model_auto_compact_token_limit 调得更激进，或增删其他默认项。",
+    "description": "这份配置让 Codex 走服务网关的同时保留大部分官方功能，并为 gpt-5.6-sol 启用 priority 档、大上下文与自动压缩。可以点「一键应用到本机 Codex」在确认后直接写入 ~/.codex/config.toml（原文件自动备份），也可以复制后自己粘贴到 CC Switch 里 Codex 供应商的「config.toml / 配置内容」一栏。内容可以直接修改——例如把 model_auto_compact_token_limit 调得更激进，或增删其他默认项。",
     "scopeLabel": "自动压缩统计口径（model_auto_compact_token_limit_scope）",
     "scopeHint": "选择 300000 的自动压缩阈值按什么口径统计；不确定就用推荐值。",
     "scope": {
@@ -65,11 +66,40 @@
       }
     },
     "templateLabel": "config.toml 内容（可编辑）",
-    "keySubstitution": "复制时会把 <API-KEY> 自动替换为上面填写的真实 Key；界面上不会显示真实 Key。",
-    "keyMissing": "上面还没有填写 API Key：复制出的内容会保留 <API-KEY> 占位符，粘贴后请自行替换。",
+    "keySubstitution": "复制或应用时会把 <API-KEY> 自动替换为上面填写的真实 Key；界面上不会显示真实 Key。",
+    "keyMissing": "上面还没有填写 API Key：复制出的内容会保留 <API-KEY> 占位符（粘贴后请自行替换）；一键应用需要先填写 Key。",
     "edited": "已手动编辑：更改上方取值或统计口径不会覆盖你的修改；需要时可点「恢复为生成的模板」。",
     "regenerate": "恢复为生成的模板",
-    "loading": "正在生成模板…"
+    "loading": "正在生成模板…",
+    "apply": {
+      "button": "一键应用到本机 Codex（写入 ~/.codex/config.toml）",
+      "whatItDoes": "这会做什么？",
+      "needsKey": "请先在上方填写 API Key，再一键应用——占位符不会被写入文件。",
+      "restore": "恢复上一个备份",
+      "status": {
+        "label": "本机 config.toml：",
+        "missing": "不存在（应用后会新建）",
+        "upToDate": "已是最新模板",
+        "differs": "与模板不同（{{n}} 个备份）",
+        "exists": "已存在（{{n}} 个备份；填写 API Key 后可与模板比对）"
+      },
+      "confirmTitle": "写入本机 Codex 配置？",
+      "confirmBody": "下面是将要写入的完整内容（预览中已隐藏 Key，实际写入的是完整 Key）。写入前会先把现有文件备份为 config.toml.seedrouter-<时间>.bak，随时可以恢复。",
+      "confirmAction": "确认写入",
+      "targetPath": "目标文件",
+      "defaultPath": "~/.codex/config.toml",
+      "existing": "已有文件",
+      "existingYes": "有，会先备份为 config.toml.seedrouter-<时间>.bak",
+      "existingNo": "没有，会新建",
+      "previewLabel": "将写入的内容（Key 已隐藏）",
+      "ccSwitchNote": "注意：CC Switch 在切换供应商时可能会改写这份文件。如果以后在 CC Switch 切换了供应商，回来再点一次应用即可。",
+      "applied": "已写入 {{path}}。请关闭并重新打开终端 / Codex 客户端后生效。",
+      "appliedWithBackup": "已写入 {{path}}，原文件已备份为 {{backup}}。请关闭并重新打开终端 / Codex 客户端后生效。",
+      "restoreTitle": "恢复上一个备份？",
+      "restoreBody": "会用最近一次备份（{{backup}}）覆盖当前的 config.toml；当前内容会在覆盖前再备份一次。",
+      "restoreAction": "恢复备份",
+      "restored": "已恢复 {{path}}。"
+    }
   },
   "models": {
     "fetch": "从网关获取模型列表",
@@ -92,12 +122,16 @@
     "body": "在开始菜单 / 启动台里找到 CC Switch 并打开。如果还没安装，先回到「安装」步骤。"
   },
   "login_chatgpt": {
-    "title": "登录 ChatGPT 账号（可选）",
-    "body": "装好 CC Switch 后，建议先在 Codex 里用你的 ChatGPT 账号登录一次：打开终端运行 codex，按提示选择「Sign in with ChatGPT」完成登录。登录后可以保留官方的联动功能（例如速度 / 档位选项），配合下面的 config.toml 模板体验最佳。这一步不是必须的，跳过也不影响后续配置。"
+    "title": "在 Codex 中登录 ChatGPT 账号",
+    "body": "打开终端运行 codex，按提示选择「Sign in with ChatGPT」，在浏览器里完成登录。登录后 Codex 的官方联动功能（速度 / 档位选项等）即可使用；请求则由下面应用的 config.toml 走服务网关。如果以后在 CC Switch 切到第三方供应商又想保留登录，可在 CC Switch 设置 → 通用 → Codex 增强里开启「切换第三方时保留官方登录」。"
   },
   "select_tool_tab": {
     "title": "切换到 {{tool}} 标签页",
     "body": "CC Switch 顶部（或左侧）有 Claude / Codex 两个标签，请选择「{{tool}}」。如果两个工具都要用，需要各配置一次。"
+  },
+  "add_official_provider": {
+    "title": "添加「OpenAI 官方」预设供应商",
+    "body": "在 Codex 标签页点「添加供应商」，从预设列表里选择「OpenAI 官方 / OpenAI Official」（不用填地址和 Key），保存后在列表里点「使用 / 切换」，让它成为当前供应商。"
   },
   "add_provider": {
     "title": "点击「添加供应商」",
@@ -122,6 +156,10 @@
   "save_and_activate": {
     "title": "保存并切换到这个供应商",
     "body": "点击「保存」。新添加的供应商不会自动生效，请在列表里点「使用 / 切换」，让它成为当前供应商（通常卡片会变色或出现勾选）。"
+  },
+  "apply_codex_config": {
+    "title": "一键应用 config.toml 模板",
+    "body": "回到上方「Codex config.toml 模板」卡片点「一键应用到本机 Codex」。它会把服务网关地址、priority 档、大上下文等写进 ~/.codex/config.toml；原文件会自动备份，可随时恢复。"
   },
   "close_terminals": {
     "title": "关闭所有终端窗口",
@@ -176,9 +214,21 @@
       "body": "已经打开的终端不会看到新配置——包括 VS Code、Cursor 等编辑器里的内置终端。全部关掉再进入下一步验证。",
       "help": "为什么要这样做？"
     },
-    "noWrite": "本工具不会修改 ~/.codex、~/.claude 或 CC Switch 的配置文件；「一键导入」也只是把值交给 CC Switch，由它在你确认后写入自己的配置。"
+    "noWrite": "本工具不会修改 ~/.claude 或 CC Switch 的配置文件；「一键导入」只是把值交给 CC Switch，由它在你确认后写入自己的配置。唯一的例外是 Codex 的 ~/.codex/config.toml：只有在你点「一键应用」并确认后才会写入，且原文件会先备份。"
   },
   "footer": {
     "next": "去验证"
+  },
+  "branch": {
+    "title": "你的 Codex 账号情况",
+    "description": "CC Switch 的 Codex 标签页自带「OpenAI 官方」预设：有 ChatGPT 账号就用它并在 Codex 里登录，不必添加自定义供应商；没有账号才添加自定义供应商。两条路都会应用下面的 config.toml 模板。",
+    "chatgpt_login": {
+      "label": "我有可登录的 ChatGPT 账号（推荐）",
+      "description": "在 CC Switch 里选「OpenAI 官方」预设并在 Codex 中登录；保留官方联动功能（速度 / 档位选项等）。"
+    },
+    "api_key": {
+      "label": "我没有 ChatGPT 账号",
+      "description": "在 CC Switch 添加自定义供应商，填服务网关地址和 API Key。"
+    }
   }
 }

@@ -1,7 +1,13 @@
 # ADR-0003: Never write to `~/.codex`, `~/.claude`, `~/.cc-switch`; never edit env vars
 
-- Status: accepted
+- Status: superseded in part by ADR-0008 (2026-08-19)
 - Date: 2026-08-15
+
+> ADR-0008 allows, after an explicit user confirmation of a shown plan: writing
+> `~/.codex/config.toml` (with backup), editing the **user** PATH, removing conflicting env vars
+> and running downloaded installers with the OS elevation prompt. Everything else below — no
+> writes to `~/.claude` / `~/.cc-switch`, no silent env-var or machine-PATH changes — still
+> holds.
 
 ## Context
 

@@ -10,20 +10,25 @@
 //! Ordered [`GuideStep`]s. `id` is a stable snake_case identifier, `code` is the i18n prefix
 //! (frontend key `guide:<code>.title` / `guide:<code>.body`). Codes emitted, in order:
 //!
-//! | id / code           | params                                | copy_value          | verify_check |
-//! |---------------------|---------------------------------------|---------------------|--------------|
-//! | `open_cc_switch`    | —                                     | —                   | `cc_switch`  |
-//! | `login_chatgpt`     | — (codex only, optional)              | —                   | —            |
-//! | `select_tool_tab`   | `tool`                                | —                   | —            |
-//! | `add_provider`      | `provider_name`                       | provider name       | —            |
-//! | `paste_base_url`    | `base_url`                            | preset base URL     | —            |
-//! | `choose_protocol`   | `protocol` (codex only)               | —                   | —            |
-//! | `paste_api_key`     | —                                     | —                   | —            |
-//! | `set_model`         | `model_hint`, `reasoning_effort_hint` | model hint if set   | —            |
-//! | `save_and_activate` | —                                     | —                   | —            |
-//! | `close_terminals`   | —                                     | —                   | —            |
-//! | `verify`            | `tool`                                | —                   | —            |
+//! | id / code               | params                                | copy_value        | verify_check | branch (codex)  |
+//! |-------------------------|---------------------------------------|-------------------|--------------|-----------------|
+//! | `open_cc_switch`        | —                                     | —                 | `cc_switch`  | —               |
+//! | `select_tool_tab`       | `tool`                                | —                 | —            | —               |
+//! | `add_official_provider` | — (codex only)                        | —                 | —            | `chatgpt_login` |
+//! | `login_chatgpt`         | — (codex only)                        | —                 | —            | `chatgpt_login` |
+//! | `add_provider`          | `provider_name`                       | provider name     | —            | `api_key`       |
+//! | `paste_base_url`        | `base_url`                            | preset base URL   | —            | `api_key`       |
+//! | `choose_protocol`       | `protocol` (codex only)               | —                 | —            | `api_key`       |
+//! | `paste_api_key`         | —                                     | —                 | —            | `api_key`       |
+//! | `set_model`             | `model_hint`, `reasoning_effort_hint` | model hint if set | —            | `api_key`       |
+//! | `save_and_activate`     | —                                     | —                 | —            | `api_key`       |
+//! | `apply_codex_config`    | — (codex only)                        | —                 | —            | —               |
+//! | `close_terminals`       | —                                     | —                 | —            | —               |
+//! | `verify`                | `tool`                                | —                 | —            | —               |
 //!
+//! Codex has two account paths (CC Switch docs: the "OpenAI Official" preset is for users who
+//! sign in with a ChatGPT account; a custom provider is only needed without one). Steps tagged
+//! with a `branch` are shown for that path only; Claude Code steps carry no branch.
 //! `tool` is the wire form of [`ToolId`] (`codex` / `claude-code`); `protocol` is the wire
 //! form of [`Protocol`] (`responses` / `chat_completions`).
 //!
@@ -70,8 +75,8 @@ use url::{form_urlencoded, Position, Url};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     AppConfig, AutoCompactScope, CcSwitchImportRequest, CheckId, CodexConfigRequest, ConfigGuide,
-    GuideStep, KeyIssue, KeyValidation, Params, Protocol, ProviderPreset, ToolId, UrlPreview,
-    UrlRule, UrlWarning,
+    GuideBranch, GuideStep, KeyIssue, KeyValidation, Params, Protocol, ProviderPreset, ToolId,
+    UrlPreview, UrlRule, UrlWarning,
 };
 use crate::redact::{mask_value, redact_secrets};
 
@@ -127,42 +132,64 @@ pub fn build_guide(tool: ToolId, config: &AppConfig) -> ConfigGuide {
 /// Ordered steps for `tool` (see module docs for the table).
 fn build_steps(tool: ToolId, preset: &ProviderPreset) -> Vec<GuideStep> {
     let tool_params = params([("tool", tool_key(tool))]);
-    let mut steps = vec![step(
-        "open_cc_switch",
-        Params::new(),
-        None,
-        Some(CheckId::CcSwitch),
-    )];
-    if tool == ToolId::Codex {
-        // Optional: a ChatGPT login right after installing CC Switch keeps the official
-        // login-gated features (e.g. the speed/tier option) available alongside the gateway.
-        steps.push(step("login_chatgpt", Params::new(), None, None));
+    let codex = tool == ToolId::Codex;
+    // Codex: provider steps belong to the API-key path; Claude Code has one path only.
+    let key_branch = codex.then_some(GuideBranch::ApiKey);
+    let mut steps = vec![
+        step(
+            "open_cc_switch",
+            Params::new(),
+            None,
+            Some(CheckId::CcSwitch),
+            None,
+        ),
+        step("select_tool_tab", tool_params.clone(), None, None, None),
+    ];
+    if codex {
+        // ChatGPT-account path (CC Switch "OpenAI Official" preset): no custom provider, no key
+        // in CC Switch — the gateway comes in through the config.toml template below.
+        steps.push(step(
+            "add_official_provider",
+            Params::new(),
+            None,
+            None,
+            Some(GuideBranch::ChatgptLogin),
+        ));
+        steps.push(step(
+            "login_chatgpt",
+            Params::new(),
+            None,
+            None,
+            Some(GuideBranch::ChatgptLogin),
+        ));
     }
     steps.extend([
-        step("select_tool_tab", tool_params.clone(), None, None),
         step(
             "add_provider",
             params([("provider_name", preset.provider_name.as_str())]),
             non_empty(&preset.provider_name),
             None,
+            key_branch,
         ),
         step(
             "paste_base_url",
             params([("base_url", preset.base_url.as_str())]),
             non_empty(&preset.base_url),
             None,
+            key_branch,
         ),
     ]);
-    if tool == ToolId::Codex {
+    if codex {
         steps.push(step(
             "choose_protocol",
             params([("protocol", protocol_key(preset.protocol))]),
             None,
             None,
+            key_branch,
         ));
     }
     steps.extend([
-        step("paste_api_key", Params::new(), None, None),
+        step("paste_api_key", Params::new(), None, None, key_branch),
         step(
             "set_model",
             params([
@@ -174,10 +201,16 @@ fn build_steps(tool: ToolId, preset: &ProviderPreset) -> Vec<GuideStep> {
             ]),
             non_empty(&preset.model_hint),
             None,
+            key_branch,
         ),
-        step("save_and_activate", Params::new(), None, None),
-        step("close_terminals", Params::new(), None, None),
-        step("verify", tool_params, None, None),
+        step("save_and_activate", Params::new(), None, None, key_branch),
+    ]);
+    if codex {
+        steps.push(step("apply_codex_config", Params::new(), None, None, None));
+    }
+    steps.extend([
+        step("close_terminals", Params::new(), None, None, None),
+        step("verify", tool_params, None, None, None),
     ]);
     steps
 }
@@ -187,6 +220,7 @@ fn step(
     params: Params,
     copy_value: Option<String>,
     verify_check: Option<CheckId>,
+    branch: Option<GuideBranch>,
 ) -> GuideStep {
     GuideStep {
         id: id.to_owned(),
@@ -194,6 +228,7 @@ fn step(
         params,
         copy_value,
         verify_check,
+        branch,
     }
 }
 
@@ -602,19 +637,38 @@ mod tests {
             ids,
             [
                 "open_cc_switch",
-                "login_chatgpt",
                 "select_tool_tab",
+                "add_official_provider",
+                "login_chatgpt",
                 "add_provider",
                 "paste_base_url",
                 "choose_protocol",
                 "paste_api_key",
                 "set_model",
                 "save_and_activate",
+                "apply_codex_config",
                 "close_terminals",
                 "verify",
             ]
         );
         assert!(guide.steps.iter().all(|s| s.id == s.code));
+        let branch = |id: &str| {
+            guide
+                .steps
+                .iter()
+                .find(|s| s.id == id)
+                .and_then(|s| s.branch)
+        };
+        assert_eq!(
+            branch("add_official_provider"),
+            Some(GuideBranch::ChatgptLogin)
+        );
+        assert_eq!(branch("login_chatgpt"), Some(GuideBranch::ChatgptLogin));
+        assert_eq!(branch("add_provider"), Some(GuideBranch::ApiKey));
+        assert_eq!(branch("save_and_activate"), Some(GuideBranch::ApiKey));
+        assert_eq!(branch("apply_codex_config"), None);
+        assert_eq!(branch("open_cc_switch"), None);
+        assert_eq!(branch("verify"), None);
         assert_eq!(guide.tool, ToolId::Codex);
         assert_eq!(guide.preset.base_url, "https://gateway.example.com/v1");
     }
@@ -624,6 +678,8 @@ mod tests {
         let guide = build_guide(ToolId::ClaudeCode, &cfg());
         assert!(guide.steps.iter().all(|s| s.id != "choose_protocol"));
         assert!(guide.steps.iter().all(|s| s.id != "login_chatgpt"));
+        assert!(guide.steps.iter().all(|s| s.id != "apply_codex_config"));
+        assert!(guide.steps.iter().all(|s| s.branch.is_none()));
         assert_eq!(guide.steps.len(), 9);
         let tab = guide
             .steps

@@ -54,6 +54,13 @@ const config: AppConfig = {
     intranetMirror: "",
     dataDir: "~/.cc-switch",
   },
+  codexApp: {
+    storeProductId: "",
+    windowsMsixX64: "",
+    windowsMsixArm64: "",
+    macosDmg: "",
+    downloadPage: "",
+  },
   requirements: {
     nodeMinVersion: "18.0.0",
     nodeRecommendedLts: "22",

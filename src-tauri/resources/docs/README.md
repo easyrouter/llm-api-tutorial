@@ -72,17 +72,18 @@ Sections with an unsafe `id` or `path` are dropped when the index is loaded.
 
 ## Section ids used by the wizard
 
-| id                    | wizard step | content                                                  |
-| --------------------- | ----------- | -------------------------------------------------------- |
-| `overview`            | welcome     | what the tool does, the six steps, what it never touches |
-| `env-check`           | env_check   | what is checked and what pass / warning / blocked mean   |
-| `install-node`        | install     | Node.js LTS installation                                 |
-| `install-cli`         | install     | `npm install -g` for Codex CLI / Claude Code             |
-| `install-cc-switch`   | install     | downloading and installing CC Switch                     |
-| `configure-cc-switch` | configure   | adding the service gateway as a provider in CC Switch    |
-| `verify`              | verify      | closing all terminals, running the check                 |
-| `troubleshooting`     | diagnose    | faults A–G                                               |
-| `faq`                 | —           | frequently asked questions                               |
+| id                    | wizard step | content                                                     |
+| --------------------- | ----------- | ----------------------------------------------------------- |
+| `overview`            | welcome     | what the tool does, the six steps, what it never touches    |
+| `env-check`           | env_check   | what is checked and what pass / warning / blocked mean      |
+| `one-click`           | env_check   | what every one-click button does step by step, rights, undo |
+| `install-node`        | install     | Node.js LTS installation                                    |
+| `install-cli`         | install     | `npm install -g` for Codex CLI / Claude Code                |
+| `install-cc-switch`   | install     | downloading and installing CC Switch                        |
+| `configure-cc-switch` | configure   | adding the service gateway as a provider in CC Switch       |
+| `verify`              | verify      | closing all terminals, running the check                    |
+| `troubleshooting`     | diagnose    | faults A–G                                                  |
+| `faq`                 | —           | frequently asked questions                                  |
 
 Publishing a new version of the site does not require an app release; the app picks the new
 content up after the cache TTL expires.

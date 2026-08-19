@@ -33,6 +33,7 @@ export interface AppConfig {
   gateway: GatewayPreset;
   tools: ToolSpec[];
   ccSwitch: CcSwitchSpec;
+  codexApp: CodexAppSpec;
   requirements: Requirements;
   mirrors: Mirrors;
   envVarsToInspect: string[];
@@ -63,6 +64,15 @@ export interface CcSwitchSpec {
   downloadPage: string;
   intranetMirror: string;
   dataDir: string;
+}
+
+/** Distribution points of the Codex desktop client (`app-config.json` → `codexApp`). */
+export interface CodexAppSpec {
+  storeProductId: string;
+  windowsMsixX64: string;
+  windowsMsixArm64: string;
+  macosDmg: string;
+  downloadPage: string;
 }
 
 export interface Requirements {
@@ -110,6 +120,7 @@ export type CheckId =
   | "codex"
   | "claude_code"
   | "cc_switch"
+  | "codex_app"
   | "env_vars"
   | "network_npm"
   | "network_gateway"
@@ -123,6 +134,7 @@ export const CHECK_IDS: readonly CheckId[] = [
   "codex",
   "claude_code",
   "cc_switch",
+  "codex_app",
   "env_vars",
   "network_npm",
   "network_gateway",
@@ -135,13 +147,21 @@ export type WizardStep =
   "welcome" | "env_check" | "install" | "configure" | "verify" | "diagnose" | "done";
 
 /** kebab-case on the wire */
-export type InstallTarget = "node" | "codex" | "claude-code" | "cc-switch";
+export type InstallTarget = "node" | "codex" | "claude-code" | "cc-switch" | "codex-app";
+
+/** Well-known OS URIs the app may open (`openSystemUri`); mapped to the real URI in Rust. */
+export type SystemUri = "ms_store_codex_app" | "windows_region_settings";
 
 export type FixAction =
   | { kind: "open_url"; url: string; labelCode: string }
   | { kind: "go_to_step"; step: WizardStep }
   | { kind: "install"; tool: InstallTarget }
   | { kind: "instructions"; code: string; params: Params }
+  /** One-click: add `dir` to the user's persistent PATH (plan → confirm → apply). */
+  | { kind: "repair_path"; dir: string }
+  /** One-click: remove the listed env vars from their persistent sources (plan shows full values). */
+  | { kind: "clean_env_vars"; names: string[] }
+  | { kind: "open_system_uri"; uri: SystemUri }
   | { kind: "rerun" };
 
 export interface CheckResult {
@@ -229,10 +249,12 @@ export interface InstallPlan {
   explanationCode: string;
   /**
    * Page / file the user downloads manually when the plan has no command (Node.js download
-   * page of the chosen mirror). `null` for command plans and for CC Switch (fetch the release
-   * with `fetchCcSwitchRelease` instead).
+   * page of the chosen mirror). `null` for command plans and for installer targets (fetch the
+   * release with `fetchInstallerRelease` instead).
    */
   downloadUrl: string | null;
+  /** `planInstallerRun` plans: the downloaded installer the command runs (re-validated by Rust). */
+  installerPath: string | null;
 }
 
 export interface InstallJob {
@@ -278,12 +300,90 @@ export interface DownloadResult {
   verified: boolean | null;
 }
 
-export interface CcSwitchRelease {
+/**
+ * An installer resolved for this machine: CC Switch (GitHub / intranet), Node.js LTS (chosen
+ * dist mirror — `source` is the mirror id) or the Codex desktop client (`source: "static"`).
+ */
+export interface InstallerRelease {
+  target: InstallTarget;
   version: string;
   assetName: string;
   downloadUrl: string;
   sha256: string | null;
   source: string;
+  /** Running the downloaded installer will ask for administrator rights (UAC / password). */
+  requiresAdmin: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// One-click remediation (ADR-0008)
+// ---------------------------------------------------------------------------
+
+export interface PathRepairPlan {
+  dir: string;
+  platform: Platform;
+  /** `HKCU\Environment\Path` or the shell rc file (`~/.zshrc`). */
+  location: string;
+  displayCommand: string;
+  alreadyPresent: boolean;
+  createsBackup: boolean;
+}
+
+export interface PathRepairResult {
+  changed: boolean;
+  location: string;
+  backupPath: string | null;
+}
+
+export type EnvCleanupAction =
+  | "delete_user_registry"
+  | "delete_machine_registry"
+  | "comment_out_rc_line"
+  | "launchctl_unsetenv"
+  | "none";
+
+export interface EnvCleanupItem {
+  name: string;
+  source: EnvVarSource;
+  /** Full current value (user-requested preview; never logged). `null` for rc-file hits. */
+  value: string | null;
+  /** The rc-file line that will be commented out. */
+  line: string | null;
+  action: EnvCleanupAction;
+  displayCommand: string;
+}
+
+export interface EnvCleanupPlan {
+  platform: Platform;
+  items: EnvCleanupItem[];
+  /** At least one item needs elevation (machine registry → UAC prompt). */
+  requiresAdmin: boolean;
+}
+
+export interface EnvCleanupResult {
+  removed: string[];
+  failed: string[];
+  backups: string[];
+}
+
+export interface CodexConfigApplyRequest {
+  /** Full config.toml text to write (may contain the real key — memory only). */
+  content: string;
+}
+
+export interface CodexConfigStatus {
+  path: string;
+  exists: boolean;
+  currentRedacted: string | null;
+  /** Backups written by this app, newest first. */
+  backups: string[];
+  matchesTemplate: boolean | null;
+}
+
+export interface CodexConfigApplyResult {
+  path: string;
+  backupPath: string | null;
+  bytes: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +398,9 @@ export interface ProviderPreset {
   reasoningEffortHint: string;
 }
 
+/** Codex account paths: CC Switch "OpenAI Official" preset + ChatGPT login vs. custom provider with the gateway key. */
+export type GuideBranch = "chatgpt_login" | "api_key";
+
 export interface GuideStep {
   id: string;
   /** i18n code → `guide.<code>.title` / `.body` */
@@ -305,6 +408,8 @@ export interface GuideStep {
   params: Params;
   copyValue: string | null;
   verifyCheck: CheckId | null;
+  /** Codex only: shown for this account path only (`null` = both). */
+  branch: GuideBranch | null;
 }
 
 export interface ConfigGuide {

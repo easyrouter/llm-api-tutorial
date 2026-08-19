@@ -139,9 +139,10 @@ fn not_on_path(path: &Path, run: &VersionRun) -> Verdict {
     params.insert("dir".to_owned(), dir.clone());
     Verdict::fail("node.not_on_path")
         .param("path", full.clone())
-        .param("dir", dir)
+        .param("dir", dir.clone())
         .param_opt("version", run.display_version())
         .detail(full)
+        .fix(FixAction::RepairPath { dir })
         .fix(FixAction::Instructions {
             code: NODE_NOT_ON_PATH_INSTRUCTIONS.to_owned(),
             params,
@@ -368,14 +369,20 @@ mod tests {
             v.params.get("dir").map(String::as_str),
             Some("/usr/local/bin")
         );
+        assert_eq!(
+            v.fixes[0],
+            FixAction::RepairPath {
+                dir: "/usr/local/bin".into()
+            }
+        );
         assert!(matches!(
-            &v.fixes[0],
+            &v.fixes[1],
             FixAction::Instructions { code, params }
                 if code == NODE_NOT_ON_PATH_INSTRUCTIONS
                     && params.get("dir").map(String::as_str) == Some("/usr/local/bin")
                     && params.get("path").map(String::as_str) == Some("/usr/local/bin/node")
         ));
-        assert_eq!(v.fixes[1], FixAction::Rerun);
+        assert_eq!(v.fixes[2], FixAction::Rerun);
     }
 
     #[test]

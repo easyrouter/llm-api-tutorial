@@ -19,14 +19,16 @@ use crate::error::{AppError, AppResult};
 use crate::guide;
 use crate::install;
 use crate::models::{
-    AppConfig, AppInfo, CcSwitchImportPreview, CcSwitchImportRequest, CcSwitchRelease, CheckId,
-    CheckResult, CodexConfigRequest, ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis,
-    DiagnosticReport, DocPage, DocsIndex, DownloadRequest, DownloadResult, EnvSnapshot,
-    GatewayProbeRequest, InstallJob, InstallPlan, InstallTarget, KeyValidation, MirrorChoice,
-    ModelList, TelemetryEvent, TelemetryStatus, TerminalProcess, ToolId, UrlPreview, UrlRule,
-    VerifyRequest, VerifyResult,
+    AppConfig, AppInfo, CcSwitchImportPreview, CcSwitchImportRequest, CheckId, CheckResult,
+    CodexConfigApplyRequest, CodexConfigApplyResult, CodexConfigRequest, CodexConfigStatus,
+    ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis, DiagnosticReport, DocPage,
+    DocsIndex, DownloadRequest, DownloadResult, EnvCleanupPlan, EnvCleanupResult, EnvSnapshot,
+    GatewayProbeRequest, InstallJob, InstallPlan, InstallTarget, InstallerRelease, KeyValidation,
+    MirrorChoice, ModelList, PathRepairPlan, PathRepairResult, SystemUri, TelemetryEvent,
+    TelemetryStatus, TerminalProcess, ToolId, UrlPreview, UrlRule, VerifyRequest, VerifyResult,
 };
 use crate::platform::expand_tilde;
+use crate::remediate;
 use crate::state::AppState;
 use crate::verify;
 
@@ -110,6 +112,41 @@ pub fn open_external(app: AppHandle, url: String) -> AppResult<()> {
         .map_err(|e| AppError::Other(e.to_string()))
 }
 
+/// Opens one of the well-known OS URIs (Microsoft Store page of the Codex app, Windows region
+/// settings). The URI is built here from the enum — the webview never passes a scheme.
+#[tauri::command]
+pub fn open_system_uri(
+    app: AppHandle,
+    uri: SystemUri,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    let target = system_uri(uri, &state.config_snapshot().config)?;
+    tauri_plugin_opener::OpenerExt::opener(&app)
+        .open_url(target, None::<&str>)
+        .map_err(|e| AppError::Other(e.to_string()))
+}
+
+/// The actual URI for a [`SystemUri`] (Windows only — both are `ms-*:` schemes).
+pub fn system_uri(uri: SystemUri, config: &AppConfig) -> AppResult<String> {
+    if crate::platform::platform() != crate::models::Platform::Windows {
+        return Err(AppError::Unsupported(
+            "ms-windows-store / ms-settings URIs exist on Windows only".into(),
+        ));
+    }
+    match uri {
+        SystemUri::MsStoreCodexApp => {
+            let id = config.codex_app.store_product_id.trim();
+            if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return Err(AppError::Config(
+                    "codexApp.storeProductId is not configured".into(),
+                ));
+            }
+            Ok(format!("ms-windows-store://pdp/?productid={id}"))
+        }
+        SystemUri::WindowsRegionSettings => Ok("ms-settings:regionformatting".to_owned()),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // M1 — checks
 // ---------------------------------------------------------------------------
@@ -173,16 +210,35 @@ pub fn cancel_install(job_id: String, state: State<'_, AppState>) -> AppResult<(
     state.jobs.cancel(&job_id)
 }
 
+/// The installer file to download for `target` (CC Switch, Node.js LTS from the chosen dist
+/// mirror, Codex desktop client). npm targets are rejected.
 #[tauri::command]
-pub async fn fetch_cc_switch_release(state: State<'_, AppState>) -> AppResult<CcSwitchRelease> {
+pub async fn fetch_installer_release(
+    target: InstallTarget,
+    state: State<'_, AppState>,
+) -> AppResult<InstallerRelease> {
     let cfg = state.config_snapshot().config;
-    install::latest_cc_switch_release(
+    let mirrors = crate::net::choose_mirrors(&state.http, &cfg.mirrors).await;
+    install::fetch_release(
+        target,
         &state.http,
         &cfg,
+        &mirrors,
         crate::platform::platform(),
         std::env::consts::ARCH,
     )
     .await
+}
+
+/// The command that runs a downloaded installer (Node MSI / pkg, Codex app MSIX / DMG) —
+/// shown to the user; `start_install` re-validates it against the file.
+#[tauri::command]
+pub fn plan_installer_run(
+    app: AppHandle,
+    target: InstallTarget,
+    path: String,
+) -> AppResult<InstallPlan> {
+    install::plan_installer_run(&app, target, &path)
 }
 
 #[tauri::command]
@@ -202,33 +258,78 @@ pub async fn download_file(
 /// directory — `..` components or symlinks pointing elsewhere are rejected.
 #[tauri::command]
 pub fn open_downloaded_file(app: AppHandle, path: String) -> AppResult<()> {
-    let downloads = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| AppError::Other(e.to_string()))?
-        .join(install::DOWNLOADS_DIR);
+    let downloads = install::downloads_dir(&app)?;
     // Validate on canonical paths, but hand the plain path to the opener (Windows canonical
     // paths carry the verbatim `\\?\` prefix, which shell APIs do not always accept).
-    downloaded_file_in(&downloads, Path::new(&path))?;
+    install::downloaded_file_in(&downloads, Path::new(&path))?;
     tauri_plugin_opener::OpenerExt::opener(&app)
         .open_path(path, None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
 }
 
-/// Canonical path of `path` when it is an existing regular file whose parent is exactly
-/// `downloads_dir` (canonicalised); `InvalidInput` otherwise. `..` components are refused
-/// outright (canonicalisation would resolve them, but the intent is never legitimate).
-fn downloaded_file_in(downloads_dir: &Path, path: &Path) -> AppResult<PathBuf> {
-    let outside = || AppError::InvalidInput("path is outside the app downloads directory".into());
-    if path.components().any(|c| c == Component::ParentDir) {
-        return Err(outside());
-    }
-    let dir = std::fs::canonicalize(downloads_dir).map_err(|_| outside())?;
-    let file = std::fs::canonicalize(path).map_err(|_| outside())?;
-    if !file.is_file() || file.parent() != Some(dir.as_path()) {
-        return Err(outside());
-    }
-    Ok(file)
+// ---------------------------------------------------------------------------
+// One-click remediation (ADR-0008)
+// ---------------------------------------------------------------------------
+
+/// What adding `dir` to the user's persistent PATH would change (shown before `apply`).
+#[tauri::command]
+pub async fn plan_path_repair(dir: String) -> AppResult<PathRepairPlan> {
+    remediate::plan_path_repair(&dir).await
+}
+
+/// Applies a confirmed PATH repair plan (re-derived and compared first).
+#[tauri::command]
+pub async fn apply_path_repair(plan: PathRepairPlan) -> AppResult<PathRepairResult> {
+    remediate::apply_path_repair(&plan).await
+}
+
+/// Every persistent source of the given conflicting variables, with full values, and how each
+/// would be removed. Values are returned once for the confirmation dialog and never logged.
+#[tauri::command]
+pub async fn plan_env_cleanup(
+    names: Vec<String>,
+    state: State<'_, AppState>,
+) -> AppResult<EnvCleanupPlan> {
+    let cfg = state.config_snapshot().config;
+    remediate::plan_env_cleanup(&names, &cfg).await
+}
+
+/// Removes the confirmed sources (items whose value changed since the preview are skipped).
+#[tauri::command]
+pub async fn apply_env_cleanup(
+    plan: EnvCleanupPlan,
+    state: State<'_, AppState>,
+) -> AppResult<EnvCleanupResult> {
+    let cfg = state.config_snapshot().config;
+    remediate::apply_env_cleanup(&plan, &cfg).await
+}
+
+/// State of `~/.codex/config.toml` (exists? backups? equals `template`?).
+#[tauri::command]
+pub fn codex_config_status(
+    template: Option<String>,
+    state: State<'_, AppState>,
+) -> AppResult<CodexConfigStatus> {
+    let cfg = state.config_snapshot().config;
+    remediate::codex_config_status(&cfg, template.as_deref())
+}
+
+/// Writes the confirmed `config.toml` (backup first). The content may carry the real key and
+/// is never logged.
+#[tauri::command]
+pub fn apply_codex_config(
+    request: CodexConfigApplyRequest,
+    state: State<'_, AppState>,
+) -> AppResult<CodexConfigApplyResult> {
+    let cfg = state.config_snapshot().config;
+    remediate::apply_codex_config(&cfg, &request.content)
+}
+
+/// Puts the newest backup back (the replaced file is itself backed up).
+#[tauri::command]
+pub fn restore_codex_config(state: State<'_, AppState>) -> AppResult<CodexConfigApplyResult> {
+    let cfg = state.config_snapshot().config;
+    remediate::restore_codex_config(&cfg)
 }
 
 // ---------------------------------------------------------------------------
@@ -535,10 +636,11 @@ mod tests {
         let outside = root.path().join("setup.exe");
         std::fs::write(&outside, b"x").expect("write");
 
-        let accepted = downloaded_file_in(&downloads, &ok).expect("inside");
+        let accepted = install::downloaded_file_in(&downloads, &ok).expect("inside");
         assert!(accepted.ends_with("setup.exe"));
         // `.` is normalised away by `Path::components`; the file is still the right one
-        downloaded_file_in(&downloads, &downloads.join(".").join("setup.exe")).expect("dot");
+        install::downloaded_file_in(&downloads, &downloads.join(".").join("setup.exe"))
+            .expect("dot");
 
         let traversal = downloads.join("..").join("setup.exe");
         let sneaky = downloads.join("nested").join("..").join("setup.exe");
@@ -551,7 +653,7 @@ mod tests {
             downloads.join("missing.exe").as_path(),
         ] {
             assert_eq!(
-                downloaded_file_in(&downloads, bad)
+                install::downloaded_file_in(&downloads, bad)
                     .expect_err(&format!("{}", bad.display()))
                     .code(),
                 "invalid_input"

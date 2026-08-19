@@ -16,11 +16,13 @@ export interface PlanDetailsProps {
  * The "show before run" surface (CLAUDE.md hard rule 4): the plan's explanation
  * (`install:plan.<explanationCode>`), the exact command that will be executed, the registry
  * mirror Rust chose, and — when the npm prefix is not writable — a warning with the manual
- * alternatives. The tool never elevates and never edits npm config on the user's behalf.
+ * alternatives. For installer plans (`installerPath` set) that elevate, the note says the OS
+ * will ask for authorisation (UAC / password) — the tool never elevates silently.
  */
 export function PlanDetails({ plan, toolName, platform }: PlanDetailsProps) {
   const { t } = useTranslation();
   const hasCommand = plan.displayCommand.trim().length > 0;
+  const installer = plan.installerPath !== null;
   const prefixCommand =
     platform === "windows"
       ? t("install:common.requiresAdmin.prefixCommandWindows")
@@ -39,7 +41,9 @@ export function PlanDetails({ plan, toolName, platform }: PlanDetailsProps) {
         <CopyField
           label={t("install:common.command")}
           value={plan.displayCommand}
-          hint={t("install:common.commandHint")}
+          hint={
+            installer ? t("install:common.commandHintInstaller") : t("install:common.commandHint")
+          }
         />
       )}
 
@@ -56,7 +60,13 @@ export function PlanDetails({ plan, toolName, platform }: PlanDetailsProps) {
         </p>
       )}
 
-      {plan.requiresAdmin && (
+      {plan.requiresAdmin && installer && (
+        <Alert variant="info" data-testid="admin-note">
+          {t("install:adminNote")}
+        </Alert>
+      )}
+
+      {plan.requiresAdmin && !installer && (
         <Alert variant="warning" title={t("install:common.requiresAdmin.title")}>
           <p>{t("install:common.requiresAdmin.body")}</p>
           <ol className="mt-2 list-decimal space-y-2 pl-5">

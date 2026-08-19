@@ -3,7 +3,6 @@
  * and friends. Every builder takes a partial override so tests only spell out what matters.
  */
 import type {
-  CcSwitchRelease,
   CheckId,
   CheckResult,
   CheckStatus,
@@ -12,6 +11,7 @@ import type {
   EnvVarFinding,
   InstallPlan,
   InstallTarget,
+  InstallerRelease,
   OsInfo,
 } from "@/lib/types";
 import { CHECK_IDS } from "@/lib/types";
@@ -94,21 +94,91 @@ export function installPlan(
     requiresAdmin: false,
     explanationCode: "npm_global",
     downloadUrl: null,
+    installerPath: null,
     ...overrides,
   };
 }
 
-export function ccSwitchRelease(overrides: Partial<CcSwitchRelease> = {}): CcSwitchRelease {
+/** A `planInstallerRun` plan: the command that runs the downloaded installer at `path`. */
+export function installerRunPlan(
+  target: InstallTarget,
+  path: string,
+  overrides: Partial<InstallPlan> = {},
+): InstallPlan {
+  const node = target === "node";
   return {
+    target,
+    program: node ? "msiexec.exe" : "powershell.exe",
+    args: node
+      ? ["/i", path, "/passive", "/norestart"]
+      : ["-NoProfile", "-NonInteractive", "-Command", "Add-AppxPackage", "-Path", path],
+    env: {},
+    displayCommand: node
+      ? `msiexec.exe /i "${path}" /passive /norestart`
+      : `powershell.exe -NoProfile -NonInteractive -Command Add-AppxPackage -Path "${path}"`,
+    registry: null,
+    requiresAdmin: node,
+    explanationCode: node ? "node.msi" : "codex_app.msix",
+    downloadUrl: null,
+    installerPath: path,
+    ...overrides,
+  };
+}
+
+/** An installer release; defaults to the CC Switch Windows setup from GitHub. */
+export function installerRelease(overrides: Partial<InstallerRelease> = {}): InstallerRelease {
+  return {
+    target: "cc-switch",
     version: "3.2.0",
     assetName: "CC.Switch_3.2.0_x64-setup.exe",
     downloadUrl:
       "https://github.com/farion1231/cc-switch/releases/download/v3.2.0/CC.Switch_3.2.0_x64-setup.exe",
     sha256: "ab".repeat(32),
     source: "github",
+    requiresAdmin: false,
     ...overrides,
   };
 }
+
+/** @deprecated use `installerRelease` — kept so older tests keep compiling. */
+export const ccSwitchRelease = installerRelease;
+
+/** The Node.js LTS installer from the mirror the network probe picked. */
+export function nodeRelease(overrides: Partial<InstallerRelease> = {}): InstallerRelease {
+  return installerRelease({
+    target: "node",
+    version: "v22.12.0",
+    assetName: "node-v22.12.0-x64.msi",
+    downloadUrl: "https://npmmirror.com/mirrors/node/v22.12.0/node-v22.12.0-x64.msi",
+    sha256: "cd".repeat(32),
+    source: "npmmirror",
+    requiresAdmin: true,
+    ...overrides,
+  });
+}
+
+/** The Codex desktop client offline installer (static link, no hash). */
+export function codexAppRelease(overrides: Partial<InstallerRelease> = {}): InstallerRelease {
+  return installerRelease({
+    target: "codex-app",
+    version: "latest",
+    assetName: "ChatGPT-x64.msix",
+    downloadUrl: "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-x64.msix",
+    sha256: null,
+    source: "static",
+    requiresAdmin: false,
+    ...overrides,
+  });
+}
+
+/** `AppConfig.codexApp` with the public distribution points. */
+export const codexAppSpec = {
+  storeProductId: "9PLM9XGG6VKS",
+  windowsMsixX64: "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-x64.msix",
+  windowsMsixArm64: "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-arm64.msix",
+  macosDmg: "https://persistent.oaistatic.com/codex-app-prod/ChatGPT.dmg",
+  downloadPage: "https://chatgpt.com/download/",
+};
 
 export function downloadResult(overrides: Partial<DownloadResult> = {}): DownloadResult {
   return {

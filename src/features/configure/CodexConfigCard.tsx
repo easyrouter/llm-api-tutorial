@@ -1,37 +1,61 @@
-import { Check, Copy, RotateCw } from "lucide-react";
+import { Check, Copy, FileCog, History, RotateCw } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Alert, Button, Card } from "@/components/ui";
+import { Alert, Button, Card, ConfirmDialog, ErrorBanner, KeyValueList } from "@/components/ui";
+import { HelpLink } from "@/features/help/HelpLink";
 import { useAsync, useCopy } from "@/hooks";
 import { cn } from "@/lib/cn";
-import { getCodexConfigTemplate } from "@/lib/tauri";
-import type { AutoCompactScope, ProviderPreset } from "@/lib/types";
+import { maskSecret } from "@/lib/format";
+import {
+  applyCodexConfig,
+  codexConfigStatus,
+  getCodexConfigTemplate,
+  restoreCodexConfig,
+} from "@/lib/tauri";
+import type { AutoCompactScope, CodexConfigApplyResult, ProviderPreset } from "@/lib/types";
 
 /** Must match `guide::CODEX_CONFIG_KEY_PLACEHOLDER` on the Rust side. */
 export const CODEX_CONFIG_KEY_PLACEHOLDER = "<API-KEY>";
 
-/** Delay before an input change regenerates the template. */
+/** Delay before an input change regenerates the template / refreshes the file status. */
 const REGENERATE_DELAY_MS = 250;
 
 const SCOPES: readonly AutoCompactScope[] = ["body_after_prefix", "total"];
+
+/** Help section that explains what every one-click action does behind the scenes. */
+const HELP_SECTION = "one-click";
 
 export interface CodexConfigCardProps {
   preset: ProviderPreset;
   providerName: string;
   baseUrl: string;
   model: string;
-  /** Only read at copy time to substitute the placeholder — never rendered. */
+  /** Only read at copy / apply time to substitute the placeholder — never rendered. */
   apiKey: string;
+}
+
+/** The template with the real key substituted for the placeholder (memory only). */
+function substituteKey(template: string, apiKey: string): string {
+  const key = apiKey.trim();
+  return key === "" ? template : template.split(CODEX_CONFIG_KEY_PLACEHOLDER).join(key);
+}
+
+/** The template with the key replaced by its masked form — safe to render. */
+function maskedPreview(template: string, apiKey: string): string {
+  const key = apiKey.trim();
+  return key === "" ? template : template.split(CODEX_CONFIG_KEY_PLACEHOLDER).join(maskSecret(key));
 }
 
 /**
  * Recommended Codex `config.toml` (codex tab only): rendered by the Rust core from the live
  * provider values and shown in an *editable* text box, so users can tune any default (e.g. a
- * stricter `model_auto_compact_token_limit`) before pasting it into the CC Switch provider's
- * config editor. The template carries an `<API-KEY>` placeholder; the real key is substituted
- * only into the copied text, never shown on screen. Manual edits freeze auto-regeneration
- * until the user explicitly restores the generated template.
+ * stricter `model_auto_compact_token_limit`) before applying it. The primary action writes the
+ * file to `~/.codex/config.toml` (show-before-run dialog with a masked preview, automatic
+ * backup, one-click restore); copying stays available for users who prefer to paste it into
+ * CC Switch themselves. The template carries an `<API-KEY>` placeholder; the real key is
+ * substituted only into the copied / written text, never shown on screen. Manual edits freeze
+ * auto-regeneration until the user explicitly restores the generated template.
  */
 export function CodexConfigCard({
   preset,
@@ -89,9 +113,7 @@ export function CodexConfigCard({
   };
 
   const copyConfig = () => {
-    const key = apiKey.trim();
-    const out = key === "" ? text : text.split(CODEX_CONFIG_KEY_PLACEHOLDER).join(key);
-    void copy(out);
+    void copy(substituteKey(text, apiKey));
   };
 
   return (
@@ -185,7 +207,194 @@ export function CodexConfigCard({
             </Alert>
           )}
         </div>
+
+        <ApplySection text={text} apiKey={apiKey} />
       </div>
     </Card>
+  );
+}
+
+/**
+ * "Apply to this machine" — the one-click write of `~/.codex/config.toml`. Confirm-first: the
+ * dialog shows the target path, whether a file exists (and that it gets backed up), a masked
+ * preview of the exact content, and the CC Switch caveat. Restore puts the newest backup back.
+ */
+function ApplySection({ text, apiKey }: { text: string; apiKey: string }) {
+  const { t } = useTranslation();
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [needsKey, setNeedsKey] = useState(false);
+  const [applied, setApplied] = useState<CodexConfigApplyResult | null>(null);
+  const [restored, setRestored] = useState<CodexConfigApplyResult | null>(null);
+
+  const status = useAsync(codexConfigStatus);
+  const { run: refreshStatus } = status;
+  const hasKey = apiKey.trim() !== "";
+  const content = substituteKey(text, apiKey);
+
+  // Status line: compare the live file with the final content (key substituted) when a key is
+  // present; without one the template cannot match, so only existence is reported.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refreshStatus(hasKey && text !== "" ? content : null);
+    }, REGENERATE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [content, hasKey, text, refreshStatus]);
+
+  const apply = useAsync(applyCodexConfig, {
+    onSuccess: (result) => {
+      setApplyOpen(false);
+      setRestored(null);
+      setApplied(result);
+      void refreshStatus(content);
+    },
+  });
+  const restore = useAsync(restoreCodexConfig, {
+    onSuccess: (result) => {
+      setRestoreOpen(false);
+      setApplied(null);
+      setRestored(result);
+      void refreshStatus(hasKey ? content : null);
+    },
+  });
+
+  const requestApply = () => {
+    setApplied(null);
+    setRestored(null);
+    if (!hasKey) {
+      setNeedsKey(true);
+      return;
+    }
+    setNeedsKey(false);
+    apply.reset();
+    setApplyOpen(true);
+  };
+
+  const requestRestore = () => {
+    setApplied(null);
+    setRestored(null);
+    restore.reset();
+    setRestoreOpen(true);
+  };
+
+  const backups = status.data?.backups ?? [];
+  const statusText = (() => {
+    const s = status.data;
+    if (!s) return null;
+    if (!s.exists) return t("guide:config.apply.status.missing");
+    if (s.matchesTemplate === true) return t("guide:config.apply.status.upToDate");
+    if (s.matchesTemplate === false) {
+      return t("guide:config.apply.status.differs", { n: backups.length });
+    }
+    return t("guide:config.apply.status.exists", { n: backups.length });
+  })();
+
+  return (
+    <div className="space-y-3 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          onClick={requestApply}
+          disabled={text === ""}
+          leftIcon={<FileCog className="size-4" aria-hidden />}
+          data-testid="config-apply"
+        >
+          {t("guide:config.apply.button")}
+        </Button>
+        {backups.length > 0 && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={requestRestore}
+            leftIcon={<History className="size-4" aria-hidden />}
+            data-testid="config-restore"
+          >
+            {t("guide:config.apply.restore")}
+          </Button>
+        )}
+        <HelpLink sectionId={HELP_SECTION}>{t("guide:config.apply.whatItDoes")}</HelpLink>
+      </div>
+      {statusText && (
+        <p className="text-xs text-neutral-500" data-testid="config-status">
+          {t("guide:config.apply.status.label")}
+          {statusText}
+        </p>
+      )}
+      {needsKey && !hasKey && (
+        <Alert variant="warning" data-testid="config-apply-needs-key">
+          {t("guide:config.apply.needsKey")}
+        </Alert>
+      )}
+      {applied && (
+        <Alert variant="success" data-testid="config-applied">
+          {applied.backupPath
+            ? t("guide:config.apply.appliedWithBackup", {
+                path: applied.path,
+                backup: applied.backupPath,
+              })
+            : t("guide:config.apply.applied", { path: applied.path })}
+        </Alert>
+      )}
+      {restored && (
+        <Alert variant="success" data-testid="config-restored">
+          {t("guide:config.apply.restored", { path: restored.path })}
+        </Alert>
+      )}
+      {status.error && <ErrorBanner error={status.error} />}
+
+      <ConfirmDialog
+        open={applyOpen}
+        title={t("guide:config.apply.confirmTitle")}
+        description={t("guide:config.apply.confirmBody")}
+        confirmLabel={t("guide:config.apply.confirmAction")}
+        confirmLoading={apply.loading}
+        onConfirm={() => void apply.run({ content })}
+        onCancel={() => setApplyOpen(false)}
+      >
+        <div className="space-y-3">
+          <KeyValueList
+            items={[
+              {
+                label: t("guide:config.apply.targetPath"),
+                value: status.data?.path ?? t("guide:config.apply.defaultPath"),
+                mono: true,
+              },
+              {
+                label: t("guide:config.apply.existing"),
+                value: status.data?.exists
+                  ? t("guide:config.apply.existingYes")
+                  : t("guide:config.apply.existingNo"),
+              },
+            ]}
+          />
+          <div className="space-y-1">
+            <div className="text-xs font-medium">{t("guide:config.apply.previewLabel")}</div>
+            <pre
+              className="max-h-56 overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-2 font-mono text-xs leading-5 whitespace-pre-wrap dark:border-neutral-800 dark:bg-neutral-950"
+              data-testid="config-apply-preview"
+            >
+              {maskedPreview(text, apiKey)}
+            </pre>
+          </div>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            {t("guide:config.apply.ccSwitchNote")}
+          </p>
+          <HelpLink sectionId={HELP_SECTION}>{t("guide:config.apply.whatItDoes")}</HelpLink>
+          {apply.error && <ErrorBanner error={apply.error} />}
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={restoreOpen}
+        danger
+        title={t("guide:config.apply.restoreTitle")}
+        description={t("guide:config.apply.restoreBody", { backup: backups[0] ?? "" })}
+        confirmLabel={t("guide:config.apply.restoreAction")}
+        confirmLoading={restore.loading}
+        onConfirm={() => void restore.run()}
+        onCancel={() => setRestoreOpen(false)}
+      >
+        {restore.error && <ErrorBanner error={restore.error} />}
+      </ConfirmDialog>
+    </div>
   );
 }

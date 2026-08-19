@@ -60,6 +60,9 @@ pub struct AppConfig {
     pub gateway: GatewayPreset,
     pub tools: Vec<ToolSpec>,
     pub cc_switch: CcSwitchSpec,
+    /// Where the Codex desktop client comes from (Store id, offline MSIX, macOS DMG).
+    #[serde(default)]
+    pub codex_app: CodexAppSpec,
     pub requirements: Requirements,
     pub mirrors: Mirrors,
     pub env_vars_to_inspect: Vec<String>,
@@ -124,6 +127,27 @@ pub struct CcSwitchSpec {
     #[serde(default)]
     pub intranet_mirror: String,
     pub data_dir: String,
+}
+
+/// Distribution points of the Codex desktop client (`app-config.json` → `codexApp`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexAppSpec {
+    /// Microsoft Store product id (Windows).
+    #[serde(default)]
+    pub store_product_id: String,
+    /// Offline Store-signed MSIX for x64 (Windows).
+    #[serde(default)]
+    pub windows_msix_x64: String,
+    /// Offline Store-signed MSIX for arm64 (Windows).
+    #[serde(default)]
+    pub windows_msix_arm64: String,
+    /// Official DMG (macOS, universal).
+    #[serde(default)]
+    pub macos_dmg: String,
+    /// Public download page (fallback link).
+    #[serde(default)]
+    pub download_page: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,6 +228,8 @@ pub enum CheckId {
     Codex,
     ClaudeCode,
     CcSwitch,
+    /// Recommendation only: the Codex desktop client (ChatGPT / Codex app) is installed.
+    CodexApp,
     EnvVars,
     NetworkNpm,
     NetworkGateway,
@@ -211,7 +237,7 @@ pub enum CheckId {
 }
 
 impl CheckId {
-    pub const ALL: [CheckId; 11] = [
+    pub const ALL: [CheckId; 12] = [
         CheckId::Os,
         CheckId::WindowsTerminal,
         CheckId::Node,
@@ -219,6 +245,7 @@ impl CheckId {
         CheckId::Codex,
         CheckId::ClaudeCode,
         CheckId::CcSwitch,
+        CheckId::CodexApp,
         CheckId::EnvVars,
         CheckId::NetworkNpm,
         CheckId::NetworkGateway,
@@ -250,7 +277,9 @@ pub struct CheckResult {
     pub duration_ms: u64,
 }
 
-/// A remediation the UI can offer. Never performs anything silently.
+/// A remediation the UI can offer. Never performs anything silently: the one-click variants
+/// (`RepairPath`, `CleanEnvVars`) fetch a plan first, show exactly what will change and run
+/// only after the user confirms (ADR-0008).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FixAction {
@@ -260,11 +289,29 @@ pub enum FixAction {
     GoToStep { step: WizardStep },
     /// Offer to run an install plan (still requires user confirmation).
     Install { tool: InstallTarget },
-    /// Show static instructions (i18n code) — used for things the tool must not do itself
-    /// (e.g. editing environment variables, PRD #17).
+    /// Show static instructions (i18n code) — the manual alternative to a one-click fix.
     Instructions { code: String, params: Params },
+    /// One-click: add `dir` to the user's persistent `PATH` (`plan_path_repair` →
+    /// `apply_path_repair`).
+    RepairPath { dir: String },
+    /// One-click: remove the listed environment variables from their persistent sources
+    /// (`plan_env_cleanup` → `apply_env_cleanup`; the plan shows the full values first).
+    CleanEnvVars { names: Vec<String> },
+    /// Open a well-known OS URI (Microsoft Store page, Windows region settings).
+    OpenSystemUri { uri: SystemUri },
     /// Re-run this check.
     Rerun,
+}
+
+/// OS URIs the app may open (`open_system_uri`); the mapping to the actual URI lives in Rust so
+/// the webview never passes arbitrary schemes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SystemUri {
+    /// `ms-windows-store://pdp/?productid=<codexApp.windows.storeProductId>`.
+    MsStoreCodexApp,
+    /// `ms-settings:regionformatting` (Windows "Region" settings page).
+    WindowsRegionSettings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -286,6 +333,8 @@ pub enum InstallTarget {
     Codex,
     ClaudeCode,
     CcSwitch,
+    /// Codex desktop client (Microsoft Store / MSIX on Windows, DMG on macOS).
+    CodexApp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -324,7 +373,7 @@ pub struct EnvVarFinding {
     pub sources: Vec<EnvVarSource>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvVarSource {
     pub kind: EnvVarSourceKind,
@@ -391,10 +440,14 @@ pub struct InstallPlan {
     /// i18n code explaining what will happen (e.g. `install.plan.npm_global`).
     pub explanation_code: String,
     /// Page / file the user downloads manually when the plan has no command (Node.js download
-    /// page of the chosen mirror). `None` for command plans and for CC Switch (the UI fetches
-    /// the release through `fetch_cc_switch_release`).
+    /// page of the chosen mirror). `None` for command plans and for installer targets (the UI
+    /// fetches the release through `fetch_installer_release`).
     #[serde(default)]
     pub download_url: Option<String>,
+    /// For `plan_installer_run` plans: the downloaded installer the command operates on
+    /// (inside the app downloads dir; re-validated by `start_install`).
+    #[serde(default)]
+    pub installer_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -462,14 +515,22 @@ pub struct DownloadResult {
     pub verified: Option<bool>,
 }
 
+/// An installer resolved for this machine (`fetch_installer_release`): CC Switch (GitHub /
+/// intranet), Node.js LTS (chosen dist mirror) or the Codex desktop client (static URLs).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CcSwitchRelease {
+pub struct InstallerRelease {
+    pub target: InstallTarget,
     pub version: String,
     pub asset_name: String,
     pub download_url: String,
     pub sha256: Option<String>,
+    /// Where it came from: `github`, `intranet`, a Node mirror id (`official` / `npmmirror`)
+    /// or `static`.
     pub source: String,
+    /// Whether running the downloaded installer will ask for administrator rights.
+    #[serde(default)]
+    pub requires_admin: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -506,6 +567,18 @@ pub struct GuideStep {
     pub copy_value: Option<String>,
     /// Check that auto-verifies completion of this step, if any.
     pub verify_check: Option<CheckId>,
+    /// Codex only: the step belongs to one of the two account paths (`None` = shown on both).
+    #[serde(default)]
+    pub branch: Option<GuideBranch>,
+}
+
+/// How the Codex user authenticates in CC Switch: with a ChatGPT account (CC Switch's
+/// "OpenAI Official" preset + `codex` login) or with the gateway API key (custom provider).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GuideBranch {
+    ChatgptLogin,
+    ApiKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -833,4 +906,113 @@ pub struct TelemetryStatus {
     pub configured: bool,
     pub queued: usize,
     pub session_id: String,
+}
+
+// ---------------------------------------------------------------------------
+// One-click remediation (ADR-0008): PATH repair, env-var cleanup, Codex config.toml apply
+// ---------------------------------------------------------------------------
+
+/// What `apply_path_repair` will do. Shown to the user before anything runs; `apply` re-derives
+/// the plan for the same `dir` and refuses to run when `display_command` differs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathRepairPlan {
+    pub dir: String,
+    pub platform: Platform,
+    /// Where the persistent PATH lives: `HKCU\Environment\Path` or a shell rc file (`~/.zshrc`).
+    pub location: String,
+    /// Human-readable rendering of the change (registry edit or the exact line appended).
+    pub display_command: String,
+    /// `dir` is already part of the persistent PATH (apply is a no-op).
+    pub already_present: bool,
+    /// A backup copy is written before editing a file (rc files only).
+    pub creates_backup: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathRepairResult {
+    pub changed: bool,
+    pub location: String,
+    pub backup_path: Option<String>,
+}
+
+/// How one env-var source will be removed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EnvCleanupAction {
+    /// Delete the value under `HKCU\Environment` (no elevation).
+    DeleteUserRegistry,
+    /// Delete the value under `HKLM\…\Environment` through an elevated `reg delete` (UAC).
+    DeleteMachineRegistry,
+    /// Comment the defining line out in the shell start-up file (backup first).
+    CommentOutRcLine,
+    /// `launchctl unsetenv NAME`.
+    LaunchctlUnsetenv,
+    /// Only set in this process (inherited from the launcher) — nothing persistent to remove.
+    None,
+}
+
+/// One variable at one source, with its **full** value (user-requested preview; never logged).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvCleanupItem {
+    pub name: String,
+    pub source: EnvVarSource,
+    /// Full current value when the source exposes one (`None` for rc-file hits — the line is
+    /// shown instead — and for sources without a readable value).
+    pub value: Option<String>,
+    /// The rc-file line that will be commented out (rc sources only).
+    pub line: Option<String>,
+    pub action: EnvCleanupAction,
+    pub display_command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvCleanupPlan {
+    pub platform: Platform,
+    pub items: Vec<EnvCleanupItem>,
+    /// At least one item needs elevation (machine registry).
+    pub requires_admin: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvCleanupResult {
+    /// `name ← location` of every source actually removed.
+    pub removed: Vec<String>,
+    /// `name ← location` of sources that could not be removed (with the reason appended).
+    pub failed: Vec<String>,
+    pub backups: Vec<String>,
+}
+
+/// Text the user confirmed for `~/.codex/config.toml` (may contain the real key; memory only).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfigApplyRequest {
+    pub content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfigStatus {
+    pub path: String,
+    pub exists: bool,
+    /// Current file content with secrets redacted (for the preview), `None` when absent.
+    pub current_redacted: Option<String>,
+    /// Backups written by this app (`config.toml.seedrouter-<timestamp>.bak`), newest first.
+    pub backups: Vec<String>,
+    /// `Some(true)` when the live file equals the supplied template (ignoring trailing
+    /// whitespace), `Some(false)` when it differs, `None` when no template was supplied or the
+    /// file is absent.
+    pub matches_template: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfigApplyResult {
+    pub path: String,
+    pub backup_path: Option<String>,
+    pub bytes: u64,
 }

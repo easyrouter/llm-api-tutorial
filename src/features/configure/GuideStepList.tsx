@@ -13,9 +13,21 @@ import {
 } from "@/components/ui";
 import { useAsync } from "@/hooks";
 import { listGatewayModels, runEnvCheck } from "@/lib/tauri";
-import type { CheckId, ConfigGuide, GuideStep, ModelList, Protocol } from "@/lib/types";
+import type {
+  CheckId,
+  ConfigGuide,
+  GuideBranch,
+  GuideStep,
+  ModelList,
+  Protocol,
+} from "@/lib/types";
 
-import { guideStepParams, liveCopyValue, type LiveProviderValues } from "./guide-display";
+import {
+  guideStepParams,
+  liveCopyValue,
+  visibleSteps,
+  type LiveProviderValues,
+} from "./guide-display";
 
 /** Connection values the model-list fetch uses (from the editable provider card). */
 export interface ModelProbeValues {
@@ -31,6 +43,8 @@ export interface GuideStepListProps {
   /** When set, the `set_model` step offers "fetch the model list from the gateway". */
   probe?: ModelProbeValues;
   onPickModel?: (model: string) => void;
+  /** Codex account path; steps of the other branch are hidden and the rest renumbered. */
+  branch?: GuideBranch | null;
 }
 
 /**
@@ -39,12 +53,19 @@ export interface GuideStepListProps {
  * provider card win over the preset); a `verifyCheck` adds an "I did this — check" button; the
  * `set_model` step can fetch the gateway's model list and fill the model with one click.
  */
-export function GuideStepList({ guide, live, probe, onPickModel }: GuideStepListProps) {
+export function GuideStepList({
+  guide,
+  live,
+  probe,
+  onPickModel,
+  branch = null,
+}: GuideStepListProps) {
   const { t } = useTranslation();
+  const steps = visibleSteps(guide.steps, branch);
   return (
     <Card title={t("guide:steps.title")} description={t("guide:steps.description")}>
       <ol className="space-y-4" data-testid="guide-steps">
-        {guide.steps.map((step, index) => (
+        {steps.map((step, index) => (
           <GuideStepItem
             key={step.id}
             guide={guide}
