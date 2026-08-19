@@ -52,6 +52,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - `login_chatgpt` is no longer "optional" — it is the `chatgpt_login` path; the config.toml
   template is applied by the tool instead of being pasted into CC Switch.
 
+### Fixed (VM regression rounds 1-2)
+
+- **Node.js one-click install could never start.** `install::downloaded_file_in` returned the
+  canonical path, which on Windows always carries the verbatim `\?\` prefix; `msiexec` rejects
+  it with "This installation package could not be opened" before Windows Installer ever asks for
+  elevation, so the UAC prompt never appeared either. The path now leaves the module in its
+  ordinary spelling (`\?\UNC\srv\share` becomes `\srv\share`; volume-GUID paths are left
+  alone, having no ordinary form).
+- **Every `open_url` fix button rendered the raw key `fixes.labels.undefined`.**
+  `#[serde(rename_all = …)]` renames enum *variants*, not the fields inside them, so
+  `FixAction::OpenUrl` reached the webview carrying `label_code` while `src/lib/types.ts` reads
+  `labelCode`. Both internally tagged DTO enums now also carry
+  `rename_all_fields = "camelCase"`.
+- **`diagnose` rejected any request containing a `command_failed` symptom** — the same mismatch
+  in the other direction: the UI sends `outputTail`, `Symptom::CommandFailed` expected
+  `output_tail`, and the whole call failed as soon as a CLI failure was reported.
+- **A declined UAC prompt left the installer card silent.** `ErrorBanner` renders nothing
+  without a `WireError`, which is exactly what an installer that merely exits non-zero produces
+  (`msiexec` 1602/1625), so the already-written explanation and the retry button both
+  disappeared and only an app restart got the one-click install back. New shared
+  `JobFailureAlert` falls back to a plain danger alert carrying the same headline and action.
+- **The first Codex CLI install after Node always failed with `command_not_found: npm`.** The
+  install step plans every item once on mount, on a clean machine before the Node MSI has run,
+  so `install::resolve_npm` fell back to the bare program name and nothing re-derived the plan
+  when Node appeared. A passing Node re-check now re-plans every npm target still waiting for
+  confirmation.
+
 ### Added
 
 - Project scaffold: Tauri 2 + React 19 + TypeScript + Vite + Tailwind 4; Rust core module

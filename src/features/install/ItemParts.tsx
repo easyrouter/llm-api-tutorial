@@ -12,6 +12,7 @@ import {
   ShieldX,
   Square,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -37,6 +38,69 @@ import { PlanDetails } from "./PlanDetails";
 
 /** Help section that explains what every one-click button does behind the scenes. */
 export const ONE_CLICK_HELP_SECTION = "one-click";
+
+export interface JobFailureAlertProps {
+  /** `WireError` when the job could not be *started*; `null` when it started and exited badly. */
+  error: unknown;
+  title: ReactNode;
+  onRetry?: () => void;
+  retryLabel?: ReactNode;
+  /** Extra buttons rendered next to Retry. */
+  actions?: ReactNode;
+}
+
+/**
+ * Failure callout for an install job.
+ *
+ * [`ErrorBanner`] renders nothing without a `WireError`, and an installer that merely exits
+ * non-zero produces none — declining the UAC prompt gives `msiexec` 1602/1625. The card would
+ * then carry a "failed" badge, no explanation and, worse, no way to try again. Falls back to a
+ * plain danger alert with the same headline and retry action.
+ */
+export function JobFailureAlert({
+  error,
+  title,
+  onRetry,
+  retryLabel,
+  actions,
+}: JobFailureAlertProps) {
+  const { t } = useTranslation();
+  if (error !== null && error !== undefined) {
+    return (
+      <ErrorBanner
+        error={error}
+        title={title}
+        onRetry={onRetry}
+        retryLabel={retryLabel}
+        actions={actions}
+      />
+    );
+  }
+  const hasActions = Boolean(onRetry) || Boolean(actions);
+  return (
+    <Alert
+      variant="danger"
+      title={title}
+      actions={
+        hasActions ? (
+          <>
+            {onRetry && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onRetry}
+                leftIcon={<RefreshCw className="size-4" aria-hidden />}
+              >
+                {retryLabel ?? t("actions.retry")}
+              </Button>
+            )}
+            {actions}
+          </>
+        ) : undefined
+      }
+    />
+  );
+}
 
 /** Spinner + phase label, used while an IPC call is in flight. */
 export function PhaseSpinner({ labelKey }: { labelKey: string }) {

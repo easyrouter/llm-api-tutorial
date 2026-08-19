@@ -281,7 +281,11 @@ pub struct CheckResult {
 /// (`RepairPath`, `CleanEnvVars`) fetch a plan first, show exactly what will change and run
 /// only after the user confirms (ADR-0008).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum FixAction {
     /// Open a URL in the system browser (download pages, docs).
     OpenUrl { url: String, label_code: String },
@@ -790,7 +794,11 @@ pub struct TerminalProcess {
 
 /// Observed facts fed into the rule engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum Symptom {
     HttpStatus { status: u16, tool: ToolId },
     CommandNotFound { tool: ToolId },
@@ -1015,4 +1023,40 @@ pub struct CodexConfigApplyResult {
     pub path: String,
     pub backup_path: Option<String>,
     pub bytes: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `#[serde(rename_all = …)]` on an enum renames the **variants**, not the fields inside
+    /// them, so every internally tagged DTO needs `rename_all_fields` too. Without it
+    /// `label_code` reached the webview under its Rust name while `src/lib/types.ts` reads
+    /// `labelCode`, and every `open_url` fix button rendered the raw key
+    /// `fixes.labels.undefined`; in the other direction `diagnose` rejected the whole request
+    /// as soon as the UI reported a `command_failed` symptom.
+    #[test]
+    fn tagged_enum_fields_are_camel_case_like_the_typescript_mirror() {
+        let fix = serde_json::to_value(FixAction::OpenUrl {
+            url: "https://example.test/download".into(),
+            label_code: "node_download".into(),
+        })
+        .expect("serialize");
+        assert_eq!(fix["kind"], "open_url");
+        assert_eq!(fix["labelCode"], "node_download");
+        assert!(fix.get("label_code").is_none(), "{fix}");
+
+        let sent_by_the_webview = serde_json::json!({
+            "kind": "command_failed",
+            "tool": "codex",
+            "outputTail": "boom",
+        });
+        match serde_json::from_value::<Symptom>(sent_by_the_webview).expect("deserialize") {
+            Symptom::CommandFailed { tool, output_tail } => {
+                assert_eq!(tool, ToolId::Codex);
+                assert_eq!(output_tail, "boom");
+            }
+            other => panic!("unexpected symptom: {other:?}"),
+        }
+    }
 }
