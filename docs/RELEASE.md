@@ -14,17 +14,17 @@ download page (PRD #11). Every distributed build must be signed (PRD #12).
 
 From `v0.1.0-test.6` only **one** build ships: the one carrying the optional Codex Fast UI
 toolkit (ADR-0007). The `-patched` suffix existed to tell the two pilot builds apart in the
-installer file name; with a single build there is nothing left to tell apart, so it is gone.
+installer file name; with a single build there is nothing left to tell apart, so it is gone,
+and the two pilot branches were replaced by a single `pilot` branch.
 
-| branch                      | role                               | version        | tag             |
-| --------------------------- | ---------------------------------- | -------------- | --------------- |
-| `feat/onboarding-revisions` | integration base, not released     | `0.1.0-test.6` | none            |
-| `feat/codex-fast-ui`        | the shipped build (with the patch) | `0.1.0-test.6` | `v0.1.0-test.6` |
+| branch  | version        | tag             | contains the patch |
+| ------- | -------------- | --------------- | ------------------ |
+| `pilot` | `0.1.0-test.6` | `v0.1.0-test.6` | yes                |
 
-Fixes still land on `feat/onboarding-revisions` first and are merged into `feat/codex-fast-ui`;
-both branches carry the same version so the merge never conflicts on it, and only
-`feat/codex-fast-ui` is tagged. Rounds up to `v0.1.0-test.5` shipped two tags each
-(`vX-test.N` and `vX-test.N-patched`) and are left as they are.
+Rounds up to `v0.1.0-test.5` shipped two tags each (`vX-test.N` from
+`feat/onboarding-revisions`, `vX-test.N-patched` from `feat/codex-fast-ui`); those tags and
+their releases are left as they are, but both branches are gone — everything they contained is
+an ancestor of `pilot`.
 
 The build is a pre-release and unsigned until Q-12 is answered. Build it with
 _Actions → Release → Run workflow_ on the branch, or by pushing its tag. NSIS accepts the

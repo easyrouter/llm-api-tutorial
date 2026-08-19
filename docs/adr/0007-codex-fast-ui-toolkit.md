@@ -1,7 +1,8 @@
 # ADR-0007 — Ship the Codex "Fast UI" toolkit as an optional, isolated, reversible extra
 
-- Status: accepted (branch `feat/codex-fast-ui`; `feat/onboarding-revisions` is the same product
-  without it, so both can be piloted side by side)
+- Status: accepted (branch `pilot`). Until `v0.1.0-test.5` the toolkit-free
+  `feat/onboarding-revisions` build was piloted alongside it; from `v0.1.0-test.6` only the
+  build with the toolkit ships, so the two branches were replaced by one.
 - Date: 2026-08-16
 - Related: ADR-0003 (never write the tools' config), ADR-0006 (CC Switch deep-link import),
   PRD #4, #7, hard rules 1, 4, 6, 7
