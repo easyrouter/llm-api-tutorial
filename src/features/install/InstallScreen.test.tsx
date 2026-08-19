@@ -389,6 +389,119 @@ describe("InstallScreen", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
   });
 
+  it("node target: an installer that only exits non-zero still explains itself and offers a retry", async () => {
+    // Declining the UAC prompt is the common case and produces no `WireError` at all — just a
+    // bad exit code. The card used to show a "failed" badge, no message and no way to retry.
+    useWizardStore
+      .getState()
+      .setSnapshot(envSnapshot({ node: checkResult("node", "fail", { code: "node.missing" }) }));
+    const release = nodeRelease();
+    const download = downloadResult({ path: "C:\\dl\\node.msi", sha256: release.sha256 ?? "" });
+    const runPlan = installerRunPlan("node", download.path);
+    setInvokeHandlers({
+      fetch_installer_release: () => release,
+      download_file: () => download,
+      plan_installer_run: () => runPlan,
+      start_install: () => ({ jobId: "job-node", target: "node" }),
+    });
+    render(<InstallScreen />);
+    const node = card("node");
+
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "release"));
+    fireEvent.click(within(node).getByRole("button", { name: "Download installer" }));
+    await waitFor(() =>
+      expect(within(node).getByTestId("run-installer-panel")).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      within(node).getByRole("button", { name: "Install now (needs administrator rights)" }),
+    );
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "running"));
+    act(() => {
+      emitMockEvent(EVENTS.installDone, {
+        jobId: "job-node",
+        success: false,
+        exitCode: 1602,
+        durationMs: 4_000,
+        cancelled: false,
+        timedOut: false,
+      });
+    });
+
+    expect(node).toHaveAttribute("data-phase", "failed");
+    expect(within(node).getByRole("alert")).toHaveTextContent("exit code 1602");
+    expect(within(node).getByRole("alert")).toHaveTextContent("simply try again");
+    fireEvent.click(within(node).getByRole("button", { name: "Run the installer again" }));
+    expect(calls("start_install")).toHaveLength(2);
+  });
+
+  it("re-plans a pending npm install once Node.js is there, so `npm` is no longer a bare name", async () => {
+    // The Install screen plans every item on mount; on a clean machine that happens before the
+    // Node MSI has run, so the npm plan carries the bare program name and would fail with
+    // `command_not_found`.
+    useWizardStore.getState().setSelectedTools(["codex"]);
+    useWizardStore.getState().setSnapshot(
+      envSnapshot({
+        node: checkResult("node", "fail", { code: "node.missing" }),
+        codex: checkResult("codex", "fail", { code: "tool.missing" }),
+      }),
+    );
+    const release = nodeRelease();
+    const download = downloadResult({ path: "C:\\dl\\node.msi", sha256: release.sha256 ?? "" });
+    const resolved = "C:\\Program Files\\nodejs\\npm.cmd";
+    let plans = 0;
+    setInvokeHandlers({
+      plan_install: () => {
+        plans += 1;
+        return plans === 1
+          ? installPlan("codex")
+          : installPlan("codex", {
+              program: resolved,
+              displayCommand: `"${resolved}" install -g @openai/codex`,
+            });
+      },
+      fetch_installer_release: () => release,
+      download_file: () => download,
+      plan_installer_run: () => installerRunPlan("node", download.path),
+      start_install: () => ({ jobId: "job-node", target: "node" }),
+      run_env_check: () =>
+        checkResult("node", "pass", { code: "node.ok", params: { version: "24.19.0" } }),
+    });
+    render(<InstallScreen />);
+    const node = card("node");
+    const codex = card("codex");
+    await waitFor(() => expect(within(codex).getByTestId("copy-field-value")).toBeInTheDocument());
+    expect(within(codex).getByTestId("copy-field-value")).toHaveTextContent(
+      "npm install -g @openai/codex",
+    );
+    expect(plans).toBe(1);
+
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "release"));
+    fireEvent.click(within(node).getByRole("button", { name: "Download installer" }));
+    await waitFor(() =>
+      expect(within(node).getByTestId("run-installer-panel")).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      within(node).getByRole("button", { name: "Install now (needs administrator rights)" }),
+    );
+    await waitFor(() => expect(node).toHaveAttribute("data-phase", "running"));
+    act(() => {
+      emitMockEvent(EVENTS.installDone, {
+        jobId: "job-node",
+        success: true,
+        exitCode: 0,
+        durationMs: 6_000,
+        cancelled: false,
+        timedOut: false,
+      });
+    });
+
+    await waitFor(() => expect(plans).toBe(2));
+    expect(calls("plan_install").at(-1)?.[1]).toMatchObject({ target: "codex" });
+    await waitFor(() =>
+      expect(within(codex).getByTestId("copy-field-value").textContent).toContain("npm.cmd"),
+    );
+  });
+
   it("node target: the manual path stays available and a non-passing re-check shows its fixes", async () => {
     useWizardStore
       .getState()

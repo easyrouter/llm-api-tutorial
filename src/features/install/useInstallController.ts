@@ -34,7 +34,7 @@ import {
   installTelemetryEvent,
   type InstallState,
 } from "./install-state";
-import { RECHECK_ID, runsInstaller } from "./install-targets";
+import { installKind, RECHECK_ID, runsInstaller } from "./install-targets";
 
 type Unlisten = () => void;
 
@@ -115,10 +115,41 @@ export function useInstallController(
   const storeUnskip = useInstallStore((s) => s.unskip);
   const unrequest = useInstallStore((s) => s.unrequest);
 
+  /** Latest state for callbacks that must not re-subscribe the event channels on every change. */
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   /** job id → target, so `install://done` can trigger follow-up work for the right item. */
   const jobTargets = useRef(new Map<string, InstallTarget>());
   /** `install://done` events that arrived before `start_install` resolved. */
   const earlyDone = useRef(new Map<string, InstallDoneEvent>());
+
+  const plan = useCallback(async (target: InstallTarget, options: PlanOptions = {}) => {
+    dispatch({ type: "plan_start", target });
+    try {
+      const result = await planInstall(target, options.excludeRegistry ?? null);
+      dispatch({ type: "plan_ok", target, plan: result });
+    } catch (e) {
+      dispatch({ type: "plan_failed", target, error: toWireError(e) });
+    }
+  }, []);
+
+  /**
+   * Node.js changes what `npm` resolves to. Plans built before it existed carry the bare
+   * program name (`install::resolve_npm` could not find a path yet) and fail with
+   * `command_not_found` the moment the user confirms them — the normal clean-machine order.
+   * Re-derive every npm plan still waiting for confirmation so the command shown is the one
+   * that runs.
+   */
+  const replanNpmTargets = useCallback(() => {
+    for (const item of Object.values(stateRef.current.items)) {
+      if (item && installKind(item.target) === "npm" && item.step.phase === "confirm") {
+        void plan(item.target);
+      }
+    }
+  }, [plan]);
 
   const recheck = useCallback(
     async (target: InstallTarget) => {
@@ -127,12 +158,15 @@ export function useInstallController(
         const result = await runEnvCheck(RECHECK_ID[target]);
         dispatch({ type: "recheck_ok", target, result });
         setSnapshot(applyResultToSnapshot(useWizardStore.getState().snapshot, result));
-        if (result.status === "pass") unrequest(target);
+        if (result.status === "pass") {
+          unrequest(target);
+          if (target === "node") replanNpmTargets();
+        }
       } catch (e) {
         dispatch({ type: "recheck_failed", target, error: toWireError(e) });
       }
     },
-    [setSnapshot, unrequest],
+    [replanNpmTargets, setSnapshot, unrequest],
   );
 
   const afterJobDone = useCallback(
@@ -163,16 +197,6 @@ export function useInstallController(
       ]),
     [afterJobDone],
   );
-
-  const plan = useCallback(async (target: InstallTarget, options: PlanOptions = {}) => {
-    dispatch({ type: "plan_start", target });
-    try {
-      const result = await planInstall(target, options.excludeRegistry ?? null);
-      dispatch({ type: "plan_ok", target, plan: result });
-    } catch (e) {
-      dispatch({ type: "plan_failed", target, error: toWireError(e) });
-    }
-  }, []);
 
   const run = useCallback(
     async (target: InstallTarget, installPlan: InstallPlan) => {

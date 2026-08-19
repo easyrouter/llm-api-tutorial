@@ -1,10 +1,10 @@
 import { Play, RefreshCw, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Alert, Button, ErrorBanner } from "@/components/ui";
+import { Alert, Button } from "@/components/ui";
 import type { AppConfig, Platform } from "@/lib/types";
 
-import { OutputPane, PhaseSpinner, RecheckFeedback } from "./ItemParts";
+import { JobFailureAlert, OutputPane, PhaseSpinner, RecheckFeedback } from "./ItemParts";
 import { jobFailureMessage } from "./item-text";
 import type { InstallActions } from "./useInstallController";
 import type { ItemState, JobLog } from "./install-state";
@@ -97,29 +97,12 @@ export function NpmItemBody({ item, log, toolName, platform, config, actions }: 
           {step.plan && step.stage !== "plan" && (
             <PlanDetails plan={step.plan} toolName={toolName} platform={platform} />
           )}
-          {step.error ? (
-            <ErrorBanner
-              error={step.error}
-              title={jobFailureMessage(t, step.done)}
-              onRetry={retry}
-              retryLabel={retryLabel}
-            />
-          ) : (
-            <Alert
-              variant="danger"
-              title={jobFailureMessage(t, step.done)}
-              actions={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={retry}
-                  leftIcon={<RefreshCw className="size-4" aria-hidden />}
-                >
-                  {retryLabel}
-                </Button>
-              }
-            />
-          )}
+          <JobFailureAlert
+            error={step.error}
+            title={jobFailureMessage(t, step.done)}
+            onRetry={retry}
+            retryLabel={retryLabel}
+          />
           {log && log.lines.length > 0 && <OutputPane log={log} defaultOpen />}
         </div>
       );

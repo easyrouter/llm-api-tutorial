@@ -10,6 +10,7 @@ import {
   DownloadButton,
   DownloadedAlert,
   DownloadProgressView,
+  JobFailureAlert,
   ONE_CLICK_HELP_SECTION,
   OpenDownloadedFileButton,
   OpenPageButton,
@@ -309,7 +310,7 @@ export function NodeItemBody({
           return (
             <div className="space-y-3">
               {plan && <PlanDetails plan={plan} toolName={toolName} platform={platform} />}
-              <ErrorBanner
+              <JobFailureAlert
                 error={step.error}
                 title={jobFailureMessage(t, step.done, "installer")}
                 onRetry={retry}

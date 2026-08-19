@@ -463,7 +463,8 @@ fn validate_installer_plan(app: &AppHandle, plan: &InstallPlan) -> AppResult<()>
 
 /// Canonical path of `path` when it is an existing regular file whose parent is exactly
 /// `downloads_dir` (canonicalised); `InvalidInput` otherwise. `..` components are refused
-/// outright (canonicalisation would resolve them, but the intent is never legitimate).
+/// outright (canonicalisation would resolve them, but the intent is never legitimate). The
+/// result is spelled ordinarily — see [`strip_verbatim_prefix`].
 pub fn downloaded_file_in(downloads_dir: &Path, path: &Path) -> AppResult<PathBuf> {
     let outside = || AppError::InvalidInput("path is outside the app downloads directory".into());
     if path.components().any(|c| c == Component::ParentDir) {
@@ -474,7 +475,37 @@ pub fn downloaded_file_in(downloads_dir: &Path, path: &Path) -> AppResult<PathBu
     if !file.is_file() || file.parent() != Some(dir.as_path()) {
         return Err(outside());
     }
-    Ok(file)
+    Ok(strip_verbatim_prefix(file))
+}
+
+/// Restores the ordinary spelling of a Windows verbatim path (`\\?\C:\x` → `C:\x`,
+/// `\\?\UNC\srv\share` → `\\srv\share`); everything else is returned unchanged.
+///
+/// `std::fs::canonicalize` always returns the verbatim form on Windows, and the programs we
+/// hand a downloaded installer to do not accept it: `msiexec /i \\?\C:\…\node-x64.msi` fails
+/// with *"This installation package could not be opened"* before Windows Installer ever asks
+/// for elevation, so the user sees neither the UAC prompt nor a real error.
+fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
+    let Some(text) = path.to_str() else {
+        return path;
+    };
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    match text.strip_prefix(r"\\?\") {
+        // Only drive paths have an ordinary spelling; `\\?\Volume{…}\` must stay verbatim.
+        Some(rest) if is_drive_rooted(rest) => PathBuf::from(rest),
+        _ => path,
+    }
+}
+
+/// `true` for `C:\…` (a drive letter, a colon and a separator).
+fn is_drive_rooted(text: &str) -> bool {
+    let mut chars = text.chars();
+    matches!(
+        (chars.next(), chars.next(), chars.next()),
+        (Some(drive), Some(':'), Some('\\' | '/')) if drive.is_ascii_alphabetic()
+    )
 }
 
 /// Downloads `req` (https only, SHA-256 verified when `expected_sha256` is set) into
@@ -538,6 +569,59 @@ mod tests {
             download_url: None,
             installer_path: None,
         }
+    }
+
+    #[test]
+    fn verbatim_prefix_is_stripped_only_for_drive_paths() {
+        let strip = |s: &str| {
+            strip_verbatim_prefix(PathBuf::from(s))
+                .to_string_lossy()
+                .into_owned()
+        };
+        // `msiexec` rejects the verbatim spelling outright, so it must never reach a plan.
+        assert_eq!(
+            strip(r"\\?\C:\Users\me\AppData\Local\app\downloads\node-v24.19.0-x64.msi"),
+            r"C:\Users\me\AppData\Local\app\downloads\node-v24.19.0-x64.msi"
+        );
+        assert_eq!(
+            strip(r"\\?\UNC\srv\share\setup.msi"),
+            r"\\srv\share\setup.msi"
+        );
+        // No ordinary spelling exists for these: leave them alone.
+        assert_eq!(
+            strip(r"\\?\Volume{9c1f0c11-0000-0000-0000-100000000000}\setup.msi"),
+            r"\\?\Volume{9c1f0c11-0000-0000-0000-100000000000}\setup.msi"
+        );
+        assert_eq!(strip(r"\\?\C:"), r"\\?\C:");
+        // Untouched: already-ordinary Windows paths and POSIX paths.
+        assert_eq!(strip(r"C:\downloads\node.msi"), r"C:\downloads\node.msi");
+        assert_eq!(strip("/tmp/downloads/node.pkg"), "/tmp/downloads/node.pkg");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn downloaded_file_is_returned_without_the_verbatim_prefix() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let downloads = root.path().join(DOWNLOADS_DIR);
+        std::fs::create_dir_all(&downloads).expect("mkdir");
+        let msi = downloads.join("node-v24.19.0-x64.msi");
+        std::fs::write(&msi, b"x").expect("write");
+
+        let accepted = downloaded_file_in(&downloads, &msi).expect("inside downloads");
+        assert!(
+            !accepted.to_string_lossy().starts_with(r"\\?\"),
+            "plans must carry the ordinary spelling, got {}",
+            accepted.display()
+        );
+        // The plan the user confirms is re-derived from this path, so it has to round-trip.
+        assert_eq!(
+            downloaded_file_in(&downloads, &accepted).expect("round-trip"),
+            accepted
+        );
+        let plan = installer::run_plan(InstallTarget::Node, &accepted, Platform::Windows)
+            .expect("msi plan");
+        assert!(!plan.display_command.contains(r"\\?\"));
+        assert!(installer::validate_run_plan(&plan, Platform::Windows).is_ok());
     }
 
     #[test]
