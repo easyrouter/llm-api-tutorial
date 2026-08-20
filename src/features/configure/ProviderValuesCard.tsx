@@ -13,7 +13,7 @@ import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Alert, Button, Card, CopyField, ErrorBanner } from "@/components/ui";
-import { GatewayCheckView } from "@/features/verify/VerifyResultView";
+import { GatewayCheckView, ModelListCheckView } from "@/features/verify/VerifyResultView";
 import { useAsync } from "@/hooks";
 import { cn } from "@/lib/cn";
 import { testConnectivity } from "@/lib/tauri";
@@ -306,16 +306,26 @@ function EditableRow({
   );
 }
 
-/** Combined verdict: URL rules, key format, and the gateway probe (or why it was not sent). */
+/**
+ * Combined verdict: URL rules, key format, the model list and the protocol probe (or why
+ * nothing was sent). The model list is shown first: it is the fast check, so when the protocol
+ * probe fails it already says whether the address and key themselves are fine.
+ */
 function ConnectivityResultView({ report }: { report: ConnectivityReport }) {
   const { t } = useTranslation();
+  const sent = report.gateway !== null || report.models !== null;
   return (
     <div className="space-y-3" data-testid="connectivity-result">
       <UrlVerdict preview={report.url} />
       <KeyVerdict validation={report.key} />
-      {report.gateway ? (
-        <GatewayCheckView gateway={report.gateway} />
-      ) : (
+      {report.models && <ModelListCheckView list={report.models} />}
+      {report.gateway && <GatewayCheckView gateway={report.gateway} />}
+      {report.models?.gateway.ok && report.gateway && !report.gateway.ok && (
+        <Alert variant="info" data-testid="connectivity-model-hint">
+          {t("guide:test.modelsOkProbeFailed")}
+        </Alert>
+      )}
+      {!sent && (
         <Alert variant="warning" data-testid="connectivity-not-sent">
           {t("guide:test.notSent")}
         </Alert>

@@ -642,13 +642,18 @@ pub enum UrlWarning {
 }
 
 /// Combined result of the in-place connectivity test on the configure screen: URL rules and
-/// key format always run; the live gateway probe only when both allow sending the key.
+/// key format always run; the two live requests only when both allow sending the key.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectivityReport {
     pub url: UrlPreview,
     pub key: KeyValidation,
+    /// `GET {base}/models` — the cheap half of the test: it answers in about a second and proves
+    /// address + key on its own, even when the protocol probe is slow or the model name is wrong.
     /// `None` when nothing was sent (invalid URL or a key with blocking format issues).
+    pub models: Option<ModelList>,
+    /// The protocol probe (`POST` per [`Protocol`]) — the half that also proves the model works.
+    /// `None` under the same conditions as `models`.
     pub gateway: Option<GatewayCheck>,
 }
 

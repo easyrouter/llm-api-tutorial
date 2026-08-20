@@ -355,8 +355,11 @@ pub fn preview_effective_url(url: String, state: State<'_, AppState>) -> AppResu
 }
 
 /// In-place connectivity test on the configure screen: URL rules + key format always run; the
-/// live gateway probe only when the URL is valid and the key has no blocking format issues.
-/// The key lives in memory for this one request and is never logged or stored (hard rule 3).
+/// two live requests — `GET {base}/models` and the protocol probe — only when the URL is valid
+/// and the key has no blocking format issues. They run concurrently, so the test costs no more
+/// than the slower of the two, and the fast model list still gives a verdict on address + key
+/// when the protocol probe is slow or the configured model name is wrong.
+/// The key lives in memory for these requests and is never logged or stored (hard rule 3).
 #[tauri::command]
 pub async fn test_connectivity(
     request: GatewayProbeRequest,
@@ -365,12 +368,21 @@ pub async fn test_connectivity(
     let cfg = state.config_snapshot().config;
     let url = guide::preview_url(&request.base_url, &cfg);
     let key = guide::validate_api_key(&request.api_key);
-    let gateway = if url.rule != UrlRule::Invalid && key.valid {
-        Some(verify::probe_gateway(&state.http, &request).await)
+    let (models, gateway) = if url.rule != UrlRule::Invalid && key.valid {
+        let (models, gateway) = tokio::join!(
+            verify::list_models(&state.http_gateway, &request),
+            verify::probe_gateway(&state.http_gateway, &request),
+        );
+        (Some(models), Some(gateway))
     } else {
-        None
+        (None, None)
     };
-    Ok(ConnectivityReport { url, key, gateway })
+    Ok(ConnectivityReport {
+        url,
+        key,
+        models,
+        gateway,
+    })
 }
 
 /// Fetches the gateway's model list (`GET {base}/models`); `request.model` is ignored.
@@ -379,7 +391,7 @@ pub async fn list_gateway_models(
     request: GatewayProbeRequest,
     state: State<'_, AppState>,
 ) -> AppResult<ModelList> {
-    Ok(verify::list_models(&state.http, &request).await)
+    Ok(verify::list_models(&state.http_gateway, &request).await)
 }
 
 /// Renders the recommended Codex `config.toml` template (editable in the UI before the user
@@ -469,7 +481,7 @@ pub async fn verify_setup(
     state: State<'_, AppState>,
 ) -> AppResult<VerifyResult> {
     let cfg = state.config_snapshot().config;
-    Ok(verify::verify(&state.http, &cfg, request).await)
+    Ok(verify::verify(&state.http_gateway, &cfg, request).await)
 }
 
 #[tauri::command]

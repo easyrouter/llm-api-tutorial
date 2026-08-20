@@ -73,8 +73,11 @@ use crate::redact::{redact_secrets, tail_redacted};
 
 /// Time allowed for `<binary> --version` in the fresh session.
 pub const CLI_TIMEOUT: Duration = Duration::from_secs(12);
-/// Overall timeout of the gateway probe (connect + headers + body).
-pub const GATEWAY_TIMEOUT: Duration = Duration::from_secs(15);
+/// Overall timeout of the gateway probe (connect + headers + body). A reasoning model behind a
+/// gateway routinely needs 20–30 s to answer even a one-token "ping", so this is deliberately
+/// generous: a probe that is merely *slow* must not be reported as a broken gateway. The client
+/// used for these requests ([`net::gateway_client`]) carries the same value as its read timeout.
+pub const GATEWAY_TIMEOUT: Duration = Duration::from_secs(45);
 /// Upper bound on reported terminal processes.
 pub const MAX_TERMINALS: usize = 50;
 /// Maximum characters of a server message kept in `GatewayCheck::message`.
