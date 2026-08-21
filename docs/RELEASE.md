@@ -19,7 +19,7 @@ and the two pilot branches were replaced by a single `pilot` branch.
 
 | branch  | version        | tag             | contains the patch |
 | ------- | -------------- | --------------- | ------------------ |
-| `pilot` | `0.1.0-test.6` | `v0.1.0-test.6` | yes                |
+| `pilot` | `0.1.0-test.7` | `v0.1.0-test.7` | yes                |
 
 Rounds up to `v0.1.0-test.5` shipped two tags each (`vX-test.N` from
 `feat/onboarding-revisions`, `vX-test.N-patched` from `feat/codex-fast-ui`); those tags and
