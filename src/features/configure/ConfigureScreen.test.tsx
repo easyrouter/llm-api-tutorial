@@ -116,11 +116,17 @@ function connectivity(args: Record<string, unknown> | undefined): ConnectivityRe
   const req = args?.request as GatewayProbeRequest;
   const url = urlPreview(req.baseUrl);
   const key = keyValidation(req.apiKey);
-  const gateway =
-    url.rule !== "invalid" && key.valid
-      ? { ok: true, httpStatus: 200, latencyMs: 42, errorClass: null, message: null }
-      : null;
-  return { url, key, gateway };
+  const sent = url.rule !== "invalid" && key.valid;
+  const gateway = sent
+    ? { ok: true, httpStatus: 200, latencyMs: 42, errorClass: null, message: null }
+    : null;
+  const models = sent
+    ? {
+        gateway: { ok: true, httpStatus: 200, latencyMs: 18, errorClass: null, message: null },
+        models: ["gpt-5", "gpt-5-codex"],
+      }
+    : null;
+  return { url, key, models, gateway };
 }
 
 const passResult: CheckResult = {
@@ -240,6 +246,9 @@ describe("ConfigureScreen", () => {
     expect(screen.getByTestId("url-verdict")).toHaveAttribute("data-rule", "already_versioned");
     const gateway = screen.getByTestId("gateway-check");
     expect(gateway).toHaveAttribute("data-status", "pass");
+    const modelList = screen.getByTestId("model-list-check");
+    expect(modelList).toHaveAttribute("data-status", "pass");
+    expect(within(modelList).getByText("2")).toBeInTheDocument();
     expect(screen.queryByTestId("connectivity-not-sent")).toBeNull();
   });
 

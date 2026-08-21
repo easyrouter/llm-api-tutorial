@@ -1,10 +1,10 @@
-import { Globe, RefreshCw, SquareTerminal } from "lucide-react";
+import { Globe, ListTree, RefreshCw, SquareTerminal } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Alert, Button, KeyValueList, StatusBadge, type KeyValueItem } from "@/components/ui";
 import { formatDuration } from "@/lib/format";
-import type { CliCheck, GatewayCheck, TerminalProcess } from "@/lib/types";
+import type { CliCheck, GatewayCheck, ModelList, TerminalProcess } from "@/lib/types";
 
 /** CLI section of a verification result: badge, version / path or the redacted output tail. */
 export function CliCheckView({ cli }: { cli: CliCheck }) {
@@ -86,6 +86,58 @@ export function GatewayCheckView({ gateway }: { gateway: GatewayCheck | null }) 
       status={gateway.ok ? "pass" : "fail"}
       statusLabel={gateway.ok ? t("verify:results.gatewayOk") : t("verify:results.gatewayFail")}
       testId="gateway-check"
+    >
+      <KeyValueList items={items} />
+      {gateway.message && (
+        <OutputBlock label={t("verify:results.message")} text={gateway.message} />
+      )}
+    </ResultSection>
+  );
+}
+
+/**
+ * Model-list section (`GET {base}/models`): the cheap check that proves address + key on its
+ * own. Counts the models rather than listing them — picking one has its own step.
+ */
+export function ModelListCheckView({ list }: { list: ModelList }) {
+  const { t } = useTranslation();
+  const { gateway } = list;
+  const items: KeyValueItem[] = [];
+  if (gateway.httpStatus !== null) {
+    items.push({
+      key: "status",
+      label: t("verify:results.httpStatus"),
+      value: String(gateway.httpStatus),
+      mono: true,
+    });
+  }
+  if (gateway.latencyMs !== null) {
+    items.push({
+      key: "latency",
+      label: t("verify:results.latency"),
+      value: formatDuration(gateway.latencyMs),
+    });
+  }
+  if (gateway.ok) {
+    items.push({
+      key: "count",
+      label: t("verify:results.modelsCount"),
+      value: String(list.models.length),
+    });
+  } else if (gateway.errorClass) {
+    items.push({
+      key: "errorClass",
+      label: t("verify:results.errorClass"),
+      value: t(`verify:errorClass.${gateway.errorClass}`),
+    });
+  }
+  return (
+    <ResultSection
+      icon={<ListTree className="size-4" aria-hidden />}
+      title={t("verify:results.modelList")}
+      status={gateway.ok ? "pass" : "fail"}
+      statusLabel={gateway.ok ? t("verify:results.modelListOk") : t("verify:results.modelListFail")}
+      testId="model-list-check"
     >
       <KeyValueList items={items} />
       {gateway.message && (

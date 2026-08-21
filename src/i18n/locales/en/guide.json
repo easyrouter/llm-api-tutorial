@@ -33,9 +33,10 @@
   "test": {
     "button": "Test connectivity",
     "testing": "Testing…",
-    "description": "Sends one minimal test request to the gateway using the address, model and key above.",
+    "description": "Sends two requests using the address, model and key above: the model list, and one minimal test request. Please allow up to 45 seconds — the model has to think before it can answer.",
     "needs": "Enter the API address and API key to test (the model may stay empty).",
-    "notSent": "No gateway request was sent this time: fix the problems flagged above and try again."
+    "notSent": "No gateway request was sent this time: fix the problems flagged above and try again.",
+    "modelsOkProbeFailed": "The address and key are fine — the model list came back. So the problem is with this request itself: most often the model name, otherwise the protocol. Fetch the model list in the steps below and pick a name from it."
   },
   "import": {
     "title": "One-click import into CC Switch",

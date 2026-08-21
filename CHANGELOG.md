@@ -54,6 +54,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ### Fixed (VM regression round 3)
 
+- **The connectivity test declared a healthy gateway unreachable.** `POST /v1/responses` needs
+  ~27 s on the company gateway to answer even a one-token "ping" — a reasoning model thinks
+  before the first byte arrives — while `verify::GATEWAY_TIMEOUT` allowed 15 s. Users who had
+  just pasted a working key were told the gateway could not be reached. Raised to 45 s. Raising
+  the constant alone would not have been enough: the shared client sets `read_timeout(30 s)`,
+  and reqwest applies the read timeout to the wait for the *response headers* too, so the probe
+  would have stayed capped at 30 s. `net::gateway_client()` now builds a client whose read
+  timeout equals its overall timeout; `AppState` keeps it as `http_gateway` and the three
+  gateway entry points use it, so downloads and reachability probes keep their 30 s stall
+  detection. A unit test asserts the two constants stay in that order.
+- **The connectivity test now also fetches the model list.** `GET {base}/models` runs
+  concurrently with the protocol probe, so the test costs no more than the slower of the two. It
+  answers in about a second and proves address + key on its own — the verdict a user needs when
+  the probe is merely slow, or when the model name is simply wrong. `ConnectivityReport.models`
+  carries it, the UI shows it as its own section above the probe, and an info hint points at the
+  model name / protocol when the list succeeds but the probe does not.
 - **A slow `Get-AppxPackage` made the Codex desktop client look uninstalled.** The probe ran
   with a 30 s timeout; right after the wizard installs the 745 MB Codex MSIX a cold package
   cache regularly needs longer, and a timed-out probe is indistinguishable from "not

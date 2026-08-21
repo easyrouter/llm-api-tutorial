@@ -2,7 +2,9 @@
 //!
 //! Rules
 //! - One shared `reqwest::Client` (rustls, system/env proxies honoured, custom UA); every HTTP
-//!   request in the crate goes through a client built here.
+//!   request in the crate goes through a client built here. Two variants differ only in their
+//!   timeouts: [`download_client`] (no overall deadline) and [`gateway_client`] (long read
+//!   timeout, because an LLM gateway may hold the response for tens of seconds).
 //! - `probe` = HEAD (GET on 405/501) with a per-probe timeout; *reachable* means any HTTP
 //!   response arrived, even 4xx — we test reachability, not authorisation. Error strings are
 //!   short, redacted and never contain the URL.
@@ -35,6 +37,14 @@ pub const USER_AGENT: &str = concat!("seedrouter-onboarding/", env!("CARGO_PKG_V
 /// Default overall request timeout of the shared client (downloads use streaming and are
 /// bounded per chunk by the read timeout instead).
 pub const DEFAULT_TIMEOUT_SECS: u64 = 60;
+
+/// Time allowed for the TCP + TLS handshake on every client.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Default read timeout: a transfer (or a server) that goes quiet for this long is treated as
+/// stalled. It also bounds the wait for the *response headers*, so a client that must tolerate a
+/// slow-thinking upstream needs its own value — see [`gateway_client`].
+const DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// The `official` mirror wins over a faster one when it is at most this much slower.
 pub const PREFER_OFFICIAL_MARGIN_MS: u64 = 150;
@@ -76,14 +86,33 @@ pub fn download_client() -> AppResult<reqwest::Client> {
         .map_err(|e| AppError::Network(short_error(&e)))
 }
 
+/// Client for gateway probes: an LLM gateway can think for tens of seconds before the first
+/// response byte, and reqwest applies the read timeout while waiting for the response headers
+/// too — so a 30 s read timeout would cut a probe short well before its own deadline. Both
+/// bounds are therefore `timeout` (callers pass `verify::GATEWAY_TIMEOUT`).
+pub fn gateway_client(timeout: Duration) -> AppResult<reqwest::Client> {
+    client_builder_with(Some(timeout), timeout)
+        .build()
+        .map_err(|e| AppError::Network(short_error(&e)))
+}
+
 /// Common builder: rustls, system/env proxies, custom UA, connect/read timeouts.
 fn client_builder(overall_timeout_secs: u64) -> reqwest::ClientBuilder {
+    let overall = if overall_timeout_secs > 0 {
+        Some(Duration::from_secs(overall_timeout_secs))
+    } else {
+        None
+    };
+    client_builder_with(overall, DEFAULT_READ_TIMEOUT)
+}
+
+fn client_builder_with(overall: Option<Duration>, read: Duration) -> reqwest::ClientBuilder {
     let mut builder = reqwest::Client::builder()
         .user_agent(USER_AGENT)
-        .connect_timeout(Duration::from_secs(10))
-        .read_timeout(Duration::from_secs(30));
-    if overall_timeout_secs > 0 {
-        builder = builder.timeout(Duration::from_secs(overall_timeout_secs));
+        .connect_timeout(CONNECT_TIMEOUT)
+        .read_timeout(read);
+    if let Some(overall) = overall {
+        builder = builder.timeout(overall);
     }
     builder
 }
@@ -718,6 +747,15 @@ mod tests {
         assert!(build_client().is_ok());
         assert!(client_with_timeout(0).is_ok());
         assert!(download_client().is_ok());
+        assert!(gateway_client(Duration::from_secs(45)).is_ok());
+    }
+
+    /// A gateway probe waits for the *response headers* while the model thinks, and reqwest
+    /// applies the read timeout to that wait — so the default read timeout must not be the
+    /// effective bound of a probe that is allowed to take longer.
+    #[test]
+    fn gateway_timeout_outlives_the_default_read_timeout() {
+        assert!(crate::verify::GATEWAY_TIMEOUT > DEFAULT_READ_TIMEOUT);
     }
 
     #[tokio::test]

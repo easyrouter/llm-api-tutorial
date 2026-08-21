@@ -454,11 +454,13 @@ export interface UrlPreview {
 
 /**
  * Combined result of the in-place connectivity test (configure screen): URL rules and key
- * format always run; `gateway` is `null` when nothing was sent (invalid URL / blocked key).
+ * format always run; `models` (`GET {base}/models`, the fast half) and `gateway` (the protocol
+ * probe) are sent concurrently and are `null` when nothing was sent (invalid URL / blocked key).
  */
 export interface ConnectivityReport {
   url: UrlPreview;
   key: KeyValidation;
+  models: ModelList | null;
   gateway: GatewayCheck | null;
 }
 

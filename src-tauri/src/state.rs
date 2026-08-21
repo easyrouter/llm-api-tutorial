@@ -16,6 +16,9 @@ pub struct AppState {
     pub jobs: JobRegistry,
     pub telemetry: Telemetry,
     pub http: reqwest::Client,
+    /// Client for the gateway probes only (`verify::GATEWAY_TIMEOUT` read + overall timeout), so
+    /// a slow-thinking model is not cut off by the shared client's 30 s read timeout.
+    pub http_gateway: reqwest::Client,
     pub started_at: Instant,
 }
 
@@ -23,12 +26,14 @@ impl AppState {
     pub fn init(app: &AppHandle) -> AppResult<Self> {
         let cfg = config::load(app)?;
         let http = crate::net::build_client()?;
+        let http_gateway = crate::net::gateway_client(crate::verify::GATEWAY_TIMEOUT)?;
         let telemetry = Telemetry::new(&cfg.config.telemetry, http.clone());
         Ok(Self {
             config: RwLock::new(cfg),
             jobs: JobRegistry::default(),
             telemetry,
             http,
+            http_gateway,
             started_at: Instant::now(),
         })
     }
