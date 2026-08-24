@@ -225,10 +225,6 @@
   },
   "footer": {
     "logDir": "Log directory: {{path}}",
-    "configSource": {
-      "bundled": "Config source: bundled preset",
-      "bundled_with_override": "Config source: bundled preset + local override",
-      "fallback": "Config source: built-in defaults"
-    }
+    "copyright": "© {{year}} seedrouter.net. All rights reserved."
   }
 }

@@ -12,6 +12,10 @@ pilot rounds and is collected here.
 
 ### Added (branding)
 
+- The header carries a `seedrouter.net` link next to the version (opened in the system browser
+  through `open_external`, like every other link in the app), and the footer shows the
+  copyright notice `© <year> seedrouter.net` in place of the developer-facing "config source"
+  line.
 - The SeedRouter logo is the application icon: installer, executable, window and taskbar,
   Windows Store tiles and the macOS `.icns`, plus the app header and the webview favicon. The
   source lives at `app-icon.png`; regenerate the set with `npx tauri icon app-icon.png`

@@ -225,10 +225,6 @@
   },
   "footer": {
     "logDir": "日志目录：{{path}}",
-    "configSource": {
-      "bundled": "配置来源：内置预设",
-      "bundled_with_override": "配置来源：内置预设 + 本地覆盖",
-      "fallback": "配置来源：内置默认值"
-    }
+    "copyright": "© {{year}} seedrouter.net 版权所有"
   }
 }

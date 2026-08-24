@@ -2,12 +2,19 @@ import { CircleHelp, Languages } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ExternalLink } from "@/components/ui";
 import { HelpPanel } from "@/features/help/HelpPanel";
 import { setLang, type Lang } from "@/i18n";
 import { useAppStore } from "@/stores/app";
 import { useWizardStore } from "@/stores/wizard";
 
 import { Stepper } from "./Stepper";
+
+/** Public site of the service this app onboards to: header link and footer copyright notice. */
+const BRAND_HOST = "seedrouter.net";
+const BRAND_URL = `https://${BRAND_HOST}`;
+/** Evaluated once at load; the app is not open long enough for a new year to matter. */
+const COPYRIGHT_YEAR = new Date().getFullYear();
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -33,6 +40,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {t("app.version", { version: info.version })}
               </span>
             )}
+            <ExternalLink href={BRAND_URL} className="text-xs">
+              {BRAND_HOST}
+            </ExternalLink>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -76,7 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <footer className="flex items-center justify-between border-t border-neutral-200 bg-white px-5 py-1.5 text-[11px] text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
-        <span>{info ? t(`footer.configSource.${info.configSource}`) : ""}</span>
+        <span>{t("footer.copyright", { year: COPYRIGHT_YEAR })}</span>
         <span className="truncate" title={info?.logDir ?? ""}>
           {info ? t("footer.logDir", { path: info.logDir }) : ""}
         </span>
