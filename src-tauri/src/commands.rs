@@ -13,6 +13,7 @@ use std::path::{Component, Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
 use crate::checks::{self, CheckContext};
+use crate::config;
 use crate::diagnose::{self, report};
 use crate::docs::{self, DocsContext};
 use crate::error::{AppError, AppResult};
@@ -349,9 +350,17 @@ pub fn validate_api_key(key: String) -> AppResult<KeyValidation> {
     Ok(guide::validate_api_key(&key))
 }
 
+/// URL rules for one tool's address (the `/v1` handling differs per protocol — Claude Code's
+/// base URL is the root because the client appends `/v1/messages` itself).
 #[tauri::command]
-pub fn preview_effective_url(url: String, state: State<'_, AppState>) -> AppResult<UrlPreview> {
-    Ok(guide::preview_url(&url, &state.config_snapshot().config))
+pub fn preview_effective_url(
+    url: String,
+    tool: ToolId,
+    state: State<'_, AppState>,
+) -> AppResult<UrlPreview> {
+    let cfg = state.config_snapshot().config;
+    let protocol = config::tool_protocol(&cfg.gateway, tool);
+    Ok(guide::preview_url(&url, protocol, &cfg))
 }
 
 /// In-place connectivity test on the configure screen: URL rules + key format always run; the
@@ -366,7 +375,7 @@ pub async fn test_connectivity(
     state: State<'_, AppState>,
 ) -> AppResult<ConnectivityReport> {
     let cfg = state.config_snapshot().config;
-    let url = guide::preview_url(&request.base_url, &cfg);
+    let url = guide::preview_url(&request.base_url, request.protocol, &cfg);
     let key = guide::validate_api_key(&request.api_key);
     let (models, gateway) = if url.rule != UrlRule::Invalid && key.valid {
         let (models, gateway) = tokio::join!(

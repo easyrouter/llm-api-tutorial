@@ -41,12 +41,28 @@ export interface AppConfig {
   telemetry: TelemetryConfig;
 }
 
+/**
+ * The company gateway. These fields are the Codex defaults; `claudeCode` overrides the ones
+ * that differ for Claude Code. Resolve them with `gatewayDefaults` (`@/lib/gateway`) — never
+ * read the shared fields for a specific tool.
+ */
 export interface GatewayPreset {
   baseUrl: string;
   protocol: Protocol;
   presetProviderName: string;
   defaultModel: string;
   defaultReasoningEffort: string;
+  claudeCode: ClaudeCodeGateway;
+}
+
+/**
+ * Claude Code's own gateway defaults. It speaks the Anthropic Messages protocol, so its base
+ * URL is the site root — the client appends `/v1/messages` itself — and its model is an
+ * Anthropic id. An empty field falls back to the shared value.
+ */
+export interface ClaudeCodeGateway {
+  baseUrl: string;
+  defaultModel: string;
 }
 
 export interface ToolSpec {
@@ -435,7 +451,7 @@ export interface KeyValidation {
 }
 
 export type UrlRule =
-  "already_versioned" | "appended_v1" | "literal_hash" | "custom_path" | "invalid";
+  "already_versioned" | "appended_v1" | "root_kept" | "literal_hash" | "custom_path" | "invalid";
 
 export type UrlWarning =
   | "not_https"
@@ -443,6 +459,7 @@ export type UrlWarning =
   | "contains_whitespace"
   | "contains_credentials"
   | "looks_like_chat_completions_endpoint"
+  | "anthropic_v1_suffix"
   | "differs_from_company_gateway";
 
 export interface UrlPreview {

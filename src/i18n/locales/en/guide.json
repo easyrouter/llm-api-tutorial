@@ -229,6 +229,7 @@
     "rule": {
       "already_versioned": "The address already ends in /v1 and is used as-is.",
       "appended_v1": "Only a host was given, so /v1 is appended automatically.",
+      "root_kept": "Only a host was given, and it is used as-is: Claude Code appends /v1/messages to it itself, so nothing may be added here.",
       "literal_hash": "A trailing # means “use literally” — nothing is appended. Only use this when the gateway explicitly asks for it.",
       "custom_path": "A custom path is kept as-is. Unless the gateway requires it, switch back to the service gateway address.",
       "invalid": "This is not a valid address. Please check it and try again."
@@ -239,6 +240,7 @@
       "contains_whitespace": "The address contains whitespace — remove it.",
       "contains_credentials": "The address contains a username / password. Never put the key into the address.",
       "looks_like_chat_completions_endpoint": "The address ends in /chat/completions, which is an endpoint path rather than a Base URL — remove that part.",
+      "anthropic_v1_suffix": "The address ends in /v1, but Claude Code appends /v1/messages itself: requests would go to …/v1/v1/messages and come back as 404. Remove the /v1.",
       "differs_from_company_gateway": "This differs from the service gateway address. Unless there is a specific reason, use the service gateway address."
     }
   },

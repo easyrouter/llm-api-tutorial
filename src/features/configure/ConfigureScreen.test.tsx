@@ -10,8 +10,10 @@ import type {
   GatewayProbeRequest,
   GuideStep,
   KeyValidation,
+  Protocol,
   ToolId,
   UrlPreview,
+  UrlWarning,
 } from "@/lib/types";
 import { useWizardStore } from "@/stores/wizard";
 import { mockInvoke, mockWriteText, setInvokeHandlers } from "@/test/mocks/tauri";
@@ -19,19 +21,31 @@ import { mockInvoke, mockWriteText, setInvokeHandlers } from "@/test/mocks/tauri
 import { ConfigureScreen } from "./ConfigureScreen";
 
 const BASE_URL = "https://gateway.example.com/v1";
+/** Claude Code's own address: the root — its client appends `/v1/messages` itself. */
+const CLAUDE_BASE_URL = "https://gateway.example.com";
 const GOOD_KEY = "sk-abcdefghijklmnopqrstuvwxyz";
 const MASKED_LINK = `ccswitch://v1/import?resource=provider&app=codex&name=Service+Gateway&apiKey=sk-****wxyz`;
 
 function guideFor(tool: ToolId): ConfigGuide {
   return {
     tool,
-    preset: {
-      providerName: "Service Gateway",
-      baseUrl: BASE_URL,
-      protocol: "responses",
-      modelHint: tool === "codex" ? "gpt-5-codex" : "",
-      reasoningEffortHint: "",
-    },
+    // Mirrors `config::gateway_defaults`: each tool gets its own address, protocol and model.
+    preset:
+      tool === "codex"
+        ? {
+            providerName: "Service Gateway",
+            baseUrl: BASE_URL,
+            protocol: "responses",
+            modelHint: "gpt-5-codex",
+            reasoningEffortHint: "",
+          }
+        : {
+            providerName: "Service Gateway",
+            baseUrl: CLAUDE_BASE_URL,
+            protocol: "anthropic_messages",
+            modelHint: "claude-sonnet-5",
+            reasoningEffortHint: "",
+          },
     steps:
       tool === "codex"
         ? [
@@ -99,22 +113,34 @@ function keyValidation(key: string): KeyValidation {
   };
 }
 
-function urlPreview(url: string): UrlPreview {
+/** Mirrors `guide::preview_url`: the bare-origin rule depends on the protocol. */
+function urlPreview(url: string, protocol: Protocol = "responses"): UrlPreview {
   const trimmed = url.trim().replace(/\/+$/, "");
   if (!trimmed.startsWith("http")) {
     return { input: url, effectiveUrl: "", rule: "invalid", warnings: [] };
   }
+  const versioned = trimmed.endsWith("/v1");
+  const warnings: UrlWarning[] = url.trim().endsWith("/") ? ["trailing_slash_removed"] : [];
+  if (protocol === "anthropic_messages") {
+    if (versioned) warnings.push("anthropic_v1_suffix");
+    return {
+      input: url,
+      effectiveUrl: trimmed,
+      rule: versioned ? "already_versioned" : "root_kept",
+      warnings,
+    };
+  }
   return {
     input: url,
-    effectiveUrl: trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`,
-    rule: trimmed.endsWith("/v1") ? "already_versioned" : "appended_v1",
-    warnings: url.trim().endsWith("/") ? ["trailing_slash_removed"] : [],
+    effectiveUrl: versioned ? trimmed : `${trimmed}/v1`,
+    rule: versioned ? "already_versioned" : "appended_v1",
+    warnings,
   };
 }
 
 function connectivity(args: Record<string, unknown> | undefined): ConnectivityReport {
   const req = args?.request as GatewayProbeRequest;
-  const url = urlPreview(req.baseUrl);
+  const url = urlPreview(req.baseUrl, req.protocol);
   const key = keyValidation(req.apiKey);
   const sent = url.rule !== "invalid" && key.valid;
   const gateway = sent
@@ -381,6 +407,34 @@ describe("ConfigureScreen", () => {
     expect(screen.getByText(/Claude Code has no protocol setting/)).toBeInTheDocument();
     expect(screen.queryByTestId("codex-client-note")).toBeNull();
     expect(screen.queryByTestId("config-toml-input")).toBeNull();
+    // ...and its own preset values: the root address (no /v1) and the Anthropic model.
+    expect(screen.getByTestId("row-base-url")).toHaveTextContent(CLAUDE_BASE_URL);
+    expect(screen.getByTestId("row-base-url")).not.toHaveTextContent(`${CLAUDE_BASE_URL}/v1`);
+    expect(screen.getByTestId("row-model")).toHaveTextContent("claude-sonnet-5");
+  });
+
+  it("tests connectivity for Claude Code against the root address", async () => {
+    render(<ConfigureScreen />);
+    fireEvent.click(screen.getAllByRole("tab")[1]!);
+    await screen.findByTestId("tool-guide-claude-code");
+    fireEvent.change(screen.getByTestId("key-input"), { target: { value: GOOD_KEY } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Test connectivity" }));
+      await Promise.resolve();
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("test_connectivity", {
+      request: {
+        baseUrl: CLAUDE_BASE_URL,
+        apiKey: GOOD_KEY,
+        model: "claude-sonnet-5",
+        protocol: "anthropic_messages",
+      },
+    });
+    // The root survives the URL rules — nothing appends /v1 for Anthropic Messages.
+    const verdict = await screen.findByTestId("url-verdict");
+    expect(verdict).toHaveAttribute("data-rule", "root_kept");
+    expect(verdict).toHaveTextContent(CLAUDE_BASE_URL);
+    expect(verdict).not.toHaveTextContent(`${CLAUDE_BASE_URL}/v1`);
   });
 
   it("links the terminal reminder to the help section and advances to Verify", async () => {

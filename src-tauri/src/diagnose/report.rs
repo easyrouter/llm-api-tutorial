@@ -1,7 +1,7 @@
 //! Redacted diagnostic report (Markdown). See parent module docs.
 //!
 //! Sections, in order: header (generated, app version, platform / arch / OS version / build /
-//! shell, config source, gateway preset), `Checks` table (id | status | code | details),
+//! shell, config source, both gateway presets), `Checks` table (id | status | code | details),
 //! `Tools` (tool | installed | version | path | on PATH), `Environment variables`
 //! (name | present | masked value | sources), `Verification` (per verified tool: CLI ok /
 //! version / path / error class / redacted output tail, gateway HTTP status / latency / error
@@ -84,7 +84,18 @@ fn header(md: &mut String, input: &ReportInput<'_>, generated_at: &str) {
     );
     push_kv(md, "config source", &wire(&input.app.config_source));
     push_kv(md, "company", &input.config.company.name);
-    push_kv(md, "gateway preset", &input.config.gateway.base_url);
+    // Both addresses: Claude Code's base URL is the root (its client appends `/v1/messages`).
+    let gateway = &input.config.gateway;
+    push_kv(
+        md,
+        "gateway preset",
+        &crate::config::gateway_defaults(gateway, ToolId::Codex).base_url,
+    );
+    push_kv(
+        md,
+        "gateway preset (claude code)",
+        &crate::config::gateway_defaults(gateway, ToolId::ClaudeCode).base_url,
+    );
     if let Some(snap) = input.snapshot {
         push_kv(md, "platform", &wire(&snap.os.platform));
         push_kv(md, "arch", &snap.os.arch);
@@ -588,6 +599,18 @@ mod tests {
         assert!(md.contains("- platform: windows"), "{md}");
         assert!(md.contains("- build: 19045"), "{md}");
         assert!(md.contains("- shell: cmd.exe"), "{md}");
+        // Both gateway addresses, so support sees the one that belongs to the failing tool.
+        assert!(
+            md.contains("- gateway preset: https://seedrouter.net/v1"),
+            "{md}"
+        );
+        assert!(
+            md.contains(
+                "- gateway preset (claude code): https://seedrouter.net
+"
+            ),
+            "{md}"
+        );
         assert!(
             md.contains("| env_vars | warn | env_vars.conflicts |"),
             "{md}"

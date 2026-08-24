@@ -78,6 +78,9 @@ pub struct CompanyInfo {
     pub support_contact: String,
 }
 
+/// The company gateway. The top-level fields are the Codex defaults; [`ClaudeCodeGateway`]
+/// overrides the ones that differ for Claude Code. Resolve them with
+/// `config::gateway_defaults` — never read the raw fields for a specific tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GatewayPreset {
@@ -88,6 +91,21 @@ pub struct GatewayPreset {
     pub default_model: String,
     #[serde(default)]
     pub default_reasoning_effort: String,
+    #[serde(default)]
+    pub claude_code: ClaudeCodeGateway,
+}
+
+/// Claude Code's own gateway defaults (`gateway.claudeCode`). It speaks the Anthropic Messages
+/// protocol, so its base URL is the **site root** — the client appends `/v1/messages` itself —
+/// and its model is an Anthropic id. An empty field falls back to the shared value above, so an
+/// IT override that replaces the whole `gateway` object keeps working.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeCodeGateway {
+    #[serde(default)]
+    pub base_url: String,
+    #[serde(default)]
+    pub default_model: String,
 }
 
 /// Wire protocol of a gateway / provider. `Responses` and `ChatCompletions` are the OpenAI
@@ -621,8 +639,10 @@ pub struct UrlPreview {
 pub enum UrlRule {
     /// Path already ends in `/v1` — used as-is.
     AlreadyVersioned,
-    /// Bare origin — `/v1` appended.
+    /// Bare origin — `/v1` appended (OpenAI shapes only).
     AppendedV1,
+    /// Bare origin kept as the root (Anthropic Messages: the client appends `/v1/messages`).
+    RootKept,
     /// Ends with `#` — used literally, no suffix appended.
     LiteralHash,
     /// Custom path kept as-is (may be intentional).
@@ -638,6 +658,9 @@ pub enum UrlWarning {
     ContainsWhitespace,
     ContainsCredentials,
     LooksLikeChatCompletionsEndpoint,
+    /// Anthropic Messages only: the address ends in `/v1`, which the client turns into
+    /// `…/v1/v1/messages` (404) because it appends `/v1/messages` itself.
+    AnthropicV1Suffix,
     DiffersFromCompanyGateway,
 }
 

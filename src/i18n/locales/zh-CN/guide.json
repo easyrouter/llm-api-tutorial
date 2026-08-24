@@ -229,6 +229,7 @@
     "rule": {
       "already_versioned": "地址已经带 /v1，原样使用。",
       "appended_v1": "只填了域名，会自动补上 /v1。",
+      "root_kept": "只填了域名，按原样使用：Claude Code 会自己在后面补 /v1/messages，这里不能再加。",
       "literal_hash": "结尾的 # 表示按字面使用，不会再追加任何路径。只有网关明确要求时才这样填。",
       "custom_path": "自定义路径会原样保留。如果不是网关要求的路径，建议改回服务网关地址。",
       "invalid": "这不是一个有效的地址，请检查后重新填写。"
@@ -239,6 +240,7 @@
       "contains_whitespace": "地址里含有空格，请删掉。",
       "contains_credentials": "地址里带有用户名 / 密码，不要把 Key 写进地址里。",
       "looks_like_chat_completions_endpoint": "地址以 /chat/completions 结尾，这是接口路径而不是 Base URL，请去掉这一段。",
+      "anthropic_v1_suffix": "地址以 /v1 结尾，但 Claude Code 会自己补上 /v1/messages，实际会请求 …/v1/v1/messages 并返回 404，请去掉结尾的 /v1。",
       "differs_from_company_gateway": "与服务网关地址不一致。除非有明确原因，建议使用服务网关地址。"
     }
   },

@@ -41,7 +41,7 @@
     "provider_selected": "Make sure the newly added provider is the one “switched to / in use” in CC Switch, not another one.",
     "key_valid": "Confirm on the platform that issued the key that it is valid (not expired, revoked or not yet activated).",
     "trailing_slash": "Remove any extra trailing slash from the address (the tool strips it automatically, but double-check).",
-    "v1_suffix": "Check whether the address needs /v1: a bare host gets /v1 appended; an address that already has /v1 is used as-is.",
+    "v1_suffix": "Check whether the address needs /v1: for Codex a bare host gets /v1 appended, while Claude Code keeps the bare host (it appends /v1/messages itself). Compare it with the expected address above.",
     "hash_literal": "A trailing # means “use literally” — only use it when the gateway explicitly asks for it.",
     "close_all_terminals": "Close every terminal window (Windows Terminal, PowerShell, CMD, Git Bash, macOS Terminal / iTerm).",
     "close_ide_terminals": "Quit VS Code, Cursor and similar editors — their built-in terminals also carry the old environment.",
@@ -51,8 +51,9 @@
     "restart_terminal": "Afterwards close every terminal window, open a new one and try again.",
     "check_npm_prefix_on_path": "In a new terminal run npm prefix -g and make sure the printed directory (its bin subfolder on macOS) is on PATH.",
     "reinstall": "If the command is still not found, go back to the “Install” step and reinstall.",
-    "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports (the service gateway supports Responses).",
+    "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports — the service gateway speaks Responses for Codex and Anthropic Messages for Claude Code.",
     "use_responses": "Set the protocol to Responses in CC Switch.",
+    "check_anthropic_base_url": "Claude Code has no protocol setting — the address is the lever: it must be the bare host (no /v1), because the tool appends /v1/messages itself.",
     "use_cc_switch_proxy": "If the target only supports Chat Completions, enable the local proxy in CC Switch to convert the protocol.",
     "smartscreen_more_info": "Windows: in the “Windows protected your PC” window click “More info”.",
     "run_anyway": "Then click “Run anyway”.",
@@ -81,7 +82,7 @@
       "explanation": "The gateway is reachable but the path does not exist — usually a mistyped API address. Safest fix: go back to “Configure” and copy the address shown there exactly. Address rules:",
       "steps": {
         "trailing_slash": "A trailing slash is removed automatically — do not add one.",
-        "v1_suffix": "A bare host (e.g. https://gateway.example.com) gets /v1 appended automatically; an address that already has /v1 is used as-is.",
+        "v1_suffix": "For Codex a bare host (e.g. https://gateway.example.com) gets /v1 appended automatically, and an address that already has /v1 is used as-is. Claude Code is the other way round: it keeps the bare host, because the tool appends /v1/messages itself — an address ending in /v1 becomes …/v1/v1/messages and returns 404.",
         "hash_literal": "A trailing # means “use literally, append nothing” — only use it when the gateway explicitly asks for it."
       }
     }
@@ -126,11 +127,12 @@
   "protocol": {
     "mismatch": {
       "title": "Protocol mismatch (400 / 422, or oddly formatted responses)",
-      "explanation": "Codex uses the Responses protocol; the service gateway supports and recommends Responses, so this normally does not happen. If you are connecting to another service that only supports Chat Completions, you need protocol conversion or a different address.",
+      "explanation": "The tool and the address disagree on the request format. Codex speaks Responses, which the service gateway supports and recommends; Claude Code speaks Anthropic Messages and has no protocol setting, so for it the address is what decides. This normally does not happen against the service gateway — check the address first, and if you are connecting to another service, you need protocol conversion or a different address.",
       "steps": {
-        "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports (the service gateway supports Responses).",
+        "confirm_gateway_protocol": "Confirm which protocol the gateway you are connecting to supports — the service gateway speaks Responses for Codex and Anthropic Messages for Claude Code.",
         "use_responses": "In the provider settings in CC Switch set the protocol to Responses, save and switch to it.",
-        "use_cc_switch_proxy": "If the target only supports Chat Completions, enable the local proxy in CC Switch for protocol conversion, or use an address that supports Responses."
+        "use_cc_switch_proxy": "If the target only supports Chat Completions, enable the local proxy in CC Switch for protocol conversion, or use an address that supports Responses.",
+        "check_anthropic_base_url": "Claude Code has no protocol setting — the address is the lever: it must be the bare host (no /v1), because the tool appends /v1/messages itself. Re-run the connectivity test on the “Configure” step after correcting it."
       }
     }
   },

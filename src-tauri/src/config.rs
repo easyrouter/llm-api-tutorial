@@ -6,6 +6,11 @@
 //!   3. then, if the override file exists and parses, its **top-level** keys replace the
 //!      corresponding keys of the base (shallow merge: e.g. the whole `gateway` object).
 //!
+//! Besides loading, this module owns the *resolution* of the gateway preset for one tool
+//! ([`gateway_defaults`]): the top-level `gateway` fields are the Codex defaults and
+//! `gateway.claudeCode` overrides the ones that differ for Claude Code (root base URL, because
+//! the Anthropic client appends `/v1/messages` itself, and an Anthropic model id).
+//!
 //! `ConfigSource` tells the UI what happened: `Bundled` (1 or 2, no override),
 //! `BundledWithOverride` (override applied), `Fallback` (a present-but-broken resource or
 //! override file was ignored — the shipped defaults are in use; details are logged).
@@ -17,7 +22,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
-use crate::models::{AppConfig, ConfigSource};
+use crate::models::{AppConfig, ConfigSource, GatewayPreset, Protocol, ToolId};
 
 /// Embedded copy of the shipped preset — guarantees the app always has a config.
 pub const EMBEDDED_CONFIG: &str = include_str!("../resources/app-config.json");
@@ -34,6 +39,92 @@ pub struct ConfigState {
 
 pub fn embedded() -> AppResult<AppConfig> {
     parse(EMBEDDED_CONFIG)
+}
+
+// ---------------------------------------------------------------------------
+// Per-tool gateway defaults
+// ---------------------------------------------------------------------------
+
+/// The gateway defaults that apply to **one** tool — the resolved form of `gateway` +
+/// `gateway.claudeCode`. Not a DTO: the UI resolves the same way from `AppConfig.gateway`
+/// (`src/lib/gateway.ts`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GatewayDefaults {
+    pub base_url: String,
+    pub protocol: Protocol,
+    pub model: String,
+    /// Codex only — `model_reasoning_effort` is a Codex config key; always empty for Claude Code.
+    pub reasoning_effort: String,
+}
+
+/// Wire protocol `tool` speaks: Claude Code always Anthropic Messages (it has no protocol
+/// setting), Codex whatever the company preset says.
+pub fn tool_protocol(gateway: &GatewayPreset, tool: ToolId) -> Protocol {
+    match tool {
+        ToolId::ClaudeCode => Protocol::AnthropicMessages,
+        ToolId::Codex => gateway.protocol,
+    }
+}
+
+/// Gateway defaults for `tool`. Claude Code takes `gateway.claudeCode`, falling back field by
+/// field to the shared values when an entry is empty — the address falls back to the shared one
+/// *with a trailing `/v1` removed* ([`anthropic_root_of`]).
+pub fn gateway_defaults(gateway: &GatewayPreset, tool: ToolId) -> GatewayDefaults {
+    let protocol = tool_protocol(gateway, tool);
+    match tool {
+        ToolId::Codex => GatewayDefaults {
+            base_url: gateway.base_url.clone(),
+            protocol,
+            model: gateway.default_model.clone(),
+            reasoning_effort: gateway.default_reasoning_effort.clone(),
+        },
+        ToolId::ClaudeCode => GatewayDefaults {
+            base_url: if gateway.claude_code.base_url.trim().is_empty() {
+                anthropic_root_of(&gateway.base_url)
+            } else {
+                gateway.claude_code.base_url.clone()
+            },
+            protocol,
+            model: or_shared(&gateway.claude_code.default_model, &gateway.default_model),
+            reasoning_effort: String::new(),
+        },
+    }
+}
+
+/// The Anthropic base URL derived from an OpenAI-shaped one: same address without the trailing
+/// `/v1` segment. Used only as the fallback when `gateway.claudeCode.baseUrl` is unset (an
+/// intranet override replaces the whole `gateway` object, so it easily drops the block) —
+/// handing Claude Code a `/v1` base would make it request `…/v1/v1/messages` and 404. Anything
+/// else is passed through untouched; the user can still edit the field.
+pub fn anthropic_root_of(base_url: &str) -> String {
+    let trimmed = base_url.trim();
+    let without_slash = trimmed.trim_end_matches('/');
+    match without_slash.strip_suffix("/v1") {
+        Some(root) => root.to_owned(),
+        None => trimmed.to_owned(),
+    }
+}
+
+/// Gateway defaults behind a wire protocol, for the paths that carry a protocol but no tool id
+/// (the URL preview and the connectivity test). Anthropic Messages is Claude Code; the two
+/// OpenAI shapes are Codex.
+pub fn gateway_defaults_for_protocol(
+    gateway: &GatewayPreset,
+    protocol: Protocol,
+) -> GatewayDefaults {
+    let tool = match protocol {
+        Protocol::AnthropicMessages => ToolId::ClaudeCode,
+        Protocol::Responses | Protocol::ChatCompletions => ToolId::Codex,
+    };
+    gateway_defaults(gateway, tool)
+}
+
+fn or_shared(value: &str, shared: &str) -> String {
+    if value.trim().is_empty() {
+        shared.to_owned()
+    } else {
+        value.to_owned()
+    }
 }
 
 pub fn parse(json: &str) -> AppResult<AppConfig> {
@@ -255,6 +346,96 @@ mod tests {
     #[test]
     fn unparsable_embedded_is_an_error() {
         assert!(resolve(None, "{ not json", None).is_err());
+    }
+
+    // ---- per-tool gateway defaults ---------------------------------------------------
+
+    #[test]
+    fn embedded_preset_gives_each_tool_its_own_address_and_model() {
+        let cfg = embedded().expect("embedded config");
+        let codex = gateway_defaults(&cfg.gateway, ToolId::Codex);
+        assert_eq!(codex.base_url, "https://seedrouter.net/v1");
+        assert_eq!(codex.protocol, Protocol::Responses);
+        assert_eq!(codex.model, "gpt-5.6-sol");
+        assert_eq!(codex.reasoning_effort, "medium");
+
+        let claude = gateway_defaults(&cfg.gateway, ToolId::ClaudeCode);
+        // The root, not `/v1`: Claude Code appends `/v1/messages` itself.
+        assert_eq!(claude.base_url, "https://seedrouter.net");
+        assert_eq!(claude.protocol, Protocol::AnthropicMessages);
+        assert_eq!(claude.model, "claude-sonnet-5");
+        assert_eq!(claude.reasoning_effort, "");
+    }
+
+    #[test]
+    fn claude_code_falls_back_to_the_shared_values_when_unset() {
+        let mut cfg = embedded().expect("embedded config");
+        cfg.gateway.claude_code = crate::models::ClaudeCodeGateway::default();
+        let claude = gateway_defaults(&cfg.gateway, ToolId::ClaudeCode);
+        // The address falls back to the shared one *without* the `/v1` Claude Code must not get.
+        assert_eq!(claude.base_url, "https://seedrouter.net");
+        assert_eq!(claude.model, cfg.gateway.default_model);
+        // The protocol never falls back — Claude Code has no protocol setting.
+        assert_eq!(claude.protocol, Protocol::AnthropicMessages);
+
+        cfg.gateway.claude_code.base_url = "   ".into();
+        assert_eq!(
+            gateway_defaults(&cfg.gateway, ToolId::ClaudeCode).base_url,
+            "https://seedrouter.net"
+        );
+    }
+
+    #[test]
+    fn anthropic_root_strips_only_a_trailing_v1() {
+        for (input, expected) in [
+            ("https://gw.example/v1", "https://gw.example"),
+            ("https://gw.example/v1/", "https://gw.example"),
+            ("https://gw.example", "https://gw.example"),
+            ("  https://gw.example/v1  ", "https://gw.example"),
+            // not a `/v1` segment — left alone
+            (
+                "https://gw.example/openai/v1x",
+                "https://gw.example/openai/v1x",
+            ),
+            ("https://gw.example/api", "https://gw.example/api"),
+            ("", ""),
+        ] {
+            assert_eq!(anthropic_root_of(input), expected, "{input:?}");
+        }
+    }
+
+    #[test]
+    fn protocol_resolution_picks_the_matching_tool() {
+        let cfg = embedded().expect("embedded config");
+        let g = &cfg.gateway;
+        assert_eq!(
+            gateway_defaults_for_protocol(g, Protocol::AnthropicMessages),
+            gateway_defaults(g, ToolId::ClaudeCode)
+        );
+        for protocol in [Protocol::Responses, Protocol::ChatCompletions] {
+            assert_eq!(
+                gateway_defaults_for_protocol(g, protocol),
+                gateway_defaults(g, ToolId::Codex)
+            );
+        }
+    }
+
+    /// An intranet override replaces the whole `gateway` object (shallow merge), so it easily
+    /// drops `claudeCode` — Claude Code must still end up with a usable root address.
+    #[test]
+    fn a_gateway_override_without_claude_code_derives_the_root() {
+        let over = json!({
+            "gateway": {
+                "baseUrl": "https://gw.corp.example/v1",
+                "protocol": "responses",
+                "presetProviderName": "Corp",
+                "defaultModel": "gpt-5"
+            }
+        });
+        let (cfg, _) = resolve(None, EMBEDDED_CONFIG, Some(Ok(over))).expect("resolve");
+        let claude = gateway_defaults(&cfg.gateway, ToolId::ClaudeCode);
+        assert_eq!(claude.base_url, "https://gw.corp.example");
+        assert_eq!(claude.model, "gpt-5");
     }
 
     #[test]

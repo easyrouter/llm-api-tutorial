@@ -6,7 +6,6 @@ import { primaryRuleId } from "@/features/diagnose/diagnoses";
 import type {
   AppConfig,
   ErrorClass,
-  Protocol,
   Symptom,
   TelemetryEvent,
   ToolId,
@@ -89,15 +88,6 @@ export function unverifiedTools(
 /** Binary name for a tool from the company preset (`codex`, `claude`); falls back to the id. */
 export function toolBinary(config: AppConfig | null, tool: ToolId): string {
   return config?.tools.find((spec) => spec.id === tool)?.binary ?? tool;
-}
-
-/**
- * Wire protocol of the gateway probe for `tool`: Claude Code always speaks Anthropic Messages
- * (it has no protocol setting); Codex follows the company preset (Responses by default).
- */
-export function probeProtocol(config: AppConfig | null, tool: ToolId): Protocol {
-  if (tool === "claude-code") return "anthropic_messages";
-  return config?.gateway.protocol ?? "responses";
 }
 
 /**

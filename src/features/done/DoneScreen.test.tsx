@@ -19,6 +19,7 @@ const config: AppConfig = {
     presetProviderName: "Acme Gateway",
     defaultModel: "",
     defaultReasoningEffort: "",
+    claudeCode: { baseUrl: "", defaultModel: "" },
   },
   tools: [
     {

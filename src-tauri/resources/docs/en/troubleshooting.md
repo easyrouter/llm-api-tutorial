@@ -12,14 +12,14 @@ The gateway rejected your key. Check, in order:
 
 ## B. 404 — wrong address
 
-The gateway is reachable but the path does not exist. Address rules:
+The gateway is reachable but the path does not exist. Address rules — note that they differ per tool:
 
 - a trailing `/` is removed automatically;
-- a bare domain (`https://gateway.example.com`) gets `/v1` appended;
-- an address already ending in `/v1` is used as-is;
+- **Codex**: a bare domain (`https://gateway.example.com`) gets `/v1` appended, and an address already ending in `/v1` is used as-is;
+- **Claude Code**: the address stays the bare domain, because the tool appends `/v1/messages` to it itself. An address ending in `/v1` therefore becomes `…/v1/v1/messages` and returns exactly this 404 — remove the `/v1`;
 - a trailing `#` means "use literally, append nothing" — only when the gateway requires it.
 
-Safest fix: copy the address from the tool's Configure page **exactly**; its URL preview shows the final effective address.
+Safest fix: copy the address from the tool's Configure page **exactly** — each tab shows the address for that tool, and its URL preview shows the final effective address.
 
 ## C. Configured, but nothing changed
 

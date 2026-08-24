@@ -29,6 +29,9 @@
 //! Codex has two account paths (CC Switch docs: the "OpenAI Official" preset is for users who
 //! sign in with a ChatGPT account; a custom provider is only needed without one). Steps tagged
 //! with a `branch` are shown for that path only; Claude Code steps carry no branch.
+//! The preset values are resolved per tool (`config::gateway_defaults`), so `base_url`,
+//! `protocol` and `model_hint` are Claude Code's own where they differ (root address, Anthropic
+//! Messages, Anthropic model id; no reasoning-effort hint — that is a Codex config key).
 //! `tool` is the wire form of [`ToolId`] (`codex` / `claude-code`); `protocol` is the wire
 //! form of [`Protocol`] (`responses` / `chat_completions`).
 //!
@@ -41,7 +44,7 @@
 //! Non-blocking hints: `unexpected_prefix` (does not start with `sk-` — gateways vary),
 //! `too_short` (fewer than 20 characters after trimming). Frontend key: `guide:key.issue.<issue>`.
 //!
-//! # `preview_url(input, config)`
+//! # `preview_url(input, protocol, config)`
 //!
 //! Implements the guide's "API 地址处理规则" (assumption Q-U1 in docs/OPEN_QUESTIONS.md).
 //! Input is trimmed, then:
@@ -50,16 +53,23 @@
 //! |-----------------------------------------|---------------------|--------------------------------|
 //! | empty / unparsable / not http(s)        | `invalid`           | `""`                           |
 //! | ends with `#`                           | `literal_hash`      | as typed, without `#`          |
-//! | bare origin (`https://host[:port]`)     | `appended_v1`       | origin + `/v1`                 |
+//! | bare origin, OpenAI shapes              | `appended_v1`       | origin + `/v1`                 |
+//! | bare origin, `anthropic_messages`       | `root_kept`         | origin                         |
 //! | path ends with `/v1`                    | `already_versioned` | as typed                       |
 //! | any other path                          | `custom_path`       | as typed                       |
+//!
+//! The bare-origin rule depends on the protocol because Claude Code appends `/v1/messages` to
+//! its base URL itself: for `anthropic_messages` the base *is* the root, and a base that
+//! already ends in `/v1` earns the `anthropic_v1_suffix` warning (it would request
+//! `…/v1/v1/messages`, guide fault B).
 //!
 //! Trailing slashes are always removed (`trailing_slash_removed`), credentials and fragments
 //! are never part of the effective URL. Frontend keys: `guide:url.rule.<rule>` and
 //! `guide:url.warning.<warning>`. Warnings: `not_https`,
 //! `trailing_slash_removed`, `contains_whitespace`, `contains_credentials`,
 //! `looks_like_chat_completions_endpoint` (path ends with `/chat/completions`),
-//! `differs_from_company_gateway` (host[:port] + path differ from `gateway.base_url`).
+//! `anthropic_v1_suffix`, `differs_from_company_gateway` (host[:port] + path differ from the
+//! gateway preset *of that protocol* — `gateway.claudeCode.baseUrl` for Anthropic Messages).
 //!
 //! # `build_import_url` / `masked_import_url` (ADR-0006)
 //!
@@ -111,15 +121,18 @@ pub(crate) fn protocol_key(protocol: Protocol) -> &'static str {
 // Walkthrough steps
 // ---------------------------------------------------------------------------
 
-/// Builds the CC Switch walkthrough for `tool` from the company preset.
+/// Builds the CC Switch walkthrough for `tool` from the company preset. Address, protocol and
+/// model hint are the values that belong to *this* tool (`config::gateway_defaults`): Claude
+/// Code gets the root base URL and the Anthropic model, Codex the `/v1` address and the Codex
+/// model.
 pub fn build_guide(tool: ToolId, config: &AppConfig) -> ConfigGuide {
-    let g = &config.gateway;
+    let defaults = crate::config::gateway_defaults(&config.gateway, tool);
     let preset = ProviderPreset {
-        provider_name: g.preset_provider_name.clone(),
-        base_url: g.base_url.clone(),
-        protocol: g.protocol,
-        model_hint: g.default_model.clone(),
-        reasoning_effort_hint: g.default_reasoning_effort.clone(),
+        provider_name: config.gateway.preset_provider_name.clone(),
+        base_url: defaults.base_url,
+        protocol: defaults.protocol,
+        model_hint: defaults.model,
+        reasoning_effort_hint: defaults.reasoning_effort,
     };
     let steps = build_steps(tool, &preset);
     ConfigGuide {
@@ -307,14 +320,18 @@ pub fn is_blocking(issue: KeyIssue) -> bool {
 // URL rule preview
 // ---------------------------------------------------------------------------
 
-/// Previews the URL the tool will effectively use for `input` (see module docs).
-pub fn preview_url(input: &str, config: &AppConfig) -> UrlPreview {
+/// Previews the URL the tool will effectively use for `input` (see module docs). `protocol` is
+/// the wire protocol the address is for: the OpenAI shapes want a `/v1` base, Anthropic
+/// Messages wants the root. The comparison against the company gateway uses the preset that
+/// belongs to that protocol.
+pub fn preview_url(input: &str, protocol: Protocol, config: &AppConfig) -> UrlPreview {
     let echoed = redact_secrets(input);
     let trimmed = input.trim();
-    match analyse_url(trimmed) {
+    let defaults = crate::config::gateway_defaults_for_protocol(&config.gateway, protocol);
+    match analyse_url(trimmed, protocol) {
         Some(analysis) => {
             let mut warnings = analysis.warnings;
-            if differs_from_gateway(&analysis.url, &config.gateway.base_url) {
+            if differs_from_gateway(&analysis.url, &defaults.base_url) {
                 warnings.push(UrlWarning::DiffersFromCompanyGateway);
             }
             UrlPreview {
@@ -343,7 +360,9 @@ struct UrlAnalysis {
 }
 
 /// Applies the rule table to an already-trimmed input; `None` when the input is invalid.
-fn analyse_url(trimmed: &str) -> Option<UrlAnalysis> {
+/// `protocol` decides what a bare origin means: `/v1` is appended for the OpenAI shapes, while
+/// Anthropic Messages keeps the root (Claude Code appends `/v1/messages` itself).
+fn analyse_url(trimmed: &str, protocol: Protocol) -> Option<UrlAnalysis> {
     if trimmed.is_empty() {
         return None;
     }
@@ -375,11 +394,18 @@ fn analyse_url(trimmed: &str) -> Option<UrlAnalysis> {
     let _ = url.set_password(None);
     url.set_fragment(None);
 
+    let anthropic = protocol == Protocol::AnthropicMessages;
     let path = url.path().trim_end_matches('/').to_owned();
     let rule = if literal_hash {
         UrlRule::LiteralHash
     } else if path.is_empty() {
-        UrlRule::AppendedV1
+        // Anthropic Messages: the root *is* the base URL; appending `/v1` here would make the
+        // client request `…/v1/v1/messages` (guide fault B).
+        if anthropic {
+            UrlRule::RootKept
+        } else {
+            UrlRule::AppendedV1
+        }
     } else if path.ends_with("/v1") {
         UrlRule::AlreadyVersioned
     } else {
@@ -392,6 +418,9 @@ fn analyse_url(trimmed: &str) -> Option<UrlAnalysis> {
     };
     if effective_path.ends_with("/chat/completions") {
         warnings.push(UrlWarning::LooksLikeChatCompletionsEndpoint);
+    }
+    if anthropic && effective_path.ends_with("/v1") {
+        warnings.push(UrlWarning::AnthropicV1Suffix);
     }
     url.set_path(&effective_path);
 
@@ -476,7 +505,8 @@ fn import_url(req: &CcSwitchImportRequest, config: &AppConfig, key: &str) -> App
             "the API key has blocking format issues".into(),
         ));
     }
-    let preview = preview_url(&req.base_url, config);
+    let protocol = crate::config::tool_protocol(&config.gateway, req.tool);
+    let preview = preview_url(&req.base_url, protocol, config);
     if preview.rule == UrlRule::Invalid || preview.effective_url.is_empty() {
         return Err(AppError::InvalidInput("the base URL is not valid".into()));
     }
@@ -557,7 +587,8 @@ fn toml_quote(s: &str) -> String {
 /// users may tune any value (e.g. a stricter auto-compact limit) before pasting it into the
 /// CC Switch provider's config editor. Pure.
 pub fn codex_config_template(req: &CodexConfigRequest, config: &AppConfig) -> String {
-    let preview = preview_url(&req.base_url, config);
+    let protocol = crate::config::tool_protocol(&config.gateway, ToolId::Codex);
+    let preview = preview_url(&req.base_url, protocol, config);
     let base_url = if preview.rule == UrlRule::Invalid || preview.effective_url.is_empty() {
         req.base_url.trim().to_owned()
     } else {
@@ -624,6 +655,11 @@ mod tests {
         cfg.gateway.base_url = "https://gateway.example.com/v1".into();
         cfg.gateway.preset_provider_name = "Service Gateway".into();
         cfg.gateway.default_model = String::new();
+        // Pinned so the tests never depend on the shipped production preset.
+        cfg.gateway.claude_code = crate::models::ClaudeCodeGateway {
+            base_url: "https://gateway.example.com".into(),
+            default_model: "claude-sonnet-5".into(),
+        };
         cfg
     }
 
@@ -696,6 +732,52 @@ mod tests {
             verify.params.get("tool").map(String::as_str),
             Some("claude-code")
         );
+    }
+
+    #[test]
+    fn claude_code_preset_uses_its_own_gateway_defaults() {
+        let mut c = cfg();
+        c.gateway.default_model = "gpt-5.6-sol".into();
+        c.gateway.default_reasoning_effort = "medium".into();
+        c.gateway.claude_code = crate::models::ClaudeCodeGateway {
+            base_url: "https://gateway.example.com".into(),
+            default_model: "claude-sonnet-5".into(),
+        };
+        let guide = build_guide(ToolId::ClaudeCode, &c);
+        assert_eq!(guide.preset.base_url, "https://gateway.example.com");
+        assert_eq!(guide.preset.protocol, Protocol::AnthropicMessages);
+        assert_eq!(guide.preset.model_hint, "claude-sonnet-5");
+        // `model_reasoning_effort` is a Codex config key — never suggested for Claude Code.
+        assert_eq!(guide.preset.reasoning_effort_hint, "");
+
+        let by_id = |id: &str| guide.steps.iter().find(|s| s.id == id).expect(id);
+        let url = by_id("paste_base_url");
+        assert_eq!(
+            url.params.get("base_url").map(String::as_str),
+            Some("https://gateway.example.com")
+        );
+        assert_eq!(
+            url.copy_value.as_deref(),
+            Some("https://gateway.example.com")
+        );
+        let model = by_id("set_model");
+        assert_eq!(
+            model.params.get("model_hint").map(String::as_str),
+            Some("claude-sonnet-5")
+        );
+        assert_eq!(
+            model
+                .params
+                .get("reasoning_effort_hint")
+                .map(String::as_str),
+            Some("")
+        );
+
+        // Codex is untouched by the Claude Code overrides.
+        let codex = build_guide(ToolId::Codex, &c);
+        assert_eq!(codex.preset.base_url, "https://gateway.example.com/v1");
+        assert_eq!(codex.preset.model_hint, "gpt-5.6-sol");
+        assert_eq!(codex.preset.reasoning_effort_hint, "medium");
     }
 
     #[test]
@@ -1041,17 +1123,74 @@ mod tests {
             ("not a url", "", UrlRule::Invalid, vec![]),
         ];
         for (input, effective, rule, warnings) in cases {
-            let preview = preview_url(input, &c);
+            let preview = preview_url(input, Protocol::Responses, &c);
             assert_eq!(preview.rule, rule, "rule for {input:?}");
             assert_eq!(preview.effective_url, effective, "effective for {input:?}");
             assert_eq!(preview.warnings, warnings, "warnings for {input:?}");
         }
     }
 
+    /// Anthropic Messages: the base URL is the root because Claude Code appends `/v1/messages`
+    /// itself — appending `/v1` here would be guide fault B (`…/v1/v1/messages` → 404).
+    #[test]
+    fn anthropic_url_rules_keep_the_root() {
+        use UrlWarning::{AnthropicV1Suffix, DiffersFromCompanyGateway, TrailingSlashRemoved};
+        let mut c = cfg();
+        c.gateway.claude_code = crate::models::ClaudeCodeGateway {
+            base_url: "https://gateway.example.com".into(),
+            default_model: "claude-sonnet-5".into(),
+        };
+        // (input, effective_url, rule, warnings)
+        let cases: Vec<(&str, &str, UrlRule, Vec<UrlWarning>)> = vec![
+            (
+                "https://gateway.example.com",
+                "https://gateway.example.com",
+                UrlRule::RootKept,
+                vec![],
+            ),
+            (
+                "https://gateway.example.com/",
+                "https://gateway.example.com",
+                UrlRule::RootKept,
+                vec![TrailingSlashRemoved],
+            ),
+            (
+                "https://gateway.example.com/v1",
+                "https://gateway.example.com/v1",
+                UrlRule::AlreadyVersioned,
+                vec![AnthropicV1Suffix, DiffersFromCompanyGateway],
+            ),
+            (
+                "https://gateway.example.com/v1#",
+                "https://gateway.example.com/v1",
+                UrlRule::LiteralHash,
+                vec![AnthropicV1Suffix, DiffersFromCompanyGateway],
+            ),
+            (
+                "https://gateway.example.com/anthropic",
+                "https://gateway.example.com/anthropic",
+                UrlRule::CustomPath,
+                vec![DiffersFromCompanyGateway],
+            ),
+        ];
+        for (input, effective, rule, warnings) in cases {
+            let preview = preview_url(input, Protocol::AnthropicMessages, &c);
+            assert_eq!(preview.rule, rule, "rule for {input:?}");
+            assert_eq!(preview.effective_url, effective, "effective for {input:?}");
+            assert_eq!(preview.warnings, warnings, "warnings for {input:?}");
+        }
+        // The same root address is a *different* address for Codex, which wants `/v1`.
+        let codex = preview_url("https://gateway.example.com", Protocol::Responses, &c);
+        assert_eq!(codex.rule, UrlRule::AppendedV1);
+        assert_eq!(codex.effective_url, "https://gateway.example.com/v1");
+        assert!(codex.warnings.is_empty(), "{:?}", codex.warnings);
+    }
+
     #[test]
     fn preview_never_echoes_credentials() {
         let preview = preview_url(
             "https://user:sk-abcdefghijklmnop@gateway.example.com/v1",
+            Protocol::Responses,
             &cfg(),
         );
         assert!(
@@ -1071,7 +1210,7 @@ mod tests {
     fn gateway_comparison_ignores_scheme_case_and_trailing_slash() {
         let mut c = cfg();
         c.gateway.base_url = "HTTPS://Gateway.Example.com/v1/".into();
-        let preview = preview_url("http://gateway.example.com/v1", &c);
+        let preview = preview_url("http://gateway.example.com/v1", Protocol::Responses, &c);
         assert_eq!(preview.warnings, vec![UrlWarning::NotHttps]);
     }
 
@@ -1122,6 +1261,20 @@ mod tests {
         assert!(
             url.contains("endpoint=https%3A%2F%2Fgateway.example.com%2Fv1"),
             "trailing slash normalised and /v1 appended: {url}"
+        );
+    }
+
+    /// The same input hands CC Switch the *root* for Claude Code — the Anthropic client adds
+    /// `/v1/messages` itself, so an endpoint ending in `/v1` would 404.
+    #[test]
+    fn import_url_keeps_the_root_for_claude_code() {
+        let mut req = import_request();
+        req.tool = ToolId::ClaudeCode;
+        req.base_url = "https://gateway.example.com/".into();
+        let url = build_import_url(&req, &cfg()).expect("url");
+        assert!(
+            url.contains("endpoint=https%3A%2F%2Fgateway.example.com&"),
+            "root kept, no /v1: {url}"
         );
     }
 
@@ -1266,7 +1419,7 @@ experimental_bearer_token = \"<API-KEY>\"
         for base in ["", "   ", "not-a-url", "https://"] {
             let mut c = cfg();
             c.gateway.base_url = base.into();
-            let preview = preview_url("https://anything.example.net/v1", &c);
+            let preview = preview_url("https://anything.example.net/v1", Protocol::Responses, &c);
             assert!(
                 !preview
                     .warnings

@@ -7,6 +7,7 @@ import { DiagnosePanel } from "@/features/diagnose/DiagnosePanel";
 import { mergeDiagnoses } from "@/features/diagnose/diagnoses";
 import { useAsync } from "@/hooks";
 import { cn } from "@/lib/cn";
+import { gatewayDefaults } from "@/lib/gateway";
 import { diagnose, listRunningTerminals, trackEvent, verifySetup } from "@/lib/tauri";
 import type { Diagnosis, TerminalProcess, ToolId, VerifyRequest, VerifyResult } from "@/lib/types";
 import { useAppStore } from "@/stores/app";
@@ -15,7 +16,6 @@ import { useWizardStore } from "@/stores/wizard";
 import { CliCheckView, GatewayCheckView, TerminalsAlert } from "./VerifyResultView";
 import {
   baseUrlNeedsHttps,
-  probeProtocol,
   symptomsFromResult,
   toolBinary,
   verifyTelemetryEvent,
@@ -42,9 +42,12 @@ export function VerifyCard({ tool }: VerifyCardProps) {
   const result = useWizardStore((s) => s.verifyResults[tool]);
   const setVerifyResult = useWizardStore((s) => s.setVerifyResult);
 
+  // Address, protocol and model are this tool's own defaults: Claude Code's base URL is the
+  // site root (its client appends /v1/messages) and its model is an Anthropic id.
+  const defaults = gatewayDefaults(config, tool);
   const [gatewayEnabled, setGatewayEnabled] = useState(false);
-  const [baseUrl, setBaseUrl] = useState(config?.gateway.baseUrl ?? "");
-  const [model, setModel] = useState(config?.gateway.defaultModel ?? "");
+  const [baseUrl, setBaseUrl] = useState(defaults.baseUrl);
+  const [model, setModel] = useState(defaults.model);
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
@@ -70,7 +73,7 @@ export function VerifyCard({ tool }: VerifyCardProps) {
     onSuccess: (list: Diagnosis[]) => setExtraDiagnoses(list),
   });
 
-  const protocol = probeProtocol(config, tool);
+  const protocol = defaults.protocol;
   const gatewayFieldsMissing =
     gatewayEnabled && (baseUrl.trim() === "" || model.trim() === "" || apiKey.length === 0);
   const urlNeedsHttps = gatewayEnabled && baseUrlNeedsHttps(baseUrl);

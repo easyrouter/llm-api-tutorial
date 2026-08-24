@@ -10,7 +10,7 @@ import type { Translate } from "@/lib/errors";
 import type { ConfigGuide, GuideBranch, GuideStep, Params, Protocol, ToolId } from "@/lib/types";
 
 const TOOL_IDS: readonly string[] = ["codex", "claude-code"];
-const PROTOCOLS: readonly string[] = ["responses", "chat_completions"];
+const PROTOCOLS: readonly string[] = ["responses", "chat_completions", "anthropic_messages"];
 
 /** `Responses` / `Chat Completions`. */
 export function protocolLabel(t: Translate, protocol: Protocol): string {

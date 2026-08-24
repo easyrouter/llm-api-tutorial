@@ -98,8 +98,9 @@ export const restoreCodexConfig = () => invoke<CodexConfigApplyResult>("restore_
 // M3
 export const getConfigGuide = (tool: ToolId) => invoke<ConfigGuide>("get_config_guide", { tool });
 export const validateApiKey = (key: string) => invoke<KeyValidation>("validate_api_key", { key });
-export const previewEffectiveUrl = (url: string) =>
-  invoke<UrlPreview>("preview_effective_url", { url });
+/** URL rules for one tool's address (the `/v1` handling differs per protocol). */
+export const previewEffectiveUrl = (url: string, tool: ToolId) =>
+  invoke<UrlPreview>("preview_effective_url", { url, tool });
 /** URL rules + key format + (when both allow it) one live gateway probe. */
 export const testConnectivity = (request: GatewayProbeRequest) =>
   invoke<ConnectivityReport>("test_connectivity", { request });

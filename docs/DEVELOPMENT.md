@@ -52,12 +52,16 @@ Rust changes trigger a rebuild.
 - Config override for local testing without touching the bundled preset:
   put an `app-config.json` in the app config dir (`%APPDATA%/com.seedrouter.onboarding/` on
   Windows, `~/Library/Application Support/com.seedrouter.onboarding/` on macOS).
+  The merge is **shallow per top-level key**: an override that contains `gateway` replaces the
+  whole object, so repeat every field you still want — including `claudeCode`. Without it
+  Claude Code falls back to the shared address minus a trailing `/v1`
+  (`config::anthropic_root_of`) and to the shared model.
 
 ## Testing strategy
 
-| layer                                                                                | how                                                                                                             |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Rust pure logic (guide rules, diagnosis rules, redaction, config parsing, URL rules) | unit tests, table-driven                                                                                        |
-| Rust process/network                                                                 | thin, exercised manually via the app + smoke tests using `node --version` when Node is present (skip otherwise) |
-| UI components / stores                                                               | Vitest + Testing Library; `lib/tauri.ts` mocked with `vi.mock`                                                  |
-| End-to-end                                                                           | manual pilot checklist in `docs/RELEASE.md`; fault injection for A–G                                            |
+| layer                                                                                                            | how                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Rust pure logic (guide rules, diagnosis rules, redaction, config parsing + per-tool gateway defaults, URL rules) | unit tests, table-driven                                                                                        |
+| Rust process/network                                                                                             | thin, exercised manually via the app + smoke tests using `node --version` when Node is present (skip otherwise) |
+| UI components / stores                                                                                           | Vitest + Testing Library; `lib/tauri.ts` mocked with `vi.mock`                                                  |
+| End-to-end                                                                                                       | manual pilot checklist in `docs/RELEASE.md`; fault injection for A–G                                            |

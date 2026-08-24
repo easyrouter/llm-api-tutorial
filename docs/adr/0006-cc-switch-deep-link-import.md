@@ -20,7 +20,10 @@ One-click import is implemented as a _hand-off_, not a write:
 
 - `guide::build_import_url` renders the deep link from the values on the configure screen
   (provider name, effective base URL, API key, optional model); `guide::masked_import_url`
-  renders the same link with the key masked.
+  renders the same link with the key masked. The endpoint is the effective URL **for that
+  tool's protocol** (`config::gateway_defaults` / `tool_protocol`): `app=claude` gets the bare
+  root, because Claude Code appends `/v1/messages` to it itself, while `app=codex` gets the
+  `…/v1` form.
 - "Show before run" (hard rule 4) applies: the UI shows the masked link in a confirmation
   dialog first; only after the user confirms does `open_cc_switch_import` open the real link
   via the OS opener. CC Switch then asks for confirmation a second time before importing.

@@ -44,6 +44,7 @@ describe("guide-display", () => {
   it("labels protocols and tools", () => {
     expect(protocolLabel(t, "responses")).toBe("Responses");
     expect(protocolLabel(t, "chat_completions")).toBe("Chat Completions");
+    expect(protocolLabel(t, "anthropic_messages")).toBe("Anthropic Messages");
     expect(toolLabel(t, "codex")).toBe("Codex CLI");
     expect(toolLabel(t, "claude-code")).toBe("Claude Code");
   });

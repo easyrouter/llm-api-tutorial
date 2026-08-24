@@ -6,7 +6,6 @@ import {
   GATEWAY_TARGET,
   baseUrlNeedsHttps,
   primaryErrorClass,
-  probeProtocol,
   symptomsFromResult,
   toolBinary,
   unverifiedTools,
@@ -252,15 +251,7 @@ describe("unverifiedTools / toolBinary", () => {
   });
 });
 
-describe("probeProtocol / baseUrlNeedsHttps", () => {
-  it("uses Anthropic Messages for Claude Code and the preset protocol for Codex", () => {
-    const chat = { gateway: { protocol: "chat_completions" } } as unknown as AppConfig;
-    expect(probeProtocol(chat, "codex")).toBe("chat_completions");
-    expect(probeProtocol(chat, "claude-code")).toBe("anthropic_messages");
-    expect(probeProtocol(null, "codex")).toBe("responses");
-    expect(probeProtocol(null, "claude-code")).toBe("anthropic_messages");
-  });
-
+describe("baseUrlNeedsHttps", () => {
   it("flags every non-https address except loopback and empty input", () => {
     const cases: Array<[string, boolean]> = [
       ["https://gateway.example.com/v1", false],

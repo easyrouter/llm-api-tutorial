@@ -16,7 +16,7 @@
 //! | C     | NoEffectAfterConfig (with or without snapshot)           | session.restart_terminal | Warning  | tool                            | Rerun                               |
 //! | D     | EnvVarConflict / snapshot `env_vars` check Warn or Fail  | env.conflict             | Warning  | names                           | Instructions(env.conflict.instructions.<platform>) |
 //! | E     | CommandNotFound / snapshot tool `installed && !on_path`  | path.not_refreshed       | Blocking | tool, binary, dir               | GoToStep(install), Rerun            |
-//! | F     | ProtocolMismatch / HttpStatus 400/422                    | protocol.mismatch        | Blocking | tool, status?, protocol         | GoToStep(configure)                 |
+//! | F     | ProtocolMismatch / HttpStatus 400/422                    | protocol.mismatch        | Blocking | tool, status?, protocol (of that tool) | GoToStep(configure)          |
 //! | G     | AppBlockedByOs                                           | os.app_blocked           | Warning  | app                             | Instructions(os.app_blocked.instructions.<platform>) |
 //! | NET   | NetworkError / Timeout / snapshot network check unreachable | network.unreachable   | Blocking (Warning when only Warn-level checks) | target | Rerun                  |
 //! | GW    | HttpStatus 429 / 5xx                                     | gateway.upstream         | Warning  | status                          | Rerun                               |
@@ -41,7 +41,7 @@
 //! session.restart_terminal.{title,explanation,steps.close_all_terminals,steps.close_ide_terminals,steps.reopen_and_retry}
 //! env.conflict.{title,explanation,steps.inspect,steps.remove_manually,steps.restart_terminal,instructions.windows,instructions.macos}
 //! path.not_refreshed.{title,explanation,steps.restart_terminal,steps.check_npm_prefix_on_path,steps.reinstall}
-//! protocol.mismatch.{title,explanation,steps.confirm_gateway_protocol,steps.use_responses,steps.use_cc_switch_proxy}
+//! protocol.mismatch.{title,explanation,steps.confirm_gateway_protocol,steps.use_responses,steps.use_cc_switch_proxy,steps.check_anthropic_base_url}
 //! os.app_blocked.{title,explanation,steps.smartscreen_more_info,steps.run_anyway,steps.gatekeeper_open_anyway,steps.remove_quarantine,instructions.windows,instructions.macos}
 //! network.unreachable.{title,explanation,steps.check_vpn_proxy,steps.try_mirror,steps.retry}
 //! gateway.upstream.{title,explanation,steps.wait_retry,steps.contact_support}
@@ -59,7 +59,7 @@ use crate::checks::env_vars;
 use crate::guide::{protocol_key, tool_key};
 use crate::models::{
     AppConfig, CheckId, CheckStatus, DiagnoseRequest, Diagnosis, EnvSnapshot, FixAction, Params,
-    Platform, Severity, Symptom, ToolId, WizardStep,
+    Platform, Protocol, Severity, Symptom, ToolId, WizardStep,
 };
 use crate::redact::redact_secrets;
 
@@ -312,9 +312,10 @@ fn auth_key_checklist(tool: ToolId, status: u16) -> Diagnosis {
 fn url_rule_recheck(tool: ToolId, status: u16, ctx: &Context<'_>) -> Diagnosis {
     let mut params = params([("tool", tool_key(tool))]);
     params.insert("status".into(), status.to_string());
+    // The address this tool should carry — Claude Code's is the root, Codex's ends in `/v1`.
     params.insert(
         "expected_base_url".into(),
-        ctx.config.gateway.base_url.clone(),
+        crate::config::gateway_defaults(&ctx.config.gateway, tool).base_url,
     );
     Diagnosis {
         rule_id: RULE_URL.into(),
@@ -395,9 +396,12 @@ fn path_not_refreshed(tool: ToolId, ctx: &Context<'_>) -> Diagnosis {
 }
 
 fn protocol_mismatch(tool: ToolId, status: Option<u16>, ctx: &Context<'_>) -> Diagnosis {
+    // The protocol *this* tool speaks — Claude Code always Anthropic Messages, whatever the
+    // company preset says for Codex.
+    let protocol = crate::config::tool_protocol(&ctx.config.gateway, tool);
     let mut params = params([
         ("tool", tool_key(tool)),
-        ("protocol", protocol_key(ctx.config.gateway.protocol)),
+        ("protocol", protocol_key(protocol)),
     ]);
     if let Some(status) = status {
         params.insert("status".into(), status.to_string());
@@ -410,11 +414,16 @@ fn protocol_mismatch(tool: ToolId, status: Option<u16>, ctx: &Context<'_>) -> Di
         actions: vec![FixAction::GoToStep {
             step: WizardStep::Configure,
         }],
-        checklist: keys(&[
-            "confirm_gateway_protocol",
-            "use_responses",
-            "use_cc_switch_proxy",
-        ]),
+        // Claude Code has no protocol setting in CC Switch — for it the address is the lever.
+        checklist: if protocol == Protocol::AnthropicMessages {
+            keys(&["confirm_gateway_protocol", "check_anthropic_base_url"])
+        } else {
+            keys(&[
+                "confirm_gateway_protocol",
+                "use_responses",
+                "use_cc_switch_proxy",
+            ])
+        },
     }
 }
 
@@ -543,6 +552,11 @@ mod tests {
     fn cfg() -> AppConfig {
         let mut cfg = config::embedded().expect("embedded config");
         cfg.gateway.base_url = "https://gateway.example.com/v1".into();
+        // Pinned so the tests never depend on the shipped production preset.
+        cfg.gateway.claude_code = crate::models::ClaudeCodeGateway {
+            base_url: "https://gateway.example.com".into(),
+            default_model: "claude-sonnet-5".into(),
+        };
         cfg
     }
 
@@ -788,6 +802,43 @@ mod tests {
             vec![FixAction::GoToStep {
                 step: WizardStep::Configure
             }]
+        );
+    }
+
+    /// Rule B names the address *that tool* should carry: Claude Code's is the root, because
+    /// its client appends `/v1/messages` itself.
+    #[test]
+    fn rule_b_expected_url_is_per_tool() {
+        let d = only(Symptom::HttpStatus {
+            status: 404,
+            tool: ToolId::ClaudeCode,
+        });
+        assert_eq!(p(&d, "expected_base_url"), "https://gateway.example.com");
+    }
+
+    /// Rule F reports the protocol *that tool* speaks, and Claude Code gets the address
+    /// checklist instead of "switch the protocol to Responses" (it has no protocol setting).
+    #[test]
+    fn rule_f_is_per_tool() {
+        let codex = only(Symptom::ProtocolMismatch {
+            tool: ToolId::Codex,
+        });
+        assert_eq!(p(&codex, "protocol"), "responses");
+        assert!(
+            codex.checklist.iter().any(|s| s == "use_responses"),
+            "{codex:?}"
+        );
+
+        let claude = only(Symptom::ProtocolMismatch {
+            tool: ToolId::ClaudeCode,
+        });
+        assert_eq!(p(&claude, "protocol"), "anthropic_messages");
+        assert_eq!(
+            claude.checklist,
+            vec![
+                "confirm_gateway_protocol".to_owned(),
+                "check_anthropic_base_url".to_owned()
+            ]
         );
     }
 

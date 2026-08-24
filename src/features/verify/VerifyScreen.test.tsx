@@ -18,6 +18,8 @@ import { mockInvoke, rejectWith, setInvokeHandlers, wireError } from "@/test/moc
 import { VerifyScreen } from "./VerifyScreen";
 
 const BASE_URL = "https://gateway.example.com/v1";
+/** Claude Code's own address: the root — its client appends `/v1/messages` itself. */
+const CLAUDE_BASE_URL = "https://gateway.example.com";
 
 const config: AppConfig = {
   schemaVersion: 1,
@@ -28,6 +30,7 @@ const config: AppConfig = {
     presetProviderName: "Service Gateway",
     defaultModel: "gpt-5-codex",
     defaultReasoningEffort: "",
+    claudeCode: { baseUrl: CLAUDE_BASE_URL, defaultModel: "claude-sonnet-5" },
   },
   tools: [
     {
@@ -332,22 +335,34 @@ describe("VerifyScreen", () => {
     const card = screen.getByTestId("verify-card-claude-code");
     fireEvent.click(within(card).getByTestId("gateway-toggle"));
     expect(card).toHaveTextContent("Protocol: Anthropic Messages");
-    fireEvent.change(within(card).getByTestId("gateway-model"), {
-      target: { value: "claude-sonnet-4-5" },
-    });
     fireEvent.change(within(card).getByTestId("gateway-key"), { target: { value: "sk-ant-key" } });
     await clickVerify();
     expect(mockInvoke).toHaveBeenCalledWith("verify_setup", {
       request: {
         tool: "claude-code",
         gateway: {
-          baseUrl: BASE_URL,
+          // Claude Code's own preset: the root address and the Anthropic model.
+          baseUrl: CLAUDE_BASE_URL,
           apiKey: "sk-ant-key",
-          model: "claude-sonnet-4-5",
+          model: "claude-sonnet-5",
           protocol: "anthropic_messages",
         },
       },
     });
+  });
+
+  it("pre-fills each card with that tool's gateway defaults", () => {
+    useWizardStore.getState().setSelectedTools(["codex", "claude-code"]);
+    render(<VerifyScreen />);
+    const codex = within(screen.getByTestId("verify-card-codex"));
+    fireEvent.click(codex.getByTestId("gateway-toggle"));
+    expect(codex.getByTestId("gateway-url")).toHaveValue(BASE_URL);
+    expect(codex.getByTestId("gateway-model")).toHaveValue("gpt-5-codex");
+
+    const claude = within(screen.getByTestId("verify-card-claude-code"));
+    fireEvent.click(claude.getByTestId("gateway-toggle"));
+    expect(claude.getByTestId("gateway-url")).toHaveValue(CLAUDE_BASE_URL);
+    expect(claude.getByTestId("gateway-model")).toHaveValue("claude-sonnet-5");
   });
 
   it("warns inline when the gateway address is not https", () => {

@@ -41,7 +41,7 @@
     "provider_selected": "确认在 CC Switch 中已「切换 / 使用」新添加的供应商，而不是别的。",
     "key_valid": "到发放 Key 的平台确认 Key 是否有效（未过期、未撤销、已开通）。",
     "trailing_slash": "去掉地址结尾多余的斜杠（工具会自动处理，但请核对）。",
-    "v1_suffix": "确认地址是否需要 /v1：只填域名会自动补上；已带 /v1 的原样使用。",
+    "v1_suffix": "确认地址是否需要 /v1：Codex 只填域名时会自动补上，Claude Code 则相反——保持域名即可（它会自己补 /v1/messages）。请对照上面的预期地址。",
     "hash_literal": "如果地址结尾有 #，表示按字面使用——只有网关明确要求时才这样填。",
     "close_all_terminals": "关闭所有终端窗口（Windows Terminal、PowerShell、CMD、Git Bash、macOS 终端 / iTerm）。",
     "close_ide_terminals": "退出 VS Code、Cursor 等编辑器，它们的内置终端也带着旧环境。",
@@ -51,8 +51,9 @@
     "restart_terminal": "改完后关闭所有终端窗口，重新打开再试。",
     "check_npm_prefix_on_path": "在新终端执行 npm prefix -g，确认输出的目录（macOS 为其下的 bin）在 PATH 里。",
     "reinstall": "如果仍然找不到命令，回到「安装」步骤重新安装。",
-    "confirm_gateway_protocol": "确认要连接的网关支持哪种协议（服务网关支持 Responses）。",
+    "confirm_gateway_protocol": "确认要连接的网关支持哪种协议——服务网关对 Codex 使用 Responses，对 Claude Code 使用 Anthropic Messages。",
     "use_responses": "在 CC Switch 中把协议改为 Responses。",
+    "check_anthropic_base_url": "Claude Code 没有协议选项，关键在地址：必须是不带 /v1 的域名，因为它会自己补 /v1/messages。",
     "use_cc_switch_proxy": "如果目标只支持 Chat Completions，请在 CC Switch 中启用本地代理进行协议转换。",
     "smartscreen_more_info": "Windows：在「Windows 已保护你的电脑」窗口点「更多信息」。",
     "run_anyway": "然后点「仍要运行」。",
@@ -81,7 +82,7 @@
       "explanation": "网关能连上，但路径不存在，通常是 API 地址填得不对。最稳妥的做法：回到「配置」页把显示的地址原样复制过去。地址处理规则：",
       "steps": {
         "trailing_slash": "结尾的斜杠会被自动去掉——不用自己加。",
-        "v1_suffix": "只填域名（如 https://gateway.example.com）时会自动补上 /v1；已经带 /v1 的地址原样使用。",
+        "v1_suffix": "对 Codex：只填域名（如 https://gateway.example.com）时会自动补上 /v1，已带 /v1 的地址原样使用。对 Claude Code 恰好相反：地址保持域名不加 /v1，因为它会自己补 /v1/messages——带 /v1 的地址会变成 …/v1/v1/messages 并返回 404。",
         "hash_literal": "结尾加 # 表示「按字面使用，别再追加任何路径」——只有网关明确要求时才用。"
       }
     }
@@ -126,11 +127,12 @@
   "protocol": {
     "mismatch": {
       "title": "协议不匹配（400 / 422，或返回内容格式怪异）",
-      "explanation": "Codex 使用 Responses 协议；服务网关支持并推荐 Responses，正常不会遇到这个问题。如果你连接的是只支持 Chat Completions 的其他服务，需要转换协议或换地址。",
+      "explanation": "工具与地址对请求格式的理解不一致。Codex 使用 Responses，服务网关支持并推荐；Claude Code 使用 Anthropic Messages，且没有协议选项，完全由地址决定。连服务网关时正常不会遇到，请先检查地址；如果连接的是其他服务，则需要转换协议或换地址。",
       "steps": {
-        "confirm_gateway_protocol": "确认要连接的网关支持哪种协议（服务网关支持 Responses）。",
+        "confirm_gateway_protocol": "确认要连接的网关支持哪种协议——服务网关对 Codex 使用 Responses，对 Claude Code 使用 Anthropic Messages。",
         "use_responses": "在 CC Switch 的供应商设置里把协议改为 Responses，保存并切换。",
-        "use_cc_switch_proxy": "如果目标只支持 Chat Completions，请在 CC Switch 中启用它的本地代理进行协议转换，或换用支持 Responses 的地址。"
+        "use_cc_switch_proxy": "如果目标只支持 Chat Completions，请在 CC Switch 中启用它的本地代理进行协议转换，或换用支持 Responses 的地址。",
+        "check_anthropic_base_url": "Claude Code 没有协议选项，关键在地址：必须是不带 /v1 的域名，因为它会自己补 /v1/messages。改完后请在「配置」步骤重新测一次连通性。"
       }
     }
   },

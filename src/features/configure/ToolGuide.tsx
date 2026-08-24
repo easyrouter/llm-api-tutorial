@@ -2,11 +2,9 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Alert, ErrorBanner, Spinner } from "@/components/ui";
-import { probeProtocol } from "@/features/verify/verify-logic";
 import { useAsync } from "@/hooks";
 import { getConfigGuide } from "@/lib/tauri";
 import type { ConfigGuide, GuideBranch, ToolId } from "@/lib/types";
-import { useAppStore } from "@/stores/app";
 
 import { AccountPathCard } from "./AccountPathCard";
 import { CcSwitchImportCard } from "./CcSwitchImportCard";
@@ -56,7 +54,6 @@ export function ToolGuide({ tool }: ToolGuideProps) {
  */
 function LoadedGuide({ guide }: { guide: ConfigGuide }) {
   const { t } = useTranslation();
-  const config = useAppStore((s) => s.config);
   const isCodex = guide.tool === "codex";
   const [branch, setBranch] = useState<GuideBranch>("api_key");
   const activeBranch: GuideBranch | null = isCodex ? branch : null;
@@ -64,7 +61,8 @@ function LoadedGuide({ guide }: { guide: ConfigGuide }) {
   const [baseUrl, setBaseUrl] = useState(guide.preset.baseUrl);
   const [model, setModel] = useState(guide.preset.modelHint);
   const [apiKey, setApiKey] = useState("");
-  const protocol = probeProtocol(config, guide.tool);
+  // Resolved per tool by the Rust core: Anthropic Messages for Claude Code.
+  const protocol = guide.preset.protocol;
 
   return (
     <div className="space-y-5" data-testid={`tool-guide-${guide.tool}`}>
