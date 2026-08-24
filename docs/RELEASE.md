@@ -10,25 +10,23 @@ download page (PRD #11). Every distributed build must be signed (PRD #12).
 2. `git commit -m "chore(release): vX.Y.Z"` on a `release/vX.Y.Z` branch → PR → merge → tag
    `vX.Y.Z` on `main`.
 
-## Pilot test builds
+## Releases
 
-From `v0.1.0-test.6` only **one** build ships: the one carrying the optional Codex Fast UI
-toolkit (ADR-0007). The `-patched` suffix existed to tell the two pilot builds apart in the
-installer file name; with a single build there is nothing left to tell apart, so it is gone,
-and the two pilot branches were replaced by a single `pilot` branch.
+| branch | version | tag      |
+| ------ | ------- | -------- |
+| `main` | `0.1.0` | `v0.1.0` |
 
-| branch  | version        | tag             | contains the patch |
-| ------- | -------------- | --------------- | ------------------ |
-| `pilot` | `0.1.0-test.7` | `v0.1.0-test.7` | yes                |
+`v0.1.0` (2026-08-24) is the first stable release: `pilot` merged into `main`, tagged there.
+Development continues on `pilot` and lands in `main` per release.
 
-Rounds up to `v0.1.0-test.5` shipped two tags each (`vX-test.N` from
-`feat/onboarding-revisions`, `vX-test.N-patched` from `feat/codex-fast-ui`); those tags and
-their releases are left as they are, but both branches are gone — everything they contained is
-an ancestor of `pilot`.
+The pilot rounds `v0.1.0-test.1` … `v0.1.0-test.7` and their GitHub releases were deleted when
+`v0.1.0` was cut — everything they contained is an ancestor of this tag. Only one build has
+shipped since `v0.1.0-test.6`: the one carrying the optional Codex Fast UI toolkit (ADR-0007),
+which is why the `-patched` tag suffix and the second pilot branch are gone.
 
-The build is a pre-release and unsigned until Q-12 is answered. Build it with
-_Actions → Release → Run workflow_ on the branch, or by pushing its tag. NSIS accepts the
-semver pre-release suffix; the DMG is unaffected.
+Builds stay **unsigned pre-releases until Q-12 is answered**: `create-release` forces
+`--prerelease` unless both signing secrets exist, because an unsigned build is never a stable
+release (PRD #12). Build with _Actions → Release → Run workflow_, or by pushing the tag.
 
 ## Build
 
@@ -126,6 +124,9 @@ smoke tests, and cloud signing services bill per signature.
 
 - [ ] Clean Windows 10/11 VM: zero → `codex --version` + gateway probe OK without reading docs
 - [ ] Clean macOS 12+ VM: same
+- [ ] Claude Code path checked too: its preset address is the **root** (no `/v1`) and its model is
+      the Anthropic one (`app-config.json` → `gateway.claudeCode`); `claude --version` + gateway
+      probe OK
 - [ ] Fault injection — each of A–G reproduced and correctly diagnosed with an actionable fix
 - [ ] Both languages reviewed by a native reader
 - [ ] Diagnostic report contains no secrets (search for `sk-`, `Bearer`, key fragments)

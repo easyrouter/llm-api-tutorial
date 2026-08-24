@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-24
+
+First stable release. Everything below shipped through the `v0.1.0-test.1` … `v0.1.0-test.7`
+pilot rounds and is collected here.
+
+### Added (branding)
+
+- The SeedRouter logo is the application icon: installer, executable, window and taskbar,
+  Windows Store tiles and the macOS `.icns`, plus the app header and the webview favicon. The
+  source lives at `app-icon.png`; regenerate the set with `npx tauri icon app-icon.png`
+  (the Android / iOS output it also writes is git-ignored — this app ships Windows + macOS).
+
 ### Added (one-click remediation, ADR-0008)
 
 - One-click **Node.js install** from the env-check / install step: the network probe picks the
@@ -42,6 +54,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   troubleshooting / FAQ / overview pages updated; ADR-0008; ADR-0003 superseded in part;
   `CLAUDE.md` hard rules 1–4, `docs/ARCHITECTURE.md`, `docs/OPEN_QUESTIONS.md` (PRD #4/#7/#17
   revised 2026-08-19; Q-OC1–Q-OC3) and `README.md` aligned.
+
+### Added (per-tool gateway preset)
+
+- **Claude Code has its own gateway defaults** (`app-config.json` → `gateway.claudeCode`):
+  model `claude-sonnet-5` and address `https://seedrouter.net` — the **root**, because Claude
+  Code appends `/v1/messages` to `ANTHROPIC_BASE_URL` itself, so the Codex address
+  (`…/v1`) would produce `…/v1/v1/messages` → 404 (guide fault B). Codex keeps
+  `https://seedrouter.net/v1` + `gpt-5.6-sol`. Both remain user-editable everywhere.
+  Resolved through `config::gateway_defaults` (Rust) / `gatewayDefaults` (`src/lib/gateway.ts`);
+  an empty override field falls back to the shared value, so an intranet override that replaces
+  the whole `gateway` object keeps working — the address falls back to the shared one **minus a
+  trailing `/v1`** (`config::anthropic_root_of`), never to an address that would 404. New DTO
+  field `GatewayPreset.claudeCode`.
+- The URL rules are protocol-aware: for `anthropic_messages` a bare origin stays the root
+  (new rule `root_kept` instead of `appended_v1`), and an address ending in `/v1` gets the new
+  `anthropic_v1_suffix` warning. This applies to the configure step's connectivity test, the
+  one-click CC Switch import endpoint and the verify card. `preview_effective_url` now takes a
+  `tool`.
+- Diagnosis rules follow the tool: rule B's `expected_base_url` is that tool's address (and the
+  `v1_suffix` checklist explains both rules instead of only the Codex one); rule F reports the
+  protocol the tool actually speaks — for Claude Code `anthropic_messages` with the new
+  `check_anthropic_base_url` checklist step, since it has no protocol setting in CC Switch (it
+  previously always said "Responses"). The diagnostic report prints both gateway addresses.
+- Offline help (`resources/docs/{en,zh-CN}/troubleshooting.md`, `configure-cc-switch.md`) states
+  the address rule per tool, including the `…/v1/v1/messages` → 404 failure mode.
 
 ### Changed (one-click remediation)
 
