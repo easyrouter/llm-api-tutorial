@@ -24,13 +24,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-3 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-base font-semibold">{t("app.name")}</h1>
-          {info && (
-            <span className="text-xs text-neutral-500">
-              {t("app.version", { version: info.version })}
-            </span>
-          )}
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="" aria-hidden className="size-6 shrink-0" />
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-base font-semibold">{t("app.name")}</h1>
+            {info && (
+              <span className="text-xs text-neutral-500">
+                {t("app.version", { version: info.version })}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
