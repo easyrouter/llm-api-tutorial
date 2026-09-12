@@ -23,12 +23,12 @@ use crate::install;
 use crate::models::{
     AppConfig, AppInfo, CcSwitchImportPreview, CcSwitchImportRequest, CheckId, CheckResult,
     CodexConfigApplyRequest, CodexConfigApplyResult, CodexConfigRequest, CodexConfigStatus,
-    ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis, DiagnosticReport, DocPage,
-    DocsIndex, DownloadRequest, DownloadResult, EnvCleanupPlan, EnvCleanupResult, EnvSnapshot,
-    FastUiAction, FastUiJob, FastUiPlan, FastUiStatus, GatewayProbeRequest, InstallJob,
-    InstallPlan, InstallTarget, InstallerRelease, KeyValidation, MirrorChoice, ModelList,
-    PathRepairPlan, PathRepairResult, SystemUri, TelemetryEvent, TelemetryStatus, TerminalProcess,
-    ToolId, UrlPreview, UrlRule, VerifyRequest, VerifyResult,
+    CodexConfigTemplate, ConfigGuide, ConnectivityReport, DiagnoseRequest, Diagnosis,
+    DiagnosticReport, DocPage, DocsIndex, DownloadRequest, DownloadResult, EnvCleanupPlan,
+    EnvCleanupResult, EnvSnapshot, FastUiAction, FastUiJob, FastUiPlan, FastUiStatus,
+    GatewayProbeRequest, InstallJob, InstallPlan, InstallTarget, InstallerRelease, KeyValidation,
+    MirrorChoice, ModelList, PathRepairPlan, PathRepairResult, SystemUri, TelemetryEvent,
+    TelemetryStatus, TerminalProcess, ToolId, UrlPreview, UrlRule, VerifyRequest, VerifyResult,
 };
 use crate::platform::expand_tilde;
 use crate::remediate;
@@ -404,14 +404,15 @@ pub async fn list_gateway_models(
 }
 
 /// Renders the recommended Codex `config.toml` template (editable in the UI before the user
-/// pastes it into CC Switch). Carries no key: the template contains a placeholder the UI
-/// substitutes at copy time.
+/// pastes it into CC Switch) together with the two limits it embeds, so the UI quotes them
+/// instead of hard-coding the numbers. Carries no key: the template contains a placeholder the
+/// UI substitutes at copy time.
 #[tauri::command]
 pub fn get_codex_config_template(
     request: CodexConfigRequest,
     state: State<'_, AppState>,
-) -> AppResult<String> {
-    Ok(guide::codex_config_template(
+) -> AppResult<CodexConfigTemplate> {
+    Ok(guide::codex_config_template_response(
         &request,
         &state.config_snapshot().config,
     ))

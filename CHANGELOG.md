@@ -5,6 +5,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Changed (gateway preset)
+
+- **The Codex preset model is `gpt-6-astra`** (GPT-6 Astra, released 2026-09-03/04; Codex CLI
+  0.153.4 made it its bundled default). The company gateway lists it in `GET /models` and
+  answers `POST /responses` for it, so the wizard now suggests it everywhere the Codex preset
+  shows up — the values card, the `set_model` step, the connectivity test and the `config.toml`
+  template (`app-config.json` → `gateway.defaultModel`). `gpt-5.6-sol` stays selectable; nothing
+  else in the preset changed and every value remains user-editable (Q-M3 in
+  `docs/OPEN_QUESTIONS.md`; Claude Code keeps `claude-sonnet-5`).
+- The template's `model_context_window = 372000` / `model_auto_compact_token_limit = 300000`
+  are unchanged on purpose: Codex's bundled model catalog lists `gpt-6-astra` and `gpt-5.6-sol`
+  with identical `context_window` (272000) / `max_context_window` (872000), so IT's numbers
+  (Q-M1) apply to both models.
+- `get_codex_config_template` returns a `CodexConfigTemplate` DTO (`toml` + `modelContextWindow`
+  + `modelAutoCompactTokenLimit`) instead of a bare string, and the config card quotes those
+  numbers — and the live model name — through parametrised strings: `guide:config.description`
+  (`{{model}}`, with the new `guide:config.modelFallback` when the field is blank),
+  `guide:config.scopeHint` (`{{limit}}`) and
+  `guide:config.scope.body_after_prefix.explanation` (`{{context}}`, rendered as `372k`). Before
+  the first template response the two strings that quote a number are left out rather than
+  showing a placeholder. The copy previously hard-coded `gpt-5.6-sol`, `300000` and `372k`,
+  which is how a model change could have left the text stale without any test noticing.
+
 ## [0.1.0] - 2026-08-24
 
 First stable release. Everything below shipped through the `v0.1.0-test.1` … `v0.1.0-test.7`

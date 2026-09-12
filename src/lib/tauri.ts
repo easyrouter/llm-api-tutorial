@@ -16,6 +16,7 @@ import type {
   CodexConfigApplyResult,
   CodexConfigRequest,
   CodexConfigStatus,
+  CodexConfigTemplate,
   ConfigGuide,
   ConnectivityReport,
   DiagnoseRequest,
@@ -107,9 +108,12 @@ export const testConnectivity = (request: GatewayProbeRequest) =>
 /** `GET {base}/models` with the user's key; `request.model` is ignored. */
 export const listGatewayModels = (request: GatewayProbeRequest) =>
   invoke<ModelList>("list_gateway_models", { request });
-/** Recommended Codex config.toml (editable template; key placeholder substituted on copy). */
+/**
+ * Recommended Codex config.toml: the editable template (key placeholder substituted on copy)
+ * plus the two limits it embeds, quoted by the card's copy.
+ */
 export const getCodexConfigTemplate = (request: CodexConfigRequest) =>
-  invoke<string>("get_codex_config_template", { request });
+  invoke<CodexConfigTemplate>("get_codex_config_template", { request });
 /** Masked `ccswitch://` import link for the confirmation dialog. */
 export const previewCcSwitchImport = (request: CcSwitchImportRequest) =>
   invoke<CcSwitchImportPreview>("preview_cc_switch_import", { request });
