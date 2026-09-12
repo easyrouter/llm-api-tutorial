@@ -9,20 +9,20 @@ import { CodexFastUiCard } from "./CodexFastUiCard";
 
 const INSTALL_ROOT = String.raw`C:\Users\me\AppData\Local\SeedRouter\CodexFastUI`;
 const SHORTCUT = String.raw`${INSTALL_ROOT}\Codex Fast UI.lnk`;
-const SHA256 = "3f1e6ae7c46ad0dbb1849f4f3ebab6798becb485bb1f10e73085cd702e48dc2a";
+const SHA256 = "42033cdeb7f415fd8bbce6e2d64ab1edc6dbc2dc3c3ee3a6203ab4afe004b6d1";
 const COMMAND =
   String.raw`powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ` +
-  String.raw`"C:\cache\codex-fast-ui\v\CodexFastUI-Minimal-2026.07.30\install.ps1" ` +
+  String.raw`"C:\cache\codex-fast-ui\v\CodexFastUI-Minimal-2026.09.12\install.ps1" ` +
   `-OutputRoot "${INSTALL_ROOT}"`;
 
 function status(overrides: Partial<FastUiStatus> = {}): FastUiStatus {
   return {
     supported: true,
-    toolkitVersion: "2026.07.30-minimal",
-    testedCodexBuild: "OpenAI.Codex 26.721.11231.0",
+    toolkitVersion: "2026.09.12-minimal",
+    testedCodexBuild: "OpenAI.Codex 26.903.8094.0 / 26.908.4834.0",
     toolkitAvailable: true,
     codexAppFound: true,
-    codexAppPath: String.raw`C:\Program Files\WindowsApps\OpenAI.Codex_26.721.11231.0_x64`,
+    codexAppPath: String.raw`C:\Program Files\WindowsApps\OpenAI.Codex_26.908.4834.0_x64__2p2nqsd0c76g0`,
     installed: false,
     installRoot: INSTALL_ROOT,
     shortcutPath: SHORTCUT,
@@ -36,7 +36,7 @@ const installPlan: FastUiPlan = {
   displayCommand: COMMAND,
   installRoot: INSTALL_ROOT,
   shortcutPath: SHORTCUT,
-  toolkitVersion: "2026.07.30-minimal",
+  toolkitVersion: "2026.09.12-minimal",
   toolkitSha256: SHA256,
   reinstall: false,
 };
@@ -66,7 +66,7 @@ describe("CodexFastUiCard", () => {
     const card = await screen.findByTestId("codex-fast-ui");
 
     // The unofficial-patch caveat names the tested build, and nothing has run yet.
-    expect(card).toHaveTextContent("OpenAI.Codex 26.721.11231.0");
+    expect(card).toHaveTextContent("OpenAI.Codex 26.903.8094.0 / 26.908.4834.0");
     expect(mockInvoke).not.toHaveBeenCalledWith("start_codex_fast_ui", expect.anything());
 
     fireEvent.click(screen.getByTestId("fast-ui-install"));

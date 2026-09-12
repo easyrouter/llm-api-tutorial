@@ -737,6 +737,18 @@ pub struct CodexConfigRequest {
     pub auto_compact_scope: AutoCompactScope,
 }
 
+/// Response of `get_codex_config_template` (`guide::codex_config_template_response`): the
+/// rendered `config.toml` — still carrying the `<API-KEY>` placeholder — plus the two limits it
+/// embeds (`model_context_window` / `model_auto_compact_token_limit`), so the UI quotes them in
+/// its copy instead of hard-coding the numbers a second time.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfigTemplate {
+    pub toml: String,
+    pub model_context_window: u64,
+    pub model_auto_compact_token_limit: u64,
+}
+
 // ---------------------------------------------------------------------------
 // Optional Codex Fast UI toolkit — Windows only (ADR-0007)
 // ---------------------------------------------------------------------------
@@ -1147,5 +1159,25 @@ mod tests {
             }
             other => panic!("unexpected symptom: {other:?}"),
         }
+    }
+
+    /// `CodexConfigTemplate` crosses IPC with the names `src/lib/types.ts` reads; the card would
+    /// otherwise quote `undefined` for both limits.
+    #[test]
+    fn codex_config_template_fields_are_camel_case_like_the_typescript_mirror() {
+        let value = serde_json::to_value(CodexConfigTemplate {
+            toml: "model = \"gpt-6-astra\"\n".into(),
+            model_context_window: 372_000,
+            model_auto_compact_token_limit: 300_000,
+        })
+        .expect("serialize");
+        assert_eq!(value["toml"], "model = \"gpt-6-astra\"\n");
+        assert_eq!(value["modelContextWindow"], 372_000);
+        assert_eq!(value["modelAutoCompactTokenLimit"], 300_000);
+        assert!(value.get("model_context_window").is_none(), "{value}");
+        assert!(
+            value.get("model_auto_compact_token_limit").is_none(),
+            "{value}"
+        );
     }
 }

@@ -84,9 +84,9 @@ use url::{form_urlencoded, Position, Url};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    AppConfig, AutoCompactScope, CcSwitchImportRequest, CheckId, CodexConfigRequest, ConfigGuide,
-    GuideBranch, GuideStep, KeyIssue, KeyValidation, Params, Protocol, ProviderPreset, ToolId,
-    UrlPreview, UrlRule, UrlWarning,
+    AppConfig, AutoCompactScope, CcSwitchImportRequest, CheckId, CodexConfigRequest,
+    CodexConfigTemplate, ConfigGuide, GuideBranch, GuideStep, KeyIssue, KeyValidation, Params,
+    Protocol, ProviderPreset, ToolId, UrlPreview, UrlRule, UrlWarning,
 };
 use crate::redact::{mask_value, redact_secrets};
 
@@ -643,6 +643,21 @@ pub fn codex_config_template(req: &CodexConfigRequest, config: &AppConfig) -> St
         toml_quote(CODEX_CONFIG_KEY_PLACEHOLDER)
     ));
     format!("{}\n", lines.join("\n"))
+}
+
+/// [`codex_config_template`] plus the two limits it embeds, so the UI can quote
+/// `model_context_window` / `model_auto_compact_token_limit` in its copy without duplicating
+/// the constants (they are the same for every model the template renders — Codex's bundled
+/// catalog lists `gpt-6-astra` and `gpt-5.6-sol` with identical context numbers). Pure.
+pub fn codex_config_template_response(
+    req: &CodexConfigRequest,
+    config: &AppConfig,
+) -> CodexConfigTemplate {
+    CodexConfigTemplate {
+        toml: codex_config_template(req, config),
+        model_context_window: CODEX_MODEL_CONTEXT_WINDOW,
+        model_auto_compact_token_limit: CODEX_AUTO_COMPACT_TOKEN_LIMIT,
+    }
 }
 
 #[cfg(test)]
@@ -1351,6 +1366,68 @@ experimental_bearer_token = \"<API-KEY>\"
                 .and_then(|p| p.get("experimental_bearer_token"))
                 .and_then(toml::Value::as_str),
             Some(CODEX_CONFIG_KEY_PLACEHOLDER)
+        );
+    }
+
+    #[test]
+    fn codex_config_template_renders_gpt_6_astra_with_the_same_limits() {
+        // GPT-6 Astra is the Codex preset since 2026-09-12 (Q-M3). Codex's bundled catalog
+        // lists it with the same context_window / max_context_window as gpt-5.6-sol, so IT's
+        // numbers apply unchanged — only the model line differs from the Sol spec above.
+        let mut req = codex_config_request();
+        req.model = "gpt-6-astra".into();
+        let rendered = codex_config_template(&req, &cfg());
+        assert!(
+            rendered.starts_with("model = \"gpt-6-astra\"\n"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("\nmodel_reasoning_effort = \"medium\"\n"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("\nmodel_context_window = 372000\n"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("\nmodel_auto_compact_token_limit = 300000\n"),
+            "{rendered}"
+        );
+        let parsed: toml::Value = toml::from_str(&rendered).expect("valid TOML");
+        assert_eq!(
+            parsed.get("model").and_then(toml::Value::as_str),
+            Some("gpt-6-astra")
+        );
+        assert_eq!(
+            parsed
+                .get("model_reasoning_effort")
+                .and_then(toml::Value::as_str),
+            Some("medium")
+        );
+    }
+
+    #[test]
+    fn codex_config_template_response_carries_exactly_the_rendered_limits() {
+        let req = codex_config_request();
+        let response = codex_config_template_response(&req, &cfg());
+        assert_eq!(response.toml, codex_config_template(&req, &cfg()));
+        // The DTO numbers must be the ones in the toml — parse it rather than trust the
+        // constants, so the two can never drift apart.
+        let parsed: toml::Value = toml::from_str(&response.toml).expect("valid TOML");
+        let rendered = |key: &str| {
+            parsed
+                .get(key)
+                .and_then(toml::Value::as_integer)
+                .and_then(|n| u64::try_from(n).ok())
+                .expect(key)
+        };
+        assert_eq!(
+            rendered("model_context_window"),
+            response.model_context_window
+        );
+        assert_eq!(
+            rendered("model_auto_compact_token_limit"),
+            response.model_auto_compact_token_limit
         );
     }
 

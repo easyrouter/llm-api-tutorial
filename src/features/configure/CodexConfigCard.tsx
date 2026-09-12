@@ -13,7 +13,12 @@ import {
   getCodexConfigTemplate,
   restoreCodexConfig,
 } from "@/lib/tauri";
-import type { AutoCompactScope, CodexConfigApplyResult, ProviderPreset } from "@/lib/types";
+import type {
+  AutoCompactScope,
+  CodexConfigApplyResult,
+  CodexConfigTemplate,
+  ProviderPreset,
+} from "@/lib/types";
 
 /** Must match `guide::CODEX_CONFIG_KEY_PLACEHOLDER` on the Rust side. */
 export const CODEX_CONFIG_KEY_PLACEHOLDER = "<API-KEY>";
@@ -47,15 +52,38 @@ function maskedPreview(template: string, apiKey: string): string {
   return key === "" ? template : template.split(CODEX_CONFIG_KEY_PLACEHOLDER).join(maskSecret(key));
 }
 
+/** The two limits the template embeds, formatted for the card's copy. */
+interface TemplateLimits {
+  /** `model_auto_compact_token_limit` as typed in the file, e.g. `300000`. */
+  limit: string;
+  /** `model_context_window` rounded to thousands, e.g. `372k`. */
+  contextWindow: string;
+}
+
+/**
+ * `null` until the first template response (and for a missing one), so the strings that quote
+ * a number are left out instead of rendering `undefined` / `NaN`. Re-runs keep the previous
+ * response's numbers — `useAsync` holds `data` while a new run is in flight.
+ */
+function templateLimits(template: CodexConfigTemplate | null): TemplateLimits | null {
+  if (!template) return null;
+  return {
+    limit: String(template.modelAutoCompactTokenLimit),
+    contextWindow: `${Math.round(template.modelContextWindow / 1000)}k`,
+  };
+}
+
 /**
  * Recommended Codex `config.toml` (codex tab only): rendered by the Rust core from the live
- * provider values and shown in an *editable* text box, so users can tune any default (e.g. a
- * stricter `model_auto_compact_token_limit`) before applying it. The primary action writes the
- * file to `~/.codex/config.toml` (show-before-run dialog with a masked preview, automatic
- * backup, one-click restore); copying stays available for users who prefer to paste it into
- * CC Switch themselves. The template carries an `<API-KEY>` placeholder; the real key is
- * substituted only into the copied / written text, never shown on screen. Manual edits freeze
- * auto-regeneration until the user explicitly restores the generated template.
+ * provider values (`CodexConfigTemplate`: the toml plus the two limits it embeds, which the
+ * card's copy quotes instead of hard-coding them) and shown in an *editable* text box, so users
+ * can tune any default (e.g. a stricter `model_auto_compact_token_limit`) before applying it.
+ * The primary action writes the file to `~/.codex/config.toml` (show-before-run dialog with a
+ * masked preview, automatic backup, one-click restore); copying stays available for users who
+ * prefer to paste it into CC Switch themselves. The template carries an `<API-KEY>`
+ * placeholder; the real key is substituted only into the copied / written text, never shown on
+ * screen. Manual edits freeze auto-regeneration until the user explicitly restores the
+ * generated template.
  */
 export function CodexConfigCard({
   preset,
@@ -73,12 +101,14 @@ export function CodexConfigCard({
   const { copied, failed, copy } = useCopy();
 
   const template = useAsync(getCodexConfigTemplate, {
-    onSuccess: (toml: string) => {
-      if (!editedRef.current) setText(toml);
+    onSuccess: (response: CodexConfigTemplate) => {
+      if (!editedRef.current) setText(response.toml);
     },
   });
   const { run } = template;
   const reasoningEffort = preset.reasoningEffortHint;
+  const limits = templateLimits(template.data);
+  const liveModel = model.trim();
 
   useEffect(() => {
     if (edited) return undefined;
@@ -116,35 +146,67 @@ export function CodexConfigCard({
     void copy(substituteKey(text, apiKey));
   };
 
+  /**
+   * The `body_after_prefix` explanation quotes the context window, so it waits for the numbers;
+   * `total` has nothing to interpolate. (The placeholder is `contextWindow`, not `context`: a
+   * value named `context` would double as i18next's context option.)
+   */
+  const scopeExplanation = (value: AutoCompactScope): string | null => {
+    if (value !== "body_after_prefix") return t(`guide:config.scope.${value}.explanation`);
+    return limits
+      ? t("guide:config.scope.body_after_prefix.explanation", {
+          contextWindow: limits.contextWindow,
+        })
+      : null;
+  };
+
   return (
-    <Card title={t("guide:config.title")} description={t("guide:config.description")}>
+    <Card
+      title={t("guide:config.title")}
+      description={t("guide:config.description", {
+        model: liveModel === "" ? t("guide:config.modelFallback") : liveModel,
+      })}
+      data-testid="codex-config-card"
+    >
       <div className="space-y-4">
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t("guide:config.scopeLabel")}</legend>
-          <p className="text-xs text-neutral-500">{t("guide:config.scopeHint")}</p>
-          {SCOPES.map((value) => (
-            <label
-              key={value}
-              className="flex cursor-pointer items-start gap-2 rounded-md border border-neutral-200 p-2.5 text-sm dark:border-neutral-800"
-            >
-              <input
-                type="radio"
-                name={`${textId}-scope`}
-                className="accent-brand-600 mt-1 size-4"
-                checked={scope === value}
-                onChange={() => setScope(value)}
-                data-testid={`config-scope-${value}`}
-              />
-              <span>
-                <span className="font-mono font-medium">
-                  {t(`guide:config.scope.${value}.label`)}
+          {limits && (
+            <p className="text-xs text-neutral-500" data-testid="config-scope-hint">
+              {t("guide:config.scopeHint", { limit: limits.limit })}
+            </p>
+          )}
+          {SCOPES.map((value) => {
+            const explanation = scopeExplanation(value);
+            return (
+              <label
+                key={value}
+                className="flex cursor-pointer items-start gap-2 rounded-md border border-neutral-200 p-2.5 text-sm dark:border-neutral-800"
+              >
+                <input
+                  type="radio"
+                  name={`${textId}-scope`}
+                  className="accent-brand-600 mt-1 size-4"
+                  checked={scope === value}
+                  onChange={() => setScope(value)}
+                  data-testid={`config-scope-${value}`}
+                />
+                <span>
+                  <span className="font-mono font-medium">
+                    {t(`guide:config.scope.${value}.label`)}
+                  </span>
+                  {explanation && (
+                    <span
+                      className="mt-0.5 block text-neutral-600 dark:text-neutral-400"
+                      data-testid={`config-scope-${value}-explanation`}
+                    >
+                      {explanation}
+                    </span>
+                  )}
                 </span>
-                <span className="mt-0.5 block text-neutral-600 dark:text-neutral-400">
-                  {t(`guide:config.scope.${value}.explanation`)}
-                </span>
-              </span>
-            </label>
-          ))}
+              </label>
+            );
+          })}
         </fieldset>
 
         <div className="space-y-1.5">

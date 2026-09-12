@@ -53,13 +53,14 @@
   },
   "config": {
     "title": "Codex config.toml 模板（推荐）",
-    "description": "这份配置让 Codex 走服务网关的同时保留大部分官方功能，并为 gpt-5.6-sol 启用 priority 档、大上下文与自动压缩。可以点「一键应用到本机 Codex」在确认后直接写入 ~/.codex/config.toml（原文件自动备份），也可以复制后自己粘贴到 CC Switch 里 Codex 供应商的「config.toml / 配置内容」一栏。内容可以直接修改——例如把 model_auto_compact_token_limit 调得更激进，或增删其他默认项。",
+    "description": "这份配置让 Codex 走服务网关的同时保留大部分官方功能，并为 {{model}} 启用 priority 档、大上下文与自动压缩。可以点「一键应用到本机 Codex」在确认后直接写入 ~/.codex/config.toml（原文件自动备份），也可以复制后自己粘贴到 CC Switch 里 Codex 供应商的「config.toml / 配置内容」一栏。内容可以直接修改——例如把 model_auto_compact_token_limit 调得更激进，或增删其他默认项。",
+    "modelFallback": "所选模型",
     "scopeLabel": "自动压缩统计口径（model_auto_compact_token_limit_scope）",
-    "scopeHint": "选择 300000 的自动压缩阈值按什么口径统计；不确定就用推荐值。",
+    "scopeHint": "选择 {{limit}} 的自动压缩阈值按什么口径统计；不确定就用推荐值。",
     "scope": {
       "body_after_prefix": {
         "label": "body_after_prefix（推荐）",
-        "explanation": "只统计缓存前缀之后的会话正文。配合提示词缓存更准确，能更充分地利用 372k 上下文——大多数情况选它。"
+        "explanation": "只统计缓存前缀之后的会话正文。配合提示词缓存更准确，能更充分地利用 {{contextWindow}} 上下文——大多数情况选它。"
       },
       "total": {
         "label": "total",

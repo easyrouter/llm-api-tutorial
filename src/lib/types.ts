@@ -517,6 +517,17 @@ export interface CodexConfigRequest {
   autoCompactScope: AutoCompactScope;
 }
 
+/**
+ * Response of `get_codex_config_template`: the rendered `config.toml` (still carrying the
+ * `<API-KEY>` placeholder) plus the two limits it embeds, so the UI quotes them in its copy
+ * instead of hard-coding the numbers a second time.
+ */
+export interface CodexConfigTemplate {
+  toml: string;
+  modelContextWindow: number;
+  modelAutoCompactTokenLimit: number;
+}
+
 // ---------------------------------------------------------------------------
 // Optional Codex Fast UI toolkit — Windows only (ADR-0007)
 // ---------------------------------------------------------------------------

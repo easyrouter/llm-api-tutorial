@@ -53,13 +53,14 @@
   },
   "config": {
     "title": "Codex config.toml template (recommended)",
-    "description": "This configuration routes Codex through the service gateway while keeping most official features, and enables the priority tier, the large context window and auto-compaction for gpt-5.6-sol. Press “Apply to Codex on this machine” to write ~/.codex/config.toml after confirming (the previous file is backed up), or copy it and paste it yourself into the “config.toml / configuration” field of the Codex provider in CC Switch. The content is editable — for example, set a more radical model_auto_compact_token_limit or change any other default.",
+    "description": "This configuration routes Codex through the service gateway while keeping most official features, and enables the priority tier, the large context window and auto-compaction for {{model}}. Press “Apply to Codex on this machine” to write ~/.codex/config.toml after confirming (the previous file is backed up), or copy it and paste it yourself into the “config.toml / configuration” field of the Codex provider in CC Switch. The content is editable — for example, set a more radical model_auto_compact_token_limit or change any other default.",
+    "modelFallback": "the selected model",
     "scopeLabel": "Auto-compaction accounting (model_auto_compact_token_limit_scope)",
-    "scopeHint": "Choose what the 300000 auto-compaction threshold counts; when unsure, keep the recommended value.",
+    "scopeHint": "Choose what the {{limit}} auto-compaction threshold counts; when unsure, keep the recommended value.",
     "scope": {
       "body_after_prefix": {
         "label": "body_after_prefix (recommended)",
-        "explanation": "Counts only the conversation body after the cached prefix. More accurate with prompt caching and makes the most of the 372k context — the right choice in most cases."
+        "explanation": "Counts only the conversation body after the cached prefix. More accurate with prompt caching and makes the most of the {{contextWindow}} context — the right choice in most cases."
       },
       "total": {
         "label": "total",
