@@ -3,7 +3,7 @@
 SeedRouter Onboarding (SeedRouter 接入引导工具) is a **Tauri 2 desktop app** (Rust core + React/TypeScript UI)
 that walks non-developer users through: environment check → install missing pieces →
 configure the service gateway inside **CC Switch** → verify → auto-diagnose. Windows + macOS,
-zh-CN + en. PRD: `docs/prd/`. Architecture: `docs/ARCHITECTURE.md`. Decisions: `docs/adr/`.
+zh-CN + en. PRD + open questions: private repo `ViaAurorae/llm-api-tutorial-internal`. Architecture: `docs/ARCHITECTURE.md`. Decisions: `docs/adr/`.
 
 ## Commands
 
@@ -96,4 +96,5 @@ src-tauri/nsis/hooks.nsh                NSIS installer hooks (legacy-publisher u
 - Commits: Conventional Commits, English subject ≤ 72 chars, scope = module (`feat(checks): …`).
   Enforced by `.githooks/commit-msg`. See `CONTRIBUTING.md`.
 - When you change `models.rs`, change `src/lib/types.ts` in the same commit (and vice versa).
-- Placeholder values in `app-config.json` marked `TODO(IT …)` are tracked in `docs/OPEN_QUESTIONS.md`.
+- Placeholder values in `app-config.json` marked `TODO(IT …)` are tracked in
+  `OPEN_QUESTIONS.md` of the private `ViaAurorae/llm-api-tutorial-internal` repo.

@@ -143,7 +143,7 @@ the `docs/mod.rs` module doc.
 ## 6. Diagnosis rules (M5) — mapping to guide faults A–G
 
 See `src-tauri/src/diagnose/mod.rs` header table. Assumed mapping (to confirm against the
-original guide, `docs/OPEN_QUESTIONS.md` Q-D1): A auth (401/403) · B URL (404) · C terminal not
+original guide, `OPEN_QUESTIONS.md` Q-D1 in the internal repo): A auth (401/403) · B URL (404) · C terminal not
 restarted · D env-var conflict · E command not found / PATH · F protocol mismatch · G app blocked
 by OS (SmartScreen / Gatekeeper).
 

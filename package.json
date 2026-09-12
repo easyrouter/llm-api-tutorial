@@ -2,6 +2,11 @@
   "name": "seedrouter-onboarding",
   "private": true,
   "version": "0.1.1",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/easyrouter/llm-api-tutorial.git"
+  },
   "description": "Codex / Claude Code onboarding assistant (Tauri 2 + React) — guided environment check, install, CC Switch configuration walkthrough, verification and auto-diagnosis.",
   "type": "module",
   "engines": {

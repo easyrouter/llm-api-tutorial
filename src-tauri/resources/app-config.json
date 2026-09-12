@@ -1,5 +1,5 @@
 {
-  "$comment": "Company preset shipped with the app. Values marked TODO must be confirmed by IT before pilot (see docs/OPEN_QUESTIONS.md). A user-level override at <app-config-dir>/app-config.json is merged on top at startup.",
+  "$comment": "Company preset shipped with the app. Values marked TODO must be confirmed by IT before pilot (see OPEN_QUESTIONS.md in the private ViaAurorae/llm-api-tutorial-internal repo). A user-level override at <app-config-dir>/app-config.json is merged on top at startup.",
   "schemaVersion": 1,
   "company": {
     "name": "Company",

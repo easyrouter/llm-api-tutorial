@@ -3,7 +3,7 @@ name: Release
 # Produces builds for Windows and macOS.
 #
 # Signing is wired but dormant: each signing step is guarded by the presence of its repository
-# secret (docs/RELEASE.md, OPEN_QUESTIONS Q-12). With no secrets configured this workflow behaves
+# secret (docs/RELEASE.md, internal OPEN_QUESTIONS Q-12). With no secrets configured this workflow behaves
 # exactly as before and produces UNSIGNED artifacts that must not be handed to end users as-is.
 # Adding the secrets is the only action needed to turn signing on -- no workflow edit required.
 #

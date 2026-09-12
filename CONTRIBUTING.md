@@ -79,5 +79,5 @@ Changelog: _Keep a Changelog_ format in `CHANGELOG.md`.
 
 - ADRs in `docs/adr/NNNN-title.md` (MADR-style: context, decision, consequences). Add one for
   every architectural or product-scope decision; never rewrite history — supersede.
-- Open product questions live in `docs/OPEN_QUESTIONS.md` and are referenced from code as
-  `TODO(IT #n)` comments.
+- Open product questions live in `OPEN_QUESTIONS.md` of the private `ViaAurorae/llm-api-tutorial-internal`
+  repo (the PRD is there too) and are referenced from code as `TODO(IT #n)` comments.

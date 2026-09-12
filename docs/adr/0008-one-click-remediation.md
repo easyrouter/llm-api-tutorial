@@ -32,7 +32,7 @@ p1–p4) and asked for behaviour that ADR-0003 and the original PRD answers rule
   "OpenAI Official" preset and signs in in Codex; only a user **without** an account adds a
   custom provider with the gateway URL + key. The config.toml template applies to both paths.
 
-The PM revised the PRD answers accordingly (recorded in `docs/OPEN_QUESTIONS.md`): the tool may
+The PM revised the PRD answers accordingly (recorded in `OPEN_QUESTIONS.md` of the internal docs repo): the tool may
 write `config.toml`, may clean env vars, and admin prompts are acceptable when clearly labelled
 and issued by the OS / installer.
 
@@ -99,7 +99,7 @@ a product clarification rather than a new principle, so no separate ADR.
 - New help page `one-click` (zh-CN / en) documents every button: what it does, step by step,
   rights, undo, failure handling; env-check / install / configure / troubleshooting / FAQ pages
   cross-link it.
-- Open points (`docs/OPEN_QUESTIONS.md`): Store availability of the ChatGPT/Codex app per
+- Open points (`OPEN_QUESTIONS.md` in the internal docs repo): Store availability of the ChatGPT/Codex app per
   region, trust of the offline MSIX (Store-signed), macOS flows untested on hardware.
 - Review checklist: any new machine change must be added to the table above and to the help
   page in the same PR.
