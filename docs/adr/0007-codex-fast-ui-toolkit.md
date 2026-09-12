@@ -61,10 +61,13 @@ Concretely (`src-tauri/src/fast_ui.rs`, `src/features/configure/CodexFastUiCard.
 - Users without OpenAI auth get the same speed option as everyone else — the reason PM asked for
   this — without us touching their official Codex install, their configuration, or requiring
   elevation.
-- We take on a real maintenance obligation: the patch is pinned to Codex build
-  `26.721.11231.0`. On a newer build the patcher stops cleanly (good), but the feature is then
-  dead until IT supplies a new archive; updating means replacing the resource **and**
-  `TOOLKIT_SHA256`, in one commit. Tracked as Q-FU1.
+- We take on a real maintenance obligation: the patch is pinned to specific Codex builds —
+  `26.721.11231.0` when this ADR was written, `26.814.5167.0` after the 2026-08-19 rebuild
+  (`2026.08.19-minimal`), and `26.903.8094.0` (offline MSIX) / `26.908.4834.0` (Store /
+  auto-update) since the 2026-09-12 re-pin (`2026.09.12-minimal`). On an unknown build the
+  patcher stops cleanly (good), but the feature is then dead until the toolkit is rebuilt;
+  updating still means replacing the resource **and** `TOOLKIT_SHA256` in one commit (the
+  `the_shipped_archive_matches_the_pinned_hash` test fails otherwise). Tracked as Q-FU1.
 - We are distributing an unofficial modification of a third-party application. The card says so
   in both languages, names the tested build, and points at the supported alternative. Legal /
   IT sign-off on redistribution is Q-FU2 — the code is inert without the archive, so the
