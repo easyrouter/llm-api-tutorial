@@ -6,11 +6,11 @@
     "supportContact": "it-support@example.com"
   },
   "gateway": {
-    "$comment": "The fields here are the Codex defaults (model / reasoning effort per the 2026-08-16 Codex template); claudeCode overrides the ones that differ for Claude Code. Everything stays user-editable in the wizard.",
+    "$comment": "The fields here are the Codex defaults (model / reasoning effort per the 2026-09 Codex template: GPT-6 Astra with reasoning effort medium; gpt-5.6-sol stays selectable); claudeCode overrides the ones that differ for Claude Code. Everything stays user-editable in the wizard.",
     "baseUrl": "https://seedrouter.net/v1",
     "protocol": "responses",
     "presetProviderName": "SeedRouter",
-    "defaultModel": "gpt-5.6-sol",
+    "defaultModel": "gpt-6-astra",
     "defaultReasoningEffort": "medium",
     "claudeCode": {
       "$comment": "Claude Code speaks the Anthropic Messages protocol and appends /v1/messages to the base URL itself, so its address is the site root — a base ending in /v1 would produce /v1/v1/messages (404). An empty field falls back to the shared value above.",

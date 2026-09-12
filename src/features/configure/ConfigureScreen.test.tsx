@@ -5,6 +5,7 @@ import i18n from "@/i18n";
 import type {
   CheckResult,
   CodexConfigStatus,
+  CodexConfigTemplate,
   ConfigGuide,
   ConnectivityReport,
   GatewayProbeRequest,
@@ -85,6 +86,19 @@ function configStatus(overrides: Partial<CodexConfigStatus> = {}): CodexConfigSt
     backups: [],
     matchesTemplate: null,
     ...overrides,
+  };
+}
+
+/** Mirrors `guide::codex_config_template_response`: the toml plus the two limits it embeds. */
+function codexTemplate(model: string, scope: string): CodexConfigTemplate {
+  return {
+    toml: [
+      `model = "${model}"`,
+      `model_auto_compact_token_limit_scope = "${scope}"`,
+      `experimental_bearer_token = "<API-KEY>"`,
+    ].join("\n"),
+    modelContextWindow: 372000,
+    modelAutoCompactTokenLimit: 300000,
   };
 }
 
@@ -183,11 +197,7 @@ describe("ConfigureScreen", () => {
       }),
       get_codex_config_template: (args) => {
         const req = args?.request as { model: string; autoCompactScope: string };
-        return [
-          `model = "${req.model}"`,
-          `model_auto_compact_token_limit_scope = "${req.autoCompactScope}"`,
-          `experimental_bearer_token = "<API-KEY>"`,
-        ].join("\n");
+        return codexTemplate(req.model, req.autoCompactScope);
       },
       preview_cc_switch_import: () => ({ displayUrl: MASKED_LINK, app: "codex" }),
       open_cc_switch_import: () => undefined,
@@ -362,6 +372,17 @@ describe("ConfigureScreen", () => {
     expect(textarea.value).toContain('model = "gpt-5-codex"');
     expect(textarea.value).toContain("<API-KEY>");
 
+    // the card copy quotes the live model and the limits from the response — never hard-coded
+    expect(screen.getByTestId("codex-config-card")).toHaveTextContent(
+      "auto-compaction for gpt-5-codex.",
+    );
+    expect(screen.getByTestId("config-scope-hint")).toHaveTextContent(
+      "what the 300000 auto-compaction threshold counts",
+    );
+    expect(screen.getByTestId("config-scope-body_after_prefix-explanation")).toHaveTextContent(
+      "the 372k context",
+    );
+
     // switching the accounting scope regenerates the template
     fireEvent.click(screen.getByTestId("config-scope-total"));
     await waitFor(() => expect(textarea.value).toContain('"total"'));
@@ -390,6 +411,45 @@ describe("ConfigureScreen", () => {
       expect(textarea.value).not.toContain("model_auto_compact_token_limit = 100000"),
     );
     expect(textarea.value).toContain("body_after_prefix");
+  });
+
+  it("omits the template numbers until the response arrives and names the model from the live field", async () => {
+    let resolveTemplate: (value: CodexConfigTemplate) => void = () => undefined;
+    setInvokeHandlers({
+      // a preset without a model hint: the description falls back to a generic phrase
+      get_config_guide: (args) => {
+        const guide = guideFor(args?.tool as ToolId);
+        return { ...guide, preset: { ...guide.preset, modelHint: "" } };
+      },
+      get_codex_config_template: () =>
+        new Promise<CodexConfigTemplate>((resolve) => {
+          resolveTemplate = resolve;
+        }),
+    });
+    render(<ConfigureScreen />);
+    await screen.findByText("Open CC Switch");
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("get_codex_config_template", expect.anything()),
+    );
+
+    // loading: fallback phrase, no numbers, and nothing half-interpolated anywhere on the card
+    const card = screen.getByTestId("codex-config-card");
+    expect(card).toHaveTextContent("auto-compaction for the selected model.");
+    expect(screen.queryByTestId("config-scope-hint")).toBeNull();
+    expect(screen.queryByTestId("config-scope-body_after_prefix-explanation")).toBeNull();
+    expect(screen.getByTestId("config-scope-total-explanation")).toBeInTheDocument();
+    expect(card).not.toHaveTextContent(/undefined|NaN|\{\{/);
+
+    // the response arrives: the numbers show up, formatted from the DTO
+    await act(async () => {
+      resolveTemplate(codexTemplate("", "body_after_prefix"));
+      await Promise.resolve();
+    });
+    expect(await screen.findByTestId("config-scope-hint")).toHaveTextContent("300000");
+    expect(screen.getByTestId("config-scope-body_after_prefix-explanation")).toHaveTextContent(
+      "372k",
+    );
+    expect(card).not.toHaveTextContent(/undefined|NaN|\{\{/);
   });
 
   it("switches tabs per tool and discards the typed key when leaving a tab", async () => {

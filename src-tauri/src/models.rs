@@ -737,6 +737,18 @@ pub struct CodexConfigRequest {
     pub auto_compact_scope: AutoCompactScope,
 }
 
+/// Response of `get_codex_config_template` (`guide::codex_config_template_response`): the
+/// rendered `config.toml` — still carrying the `<API-KEY>` placeholder — plus the two limits it
+/// embeds (`model_context_window` / `model_auto_compact_token_limit`), so the UI quotes them in
+/// its copy instead of hard-coding the numbers a second time.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfigTemplate {
+    pub toml: String,
+    pub model_context_window: u64,
+    pub model_auto_compact_token_limit: u64,
+}
+
 // ---------------------------------------------------------------------------
 // Optional Codex Fast UI toolkit — Windows only (ADR-0007)
 // ---------------------------------------------------------------------------

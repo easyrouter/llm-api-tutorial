@@ -356,7 +356,8 @@ mod tests {
         let codex = gateway_defaults(&cfg.gateway, ToolId::Codex);
         assert_eq!(codex.base_url, "https://seedrouter.net/v1");
         assert_eq!(codex.protocol, Protocol::Responses);
-        assert_eq!(codex.model, "gpt-5.6-sol");
+        // GPT-6 Astra since 2026-09-12 (Q-M3); gpt-5.6-sol stays selectable, not the default.
+        assert_eq!(codex.model, "gpt-6-astra");
         assert_eq!(codex.reasoning_effort, "medium");
 
         let claude = gateway_defaults(&cfg.gateway, ToolId::ClaudeCode);
