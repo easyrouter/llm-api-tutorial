@@ -40,16 +40,20 @@ use crate::redact::redact_secrets;
 use crate::{checks, net, platform};
 
 /// Archive shipped as `resources/codex-fast-ui/<name>` (see `tauri.conf.json`).
-pub const TOOLKIT_ARCHIVE: &str = "CodexFastUI-Minimal-2026.08.19.zip";
+pub const TOOLKIT_ARCHIVE: &str = "CodexFastUI-Minimal-2026.09.12.zip";
 /// Top-level directory inside the archive.
-pub const TOOLKIT_DIR_NAME: &str = "CodexFastUI-Minimal-2026.08.19";
+pub const TOOLKIT_DIR_NAME: &str = "CodexFastUI-Minimal-2026.09.12";
 /// Toolkit version as the toolkit itself reports it (`patch-install.json` → `toolkitVersion`).
-pub const TOOLKIT_VERSION: &str = "2026.08.19-minimal";
+pub const TOOLKIT_VERSION: &str = "2026.09.12-minimal";
 /// SHA-256 of [`TOOLKIT_ARCHIVE`]. Replacing the toolkit means replacing this constant.
-pub const TOOLKIT_SHA256: &str = "edb84954a4502c1e21ee84463757a7db28a2ba70ccf4f3d1b93c6e352e9437fd";
-/// Codex Windows build the toolkit was tested against. Newer builds may not be patchable — the
-/// patcher refuses to guess and stops instead (toolkit README).
-pub const TESTED_CODEX_BUILD: &str = "OpenAI.Codex 26.814.5167.0";
+pub const TOOLKIT_SHA256: &str = "42033cdeb7f415fd8bbce6e2d64ab1edc6dbc2dc3c3ee3a6203ab4afe004b6d1";
+/// Codex Windows builds the toolkit was tested against, shown verbatim in the UI caveat.
+///
+/// `26.903.8094.0` is the offline MSIX (`ChatGPT-x64.msix`; Electron package 26.903.61454,
+/// build 8378) and `26.908.4834.0` the Microsoft Store / auto-updated client (26.908.40834,
+/// build 8881). Newer builds may not be patchable — the patcher refuses to guess and stops
+/// instead (toolkit README).
+pub const TESTED_CODEX_BUILD: &str = "OpenAI.Codex 26.903.8094.0 / 26.908.4834.0";
 
 /// Where the independent patched copy lives, relative to the local app-data directory.
 pub const INSTALL_SUBDIR: [&str; 2] = ["SeedRouter", "CodexFastUI"];
@@ -433,7 +437,7 @@ mod tests {
 
     fn paths() -> (PathBuf, PathBuf) {
         (
-            PathBuf::from(r"C:\cache\codex-fast-ui\v\CodexFastUI-Minimal-2026.08.19"),
+            PathBuf::from(r"C:\cache\codex-fast-ui\v\CodexFastUI-Minimal-2026.09.12"),
             PathBuf::from(r"C:\Users\me\AppData\Local\SeedRouter\CodexFastUI"),
         )
     }
