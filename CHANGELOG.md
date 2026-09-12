@@ -23,7 +23,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   numbers — and the live model name — through parametrised strings: `guide:config.description`
   (`{{model}}`, with the new `guide:config.modelFallback` when the field is blank),
   `guide:config.scopeHint` (`{{limit}}`) and
-  `guide:config.scope.body_after_prefix.explanation` (`{{context}}`, rendered as `372k`). Before
+  `guide:config.scope.body_after_prefix.explanation` (`{{contextWindow}}`, rendered as `372k`;
+  a value named `context` would double as i18next's context option). Before
   the first template response the two strings that quote a number are left out rather than
   showing a placeholder. The copy previously hard-coded `gpt-5.6-sol`, `300000` and `372k`,
   which is how a model change could have left the text stale without any test noticing.
@@ -55,6 +56,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   argument to parameter 'Path' because it is null". Present since `2026.07.30-minimal`, i.e. the
   "Check the copy" and "Undo the patch" buttons never worked. The scripts now default `-Root` to
   `''` and fall back to `$PSScriptRoot` in the body; an explicit `-Root` behaves as before.
+- **The app no longer runs the `verify.ps1` / `restore.ps1` copies that `install.ps1` left in the
+  install root.** Those copies belong to whichever toolkit made the root — on every pilot machine
+  that installed with the 2026.07.30 or 2026.08.19 toolkit they are the broken ones above, and
+  re-pinning the archive alone would not have reached them. `fast_ui::command_for` now runs all
+  three actions from the freshly extracted, hash-verified toolkit and passes `-Root
+  <install root>` to Verify / Restore (both scripts honour it). `start` refuses Verify / Restore
+  when the install marker is gone, as before. A new test pins the toolkit's top-level directory
+  name to the shipped archive, next to the SHA-256 test.
 
 ## [0.1.0] - 2026-08-24
 

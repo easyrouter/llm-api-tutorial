@@ -144,14 +144,20 @@ fn archive_verified(path: &Path) -> bool {
     }
 }
 
-/// Script `action` runs. Install uses the freshly extracted toolkit; verify and restore use the
-/// copies `install.ps1` placed in the install root (what the toolkit README documents).
-fn script_path(action: FastUiAction, toolkit: &Path, root: &Path) -> PathBuf {
-    match action {
-        FastUiAction::Install => toolkit.join("install.ps1"),
-        FastUiAction::Verify => root.join("verify.ps1"),
-        FastUiAction::Restore => root.join("restore.ps1"),
-    }
+/// Script `action` runs — always the one from the freshly extracted, hash-verified toolkit.
+/// `install.ps1` also drops copies of `verify.ps1` / `restore.ps1` into the install root for
+/// manual use (what the toolkit README documents), but the app does not run those: a root
+/// created by an older toolkit keeps the older scripts, and the ones shipped before
+/// `2026.09.12-minimal` failed on start-up when launched without `-Root` — so the copy was the
+/// one thing the Verify / Restore buttons could not rely on. The install root is passed
+/// explicitly instead ([`command_for`]).
+fn script_path(action: FastUiAction, toolkit: &Path) -> PathBuf {
+    let name = match action {
+        FastUiAction::Install => "install.ps1",
+        FastUiAction::Verify => "verify.ps1",
+        FastUiAction::Restore => "restore.ps1",
+    };
+    toolkit.join(name)
 }
 
 // ---------------------------------------------------------------------------
@@ -233,17 +239,24 @@ pub fn command_for(
         "-ExecutionPolicy".to_owned(),
         "Bypass".to_owned(),
         "-File".to_owned(),
-        script_path(action, toolkit, root)
-            .to_string_lossy()
-            .into_owned(),
+        script_path(action, toolkit).to_string_lossy().into_owned(),
     ];
+    let root_arg = root.to_string_lossy().into_owned();
     let mut timeout = MAINTENANCE_TIMEOUT;
-    if action == FastUiAction::Install {
-        timeout = INSTALL_TIMEOUT;
-        args.push("-OutputRoot".to_owned());
-        args.push(root.to_string_lossy().into_owned());
-        if reinstall {
-            args.push("-Force".to_owned());
+    match action {
+        FastUiAction::Install => {
+            timeout = INSTALL_TIMEOUT;
+            args.push("-OutputRoot".to_owned());
+            args.push(root_arg);
+            if reinstall {
+                args.push("-Force".to_owned());
+            }
+        }
+        // The scripts default `-Root` to their own directory; that is the install root only
+        // for the copies left there by `install.ps1`, so name it explicitly.
+        FastUiAction::Verify | FastUiAction::Restore => {
+            args.push("-Root".to_owned());
+            args.push(root_arg);
         }
     }
     CommandSpec::new("powershell.exe", args).with_timeout(timeout)
@@ -331,8 +344,16 @@ pub async fn start(
     let root = install_root()?;
     let toolkit = extract_toolkit(&app).await?;
     let spec = command_for(action, &toolkit, &root, expected.reinstall);
-    let script = script_path(action, &toolkit, &root);
+    let script = script_path(action, &toolkit);
     if !script.is_file() {
+        return Err(AppError::Other(format!(
+            "toolkit archive did not contain {}",
+            script.display()
+        )));
+    }
+    // Verify / restore act on an existing copy; `plan` already refused when there is none, but
+    // the marker can disappear between the plan and the click.
+    if action != FastUiAction::Install && !root.join(INSTALL_MARKER).is_file() {
         return Err(AppError::Unsupported(BLOCKED_NOT_INSTALLED.to_owned()));
     }
 
@@ -554,22 +575,68 @@ mod tests {
         }
     }
 
+    /// Verify / restore run the scripts of the freshly extracted (hash-verified) toolkit and
+    /// name the install root explicitly. Running the copies `install.ps1` left in the root would
+    /// tie the buttons to whatever toolkit made that root — and the copies shipped before
+    /// `2026.09.12-minimal` failed on start-up when launched without `-Root`.
     #[test]
-    fn verify_and_restore_run_the_scripts_inside_the_install_root() {
+    fn verify_and_restore_run_the_toolkit_scripts_against_the_install_root() {
         let (toolkit, root) = paths();
-        // The path separator differs per host, so match on the parts, not on the joined string.
-        let verify = command_for(FastUiAction::Verify, &toolkit, &root, false).display();
-        assert!(
-            verify.contains("CodexFastUI") && verify.ends_with("verify.ps1"),
-            "{verify}"
-        );
-        assert!(!verify.contains("install.ps1"), "{verify}");
-        let restore = command_for(FastUiAction::Restore, &toolkit, &root, false).display();
-        assert!(restore.ends_with("restore.ps1"), "{restore}");
-        assert_eq!(
-            command_for(FastUiAction::Verify, &toolkit, &root, false).timeout,
-            MAINTENANCE_TIMEOUT
-        );
+        for (action, name) in [
+            (FastUiAction::Verify, "verify.ps1"),
+            (FastUiAction::Restore, "restore.ps1"),
+        ] {
+            let spec = command_for(action, &toolkit, &root, false);
+            assert_eq!(spec.timeout, MAINTENANCE_TIMEOUT, "{action:?}");
+            let script = spec
+                .args
+                .iter()
+                .find(|a| a.ends_with(name))
+                .unwrap_or_else(|| panic!("{action:?} runs {name}: {:?}", spec.args));
+            assert!(
+                script.starts_with(&*toolkit.to_string_lossy()),
+                "{action:?} must run the extracted toolkit's script, got {script}"
+            );
+            let root_pos = spec
+                .args
+                .iter()
+                .position(|a| a == "-Root")
+                .unwrap_or_else(|| panic!("{action:?} names the install root: {:?}", spec.args));
+            assert_eq!(
+                spec.args.get(root_pos + 1),
+                Some(&root.to_string_lossy().into_owned())
+            );
+            let display = spec.display();
+            assert!(!display.contains("install.ps1"), "{action:?}: {display}");
+            assert!(!display.contains("-OutputRoot"), "{action:?}: {display}");
+        }
+    }
+
+    /// `toolkit_dir` / `script_path` assume the archive unpacks to `TOOLKIT_DIR_NAME/`; a
+    /// re-pin that renames the folder but not the constant would fail at run time only. Zip
+    /// stores entry names uncompressed, so the archive bytes must contain the path.
+    #[test]
+    fn the_shipped_archive_unpacks_to_the_pinned_directory() {
+        let archive = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join(EXTRACT_DIR)
+            .join(TOOLKIT_ARCHIVE);
+        let bytes = std::fs::read(&archive).expect("read the archive");
+        for script in [
+            "install.ps1",
+            "verify.ps1",
+            "restore.ps1",
+            "patch-fast-ui.mjs",
+        ] {
+            let entry = format!("{TOOLKIT_DIR_NAME}/{script}");
+            assert!(
+                bytes
+                    .windows(entry.len())
+                    .any(|window| window == entry.as_bytes()),
+                "{} must contain the entry {entry}",
+                archive.display()
+            );
+        }
     }
 
     #[test]

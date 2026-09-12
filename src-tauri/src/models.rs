@@ -1160,4 +1160,24 @@ mod tests {
             other => panic!("unexpected symptom: {other:?}"),
         }
     }
+
+    /// `CodexConfigTemplate` crosses IPC with the names `src/lib/types.ts` reads; the card would
+    /// otherwise quote `undefined` for both limits.
+    #[test]
+    fn codex_config_template_fields_are_camel_case_like_the_typescript_mirror() {
+        let value = serde_json::to_value(CodexConfigTemplate {
+            toml: "model = \"gpt-6-astra\"\n".into(),
+            model_context_window: 372_000,
+            model_auto_compact_token_limit: 300_000,
+        })
+        .expect("serialize");
+        assert_eq!(value["toml"], "model = \"gpt-6-astra\"\n");
+        assert_eq!(value["modelContextWindow"], 372_000);
+        assert_eq!(value["modelAutoCompactTokenLimit"], 300_000);
+        assert!(value.get("model_context_window").is_none(), "{value}");
+        assert!(
+            value.get("model_auto_compact_token_limit").is_none(),
+            "{value}"
+        );
+    }
 }
