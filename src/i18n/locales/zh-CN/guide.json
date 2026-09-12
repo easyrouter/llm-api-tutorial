@@ -60,7 +60,7 @@
     "scope": {
       "body_after_prefix": {
         "label": "body_after_prefix（推荐）",
-        "explanation": "只统计缓存前缀之后的会话正文。配合提示词缓存更准确，能更充分地利用 {{context}} 上下文——大多数情况选它。"
+        "explanation": "只统计缓存前缀之后的会话正文。配合提示词缓存更准确，能更充分地利用 {{contextWindow}} 上下文——大多数情况选它。"
       },
       "total": {
         "label": "total",

@@ -57,7 +57,7 @@ interface TemplateLimits {
   /** `model_auto_compact_token_limit` as typed in the file, e.g. `300000`. */
   limit: string;
   /** `model_context_window` rounded to thousands, e.g. `372k`. */
-  context: string;
+  contextWindow: string;
 }
 
 /**
@@ -69,7 +69,7 @@ function templateLimits(template: CodexConfigTemplate | null): TemplateLimits | 
   if (!template) return null;
   return {
     limit: String(template.modelAutoCompactTokenLimit),
-    context: `${Math.round(template.modelContextWindow / 1000)}k`,
+    contextWindow: `${Math.round(template.modelContextWindow / 1000)}k`,
   };
 }
 
@@ -148,13 +148,15 @@ export function CodexConfigCard({
 
   /**
    * The `body_after_prefix` explanation quotes the context window, so it waits for the numbers;
-   * `total` has nothing to interpolate. (`context` is an interpolation value here — the key has
-   * no i18next context variants, so the lookup falls through to the base string.)
+   * `total` has nothing to interpolate. (The placeholder is `contextWindow`, not `context`: a
+   * value named `context` would double as i18next's context option.)
    */
   const scopeExplanation = (value: AutoCompactScope): string | null => {
     if (value !== "body_after_prefix") return t(`guide:config.scope.${value}.explanation`);
     return limits
-      ? t("guide:config.scope.body_after_prefix.explanation", { context: limits.context })
+      ? t("guide:config.scope.body_after_prefix.explanation", {
+          contextWindow: limits.contextWindow,
+        })
       : null;
   };
 

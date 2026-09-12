@@ -60,7 +60,7 @@
     "scope": {
       "body_after_prefix": {
         "label": "body_after_prefix (recommended)",
-        "explanation": "Counts only the conversation body after the cached prefix. More accurate with prompt caching and makes the most of the {{context}} context — the right choice in most cases."
+        "explanation": "Counts only the conversation body after the cached prefix. More accurate with prompt caching and makes the most of the {{contextWindow}} context — the right choice in most cases."
       },
       "total": {
         "label": "total",

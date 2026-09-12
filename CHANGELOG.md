@@ -28,6 +28,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   showing a placeholder. The copy previously hard-coded `gpt-5.6-sol`, `300000` and `372k`,
   which is how a model change could have left the text stale without any test noticing.
 
+### Changed (Codex Fast UI toolkit)
+
+- **Re-pinned the bundled toolkit to the current Codex builds.** `CodexFastUI-Minimal-2026.09.12.zip`
+  (`2026.09.12-minimal`, rebuilt from the 2026.08.19 tree) replaces the 2026.08.19 archive;
+  `TOOLKIT_ARCHIVE` / `TOOLKIT_DIR_NAME` / `TOOLKIT_VERSION` / `TOOLKIT_SHA256` follow, and
+  `TESTED_CODEX_BUILD` — shown verbatim in the card's caveat — now reads
+  `OpenAI.Codex 26.903.8094.0 / 26.908.4834.0`: the offline MSIX `ChatGPT-x64.msix` (Electron
+  26.903.61454, build 8378) and the Microsoft Store / auto-updated client (26.908.40834, build
+  8881). The patch itself is unchanged — the gate string still occurs exactly once, in
+  `webview/assets/app-initial-<hash>.js` of both builds, with no patched marker present. Because
+  the consumers of `isServiceTierAllowed` moved into `app-primary-<hash>.js`, `patch-fast-ui.mjs`
+  adds `app-primary` to its candidate file-name regex; that is a defensive widening only, the
+  exactly-one-occurrence rule stays the guard. Verified on a Windows 10 host from the built
+  toolkit: `install.ps1` reports `patchStatus: patched` for both builds, `verify.ps1` passes on
+  both copies, and `restore.ps1` brings `app.asar` back to the recorded source hash. ADR-0007
+  records the pin history (26.721 → 26.814 → 26.903 / 26.908).
+
+### Fixed (Codex Fast UI toolkit)
+
+- **`verify.ps1` / `restore.ps1` failed before doing anything when launched the way the app
+  launches them.** Both derived their default `-Root` from `$MyInvocation.MyCommand.Path` inside a
+  `[CmdletBinding()]` `param()` default, which Windows PowerShell 5.1 leaves null there (as it
+  does `$PSScriptRoot`), so `powershell.exe -File verify.ps1` without `-Root` — exactly what
+  `fast_ui::command_for` runs for Verify and Restore — died in `Split-Path` with "Cannot bind
+  argument to parameter 'Path' because it is null". Present since `2026.07.30-minimal`, i.e. the
+  "Check the copy" and "Undo the patch" buttons never worked. The scripts now default `-Root` to
+  `''` and fall back to `$PSScriptRoot` in the body; an explicit `-Root` behaves as before.
+
 ## [0.1.0] - 2026-08-24
 
 First stable release. Everything below shipped through the `v0.1.0-test.1` … `v0.1.0-test.7`
