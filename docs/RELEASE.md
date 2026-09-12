@@ -14,10 +14,13 @@ download page (PRD #11). Every distributed build must be signed (PRD #12).
 
 | branch | version | tag      |
 | ------ | ------- | -------- |
+| `main` | `0.1.1` | `v0.1.1` |
 | `main` | `0.1.0` | `v0.1.0` |
 
 `v0.1.0` (2026-08-24) is the first stable release: `pilot` merged into `main`, tagged there.
 Development continues on `pilot` and lands in `main` per release.
+`v0.1.1` (2026-09-12) followed the same path: PR #4 merged into `pilot`, the version bump
+committed there, `main` fast-forwarded and tagged.
 
 The pilot rounds `v0.1.0-test.1` … `v0.1.0-test.7` and their GitHub releases were deleted when
 `v0.1.0` was cut — everything they contained is an ancestor of this tag. Only one build has

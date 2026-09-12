@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-12
+
+First release after v0.1.0: GPT-6 Astra becomes the Codex preset model, the bundled Codex
+Fast UI toolkit is re-pinned to the current Codex desktop builds, and its Verify / Restore
+actions work for the first time. Built unsigned (Q-12), so published as a pre-release.
+
 ### Changed (gateway preset)
 
 - **The Codex preset model is `gpt-6-astra`** (GPT-6 Astra, released 2026-09-03/04; Codex CLI
