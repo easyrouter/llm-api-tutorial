@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Changed (open-sourcing)
+
+- Licensed under **Apache-2.0** (`LICENSE`, `NOTICE`, `license` fields in `package.json` and
+  `Cargo.toml`); the README now names SeedRouter as sponsor instead of calling the tool
+  internal-only.
+- The PRD (`docs/prd/`) and `docs/OPEN_QUESTIONS.md` moved to the private
+  `ViaAurorae/llm-api-tutorial-internal` repo; every reference in docs, comments and
+  `app-config.json` points there. Prepared for the transfer of this repo to `easyrouter`.
+
 ## [0.1.1] - 2026-09-12
 
 First release after v0.1.0: GPT-6 Astra becomes the Codex preset model, the bundled Codex

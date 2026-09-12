@@ -46,7 +46,7 @@
 //!
 //! # `preview_url(input, protocol, config)`
 //!
-//! Implements the guide's "API 地址处理规则" (assumption Q-U1 in docs/OPEN_QUESTIONS.md).
+//! Implements the guide's "API 地址处理规则" (assumption Q-U1 in the internal OPEN_QUESTIONS.md).
 //! Input is trimmed, then:
 //!
 //! | input                                   | rule                | effective URL                  |

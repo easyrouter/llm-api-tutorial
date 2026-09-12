@@ -6,7 +6,7 @@
 //! and the npm global bin guess used as a fallback for the `dir` param of rule E).
 //!
 //! Rule mapping (assumption pending confirmation against the original guide — see
-//! docs/OPEN_QUESTIONS.md Q-D1; codes → frontend key `diagnose:<code>.title` /
+//! OPEN_QUESTIONS.md Q-D1 in the internal docs repo; codes → frontend key `diagnose:<code>.title` /
 //! `diagnose:<code>.explanation`):
 //!
 //! | rule  | trigger                                                  | code                     | severity | params                          | actions                             |
